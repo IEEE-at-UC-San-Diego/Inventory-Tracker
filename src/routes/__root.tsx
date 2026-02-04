@@ -2,19 +2,17 @@ import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
+  Link,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
 
 import Header from '../components/Header'
 
 import ConvexProvider from '../integrations/convex/provider'
-
-import AiDevtools from '../lib/ai-devtools'
-
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
-
-import StoreDevtools from '../lib/demo-store-devtools'
+import { LogtoAuthProvider, AuthProvider } from '../hooks/useAuth'
+import { ToastProvider } from '../components/ui/toast'
 
 import appCss from '../styles.css?url'
 
@@ -45,35 +43,62 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
     ],
   }),
-
+  notFoundComponent: NotFound,
   shellComponent: RootDocument,
 })
 
+function NotFound() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+      <div className="max-w-lg w-full text-center p-8 bg-white rounded-lg shadow">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
+        <h2 className="text-xl font-semibold text-gray-700 mb-4">Page Not Found</h2>
+        <p className="text-gray-600 mb-6">
+          The page you're looking for doesn't exist or has been moved.
+        </p>
+        <Link
+          to="/dashboard"
+          className="inline-block px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+        >
+          Go to Dashboard
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        <ConvexProvider>
-          <Header />
-          {children}
-          <TanStackDevtools
-            config={{
-              position: 'bottom-right',
-            }}
-            plugins={[
-              {
-                name: 'Tanstack Router',
-                render: <TanStackRouterDevtoolsPanel />,
-              },
-              AiDevtools,
-              TanStackQueryDevtools,
-              StoreDevtools,
-            ]}
-          />
-        </ConvexProvider>
+        <LogtoAuthProvider>
+          <ConvexProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <Header />
+                {children}
+                <TanStackDevtools
+                  config={{
+                    position: 'bottom-right',
+                  }}
+                  plugins={[
+                    {
+                      name: 'Tanstack Router',
+                      render: <TanStackRouterDevtoolsPanel />,
+                    },
+                    {
+                      name: 'TanStack Query',
+                      render: <ReactQueryDevtoolsPanel />,
+                    },
+                  ]}
+                />
+              </ToastProvider>
+            </AuthProvider>
+          </ConvexProvider>
+        </LogtoAuthProvider>
         <Scripts />
       </body>
     </html>

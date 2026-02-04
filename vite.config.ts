@@ -10,9 +10,16 @@ import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
   resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
+    alias: [
+      {
+        find: /^@\/convex\/(.*)$/,
+        replacement: fileURLToPath(new URL('./convex/$1', import.meta.url)),
+      },
+      {
+        find: '@',
+        replacement: fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    ],
   },
   plugins: [
     devtools(),

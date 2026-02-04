@@ -1,0 +1,553 @@
+import { createFileRoute, useParams, Link } from '@tanstack/react-router'
+import { useState, useCallback } from 'react'
+import { useAuth } from '@/hooks/useAuth'
+import {
+  ArrowLeft,
+  Edit,
+  Archive,
+  Trash2,
+  Package,
+  MapPin,
+  History,
+  Plus,
+  Minus,
+  ArrowRightLeft,
+  Settings,
+  Grid3X3,
+} from 'lucide-react'
+import { useQuery, useMutation } from '@/integrations/convex/react-query'
+import { api } from '../../../convex/_generated/api'
+import { ProtectedRoute, EditorOnly, AdminOnly } from '@/components/auth/ProtectedRoute'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, StatCard } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { AlertDialog } from '@/components/ui/dialog'
+import { useToast } from '@/components/ui/toast'
+import { useRole } from '@/hooks/useRole'
+import { PartImage } from '@/components/parts/PartImage'
+import { PartForm } from '@/components/parts/PartForm'
+import {
+  CheckInDialog,
+  CheckOutDialog,
+  MoveDialog,
+  AdjustDialog,
+} from '@/components/inventory'
+import type { Id } from '../../../convex/_generated/dataModel'
+
+export const Route = createFileRoute('/parts/$partId')({
+  component: PartDetailPage,
+})
+
+function PartDetailPage() {
+  return (
+    <ProtectedRoute>
+      <PartDetailContent />
+    </ProtectedRoute>
+  )
+}
+
+function PartDetailContent() {
+  const { partId } = useParams({ from: '/parts/$partId' })
+  const { canEdit, canManage } = useRole()
+  const { toast } = useToast()
+  const { authContext, getFreshAuthContext } = useAuth()
+  
+  // Helper to get fresh auth context for mutations
+  const getAuthContextForMutation = useCallback(async (context: typeof authContext) => {
+    const fresh = await getFreshAuthContext()
+    return fresh || context
+  }, [getFreshAuthContext])
+
+  // Dialog states
+  const [isEditing, setIsEditing] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showCheckIn, setShowCheckIn] = useState(false)
+  const [showCheckOut, setShowCheckOut] = useState(false)
+  const [showMove, setShowMove] = useState(false)
+  const [showAdjust, setShowAdjust] = useState(false)
+  const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null)
+
+  // Fetch part data with inventory
+  const partData = useQuery(api.parts.queries.getWithInventory, {
+    authContext,
+    partId: partId as Id<'parts'>,
+  })
+
+  const part = partData?.part
+  const inventory = partData?.inventory ?? []
+  const totalQuantity = partData?.totalQuantity ?? 0
+
+  // Fetch transactions
+  const transactions = useQuery(api["transactions/queries"].getByPart, {
+    authContext,
+    partId: partId as Id<'parts'>,
+    paginationOpts: { numItems: 10 },
+  })
+
+  // Mutations
+  const archivePart = useMutation(api.parts.mutations.archive)
+  const unarchivePart = useMutation(api.parts.mutations.unarchive)
+  const deletePart = useMutation(api.parts.mutations.remove)
+
+  const handleArchive = useCallback(async () => {
+    if (!part) return
+    try {
+      const context = await getAuthContextForMutation(authContext)
+      if (part.archived) {
+        await unarchivePart({ authContext: context, partId: partId as Id<'parts'> })
+        toast.success('Part unarchived successfully')
+      } else {
+        await archivePart({ authContext: context, partId: partId as Id<'parts'> })
+        toast.success('Part archived successfully')
+      }
+    } catch (error) {
+      toast.error(
+        'Failed to archive/unarchive part',
+        error instanceof Error ? error.message : 'An error occurred'
+      )
+    }
+  }, [part, partId, archivePart, unarchivePart, toast, authContext, getAuthContextForMutation])
+
+  const handleDelete = useCallback(async () => {
+    try {
+      const context = await getAuthContextForMutation(authContext)
+      await deletePart({ authContext: context, partId: partId as Id<'parts'> })
+      toast.success('Part deleted successfully')
+      // Navigate back to parts list
+      window.location.href = '/parts'
+    } catch (error) {
+      toast.error(
+        'Failed to delete part',
+        error instanceof Error ? error.message : 'An error occurred'
+      )
+      setShowDeleteDialog(false)
+    }
+  }, [partId, deletePart, toast, authContext, getAuthContextForMutation])
+
+  const handleEditSuccess = useCallback(() => {
+    setIsEditing(false)
+  }, [])
+
+  const handleCheckOutClick = useCallback((inventoryId: string) => {
+    setSelectedInventoryId(inventoryId)
+    setShowCheckOut(true)
+  }, [])
+
+  if (part === undefined) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600" />
+      </div>
+    )
+  }
+
+  if (part === null) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">Part not found</h1>
+          <p className="text-gray-600 mt-2">
+            The part you're looking for doesn't exist or has been deleted.
+          </p>
+          <Link
+            to="/parts"
+            className="mt-4 inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-700"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to parts
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          <Link
+            to="/parts"
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900">{part.name}</h1>
+              {part.archived && (
+                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
+                  Archived
+                </span>
+              )}
+            </div>
+            <p className="text-gray-600 mt-1">SKU: {part.sku}</p>
+          </div>
+        </div>
+
+        <EditorOnly>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <Button variant="outline" onClick={() => setIsEditing(false)}>
+                Cancel
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setIsEditing(true)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+                <Button variant="outline" onClick={handleArchive}>
+                  <Archive className="w-4 h-4 mr-2" />
+                  {part.archived ? 'Unarchive' : 'Archive'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        </EditorOnly>
+      </div>
+
+      {/* Edit Mode */}
+      {isEditing ? (
+        <PartForm
+          part={part}
+          onSubmit={handleEditSuccess}
+          onCancel={() => setIsEditing(false)}
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Part Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Name</p>
+                    <p className="font-medium">{part.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">SKU</p>
+                    <p className="font-medium">{part.sku}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Category</p>
+                  <span className="inline-block mt-1 px-2 py-1 bg-cyan-100 text-cyan-800 text-sm rounded">
+                    {part.category}
+                  </span>
+                </div>
+                {part.description && (
+                  <div>
+                    <p className="text-sm text-gray-500">Description</p>
+                    <p className="mt-1">{part.description}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Storage Locations */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Storage Locations</CardTitle>
+                  <CardDescription>
+                    Where this part is stored in your inventory
+                  </CardDescription>
+                </div>
+                <EditorOnly>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={() => setShowCheckIn(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Check In
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowMove(true)}>
+                      <ArrowRightLeft className="w-4 h-4 mr-2" />
+                      Move
+                    </Button>
+                  </div>
+                </EditorOnly>
+              </CardHeader>
+              <CardContent>
+                {inventory.length > 0 ? (
+                  <div className="space-y-2">
+                    {inventory.map((item) => (
+                      <div
+                        key={item._id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <MapPin className="w-5 h-5 text-cyan-600" />
+                          <div>
+                            <p className="font-medium">
+                              {item.compartment?.label || 'Unknown Compartment'}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {item.drawer?.label || 'Unknown Drawer'} → {item.blueprint?.name || 'Unknown Blueprint'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium">{item.quantity} units</span>
+                          <EditorOnly>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleCheckOutClick(item._id)}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </Button>
+                          </EditorOnly>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Package className="w-12 h-12 mx-auto mb-2" />
+                    <p>No inventory for this part yet</p>
+                    <EditorOnly>
+                      <Button
+                        className="mt-4"
+                        onClick={() => setShowCheckIn(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Check In Inventory
+                      </Button>
+                    </EditorOnly>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Transaction History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  Recent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {transactions?.items && transactions.items.length > 0 ? (
+                  <div className="space-y-2">
+                    {transactions.items.map((transaction) => (
+                      <div
+                        key={transaction._id}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                      >
+                        <History className="w-5 h-5 text-gray-400" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <span className="font-medium">{transaction.actionType}</span>
+                            {' '}
+                            {Math.abs(transaction.quantityDelta)} units
+                            {transaction.user?.name && ` by ${transaction.user.name}`}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(transaction.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <span
+                          className={`font-medium ${
+                            transaction.quantityDelta > 0
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`}
+                        >
+                          {transaction.quantityDelta > 0 ? '+' : ''}
+                          {transaction.quantityDelta}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <History className="w-12 h-12 mx-auto mb-2" />
+                    <p>No activity recorded</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Find on Blueprint */}
+            {inventory.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Grid3X3 className="w-5 h-5" />
+                    Blueprint Locations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    This part is stored in {inventory.length} location(s). View on blueprints:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(new Set(inventory.map((item) => item.blueprint))).filter(Boolean).map((blueprint) => (
+                      blueprint && (
+                        <Link
+                          key={blueprint._id}
+                          to={`/blueprints/${blueprint._id}?highlightPart=${partId}`}
+                        >
+                          <Button variant="outline" size="sm">
+                            <Grid3X3 className="w-4 h-4 mr-2" />
+                            {blueprint.name}
+                          </Button>
+                        </Link>
+                      )
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Overview Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <StatCard
+                  title="Total Quantity"
+                  value={totalQuantity}
+                  description="Units in stock"
+                  icon={<Package className="w-4 h-4" />}
+                />
+                <div className="flex items-center justify-between py-2 border-t">
+                  <span className="text-gray-600">Locations</span>
+                  <span className="font-medium">{inventory.length}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-t">
+                  <span className="text-gray-600">Status</span>
+                  <span className={`font-medium ${part.archived ? 'text-gray-500' : 'text-green-600'}`}>
+                    {part.archived ? 'Archived' : 'Active'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Part Image */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Image</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PartImage
+                  imageId={part.imageId}
+                  name={part.name}
+                  size="xl"
+                  className="w-full"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <EditorOnly>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button
+                    className="w-full justify-start"
+                    onClick={() => setShowCheckIn(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Check In
+                  </Button>
+                  <Button
+                    className="w-full justify-start"
+                    variant="outline"
+                    onClick={() => setShowCheckOut(true)}
+                  >
+                    <Minus className="w-4 h-4 mr-2" />
+                    Check Out
+                  </Button>
+                  <Button
+                    className="w-full justify-start"
+                    variant="outline"
+                    onClick={() => setShowMove(true)}
+                  >
+                    <ArrowRightLeft className="w-4 h-4 mr-2" />
+                    Move
+                  </Button>
+                  <AdminOnly>
+                    <Button
+                      className="w-full justify-start"
+                      variant="outline"
+                      onClick={() => setShowAdjust(true)}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Adjust (Admin)
+                    </Button>
+                  </AdminOnly>
+                </CardContent>
+              </Card>
+            </EditorOnly>
+          </div>
+        </div>
+      )}
+
+      {/* Inventory Operation Dialogs */}
+      <CheckInDialog
+        open={showCheckIn}
+        onOpenChange={setShowCheckIn}
+        preselectedPartId={partId}
+        onSuccess={() => {
+          // Query will automatically refetch
+        }}
+      />
+
+      <CheckOutDialog
+        open={showCheckOut}
+        onOpenChange={setShowCheckOut}
+        preselectedPartId={partId}
+        onSuccess={() => {
+          // Query will automatically refetch
+        }}
+      />
+
+      <MoveDialog
+        open={showMove}
+        onOpenChange={setShowMove}
+        preselectedPartId={partId}
+        onSuccess={() => {
+          // Query will automatically refetch
+        }}
+      />
+
+      <AdjustDialog
+        open={showAdjust}
+        onOpenChange={setShowAdjust}
+        preselectedPartId={partId}
+        onSuccess={() => {
+          // Query will automatically refetch
+        }}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Part"
+        description={`Are you sure you want to delete "${part.name}"? This action cannot be undone and will remove all associated inventory records.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
+    </div>
+  )
+}
