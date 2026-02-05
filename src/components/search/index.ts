@@ -1,1 +1,1 @@
-export { SearchBar, CompactSearchBar } from './SearchBar'
+export { CompactSearchBar, SearchBar } from "./SearchBar";

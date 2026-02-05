@@ -36,9 +36,7 @@ const DEFAULT_LOGTO_JWKS_URL = normalizeUrl(
   `${DEFAULT_LOGTO_ISSUER}/jwks`
 )
 
-// Logto webhook signing key - should be set via environment variable
-// Get this from Logto Console > Webhooks > Webhook Details
-const LOGTO_WEBHOOK_SIGNING_KEY = process.env.LOGTO_WEBHOOK_SIGNING_KEY || ''
+
 
 /**
  * Logto token verification endpoint

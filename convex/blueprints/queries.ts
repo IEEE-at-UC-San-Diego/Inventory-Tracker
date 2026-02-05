@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
-import { Doc, Id } from '../_generated/dataModel'
-import { getCurrentUser, requireOrgRole } from '../auth_helpers'
+import { Id } from '../_generated/dataModel'
+import { getCurrentUser } from '../auth_helpers'
 import { authContextSchema } from '../types/auth'
 
 // Lock expiration time in milliseconds (5 minutes)
@@ -25,6 +25,7 @@ export const list = query({
       createdAt: v.number(),
       updatedAt: v.number(),
       isLocked: v.optional(v.boolean()),
+      drawerCount: v.number(),
       lockedByUser: v.optional(
         v.object({
           _id: v.id('users'),
@@ -50,6 +51,10 @@ export const list = query({
           blueprint.lockTimestamp &&
           now - blueprint.lockTimestamp < LOCK_EXPIRATION_MS
         )
+        const drawers = await ctx.db
+          .query('drawers')
+          .withIndex('by_blueprintId', (q) => q.eq('blueprintId', blueprint._id))
+          .collect()
 
         let lockedByUser: { _id: Id<'users'>; name: string } | undefined = undefined
         if (isLocked && blueprint.lockedBy) {
@@ -65,6 +70,7 @@ export const list = query({
         return {
           ...blueprint,
           isLocked,
+          drawerCount: drawers.length,
           lockedByUser,
         }
       })

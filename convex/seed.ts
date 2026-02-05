@@ -29,12 +29,6 @@ const sampleParts = [
   { name: 'Potentiometer 10kΩ', sku: 'POT-10K-LIN', category: 'Passive Components' },
 ]
 
-const sampleUsers = [
-  { name: 'Alice Admin', email: 'alice@example.com', role: 'Admin' as const },
-  { name: 'Bob Editor', email: 'bob@example.com', role: 'Editor' as const },
-  { name: 'Charlie Viewer', email: 'charlie@example.com', role: 'Viewer' as const },
-]
-
 /**
  * Seed parts data
  */
@@ -66,6 +60,8 @@ export const seedParts = mutation({
         description: `Sample ${partData.category.toLowerCase()} for testing`,
         archived: false,
         orgId: firstOrg._id,
+        unit: 'pcs',
+        tags: [partData.category.toLowerCase().replace(/\s+/g, '-')],
         createdAt: now,
         updatedAt: now,
       })
@@ -310,6 +306,8 @@ export const seedAll = mutation({
         description: `Sample ${partData.category.toLowerCase()}`,
         archived: false,
         orgId: firstOrg._id,
+        unit: 'pcs',
+        tags: [partData.category.toLowerCase().replace(/\s+/g, '-')],
         createdAt: now,
         updatedAt: now,
       })

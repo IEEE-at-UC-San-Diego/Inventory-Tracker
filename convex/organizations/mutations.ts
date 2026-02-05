@@ -1,8 +1,6 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
-import { Doc, Id } from '../_generated/dataModel'
 import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
 import { authContextSchema } from '../types/auth'
 
 /**

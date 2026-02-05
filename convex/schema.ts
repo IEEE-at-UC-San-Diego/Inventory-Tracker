@@ -69,6 +69,8 @@ export default defineSchema({
     imageId: v.optional(v.id('_storage')), // Reference to stored image
     archived: v.boolean(),
     orgId: v.id('organizations'),
+    unit: v.string(), // Unit of measurement (e.g., "pcs", "meters", "kg")
+    tags: v.array(v.string()), // Array of tags for categorization/filtering
     createdAt: v.number(),
     updatedAt: v.number(),
   })

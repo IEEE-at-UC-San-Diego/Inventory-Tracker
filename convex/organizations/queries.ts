@@ -1,7 +1,6 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
-import { Id } from '../_generated/dataModel'
-import { getCurrentUser, requireRole } from '../auth_helpers'
+import { getCurrentUser } from '../auth_helpers'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -137,6 +136,9 @@ export const getOrgMembers = query({
       name: v.string(),
       email: v.string(),
       role: v.union(v.literal('Administrator'), v.literal('Executive Officers'), v.literal('General Officers'), v.literal('Member')),
+      logtoUserId: v.string(),
+      orgId: v.union(v.id('organizations'), v.string()),
+      createdAt: v.number(),
       _creationTime: v.number(),
     })
   ),
@@ -167,6 +169,9 @@ export const getOrgMembers = query({
           | 'Executive Officers'
           | 'General Officers'
           | 'Member',
+        logtoUserId: user.logtoUserId,
+        orgId: user.orgId,
+        createdAt: user.createdAt,
         _creationTime: user._creationTime,
       }))
   },

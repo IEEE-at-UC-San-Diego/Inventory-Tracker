@@ -23,6 +23,7 @@ import { Route as InventoryIndexRouteImport } from './routes/inventory/index'
 import { Route as BlueprintsIndexRouteImport } from './routes/blueprints/index'
 import { Route as PartsNewRouteImport } from './routes/parts/new'
 import { Route as PartsPartIdRouteImport } from './routes/parts/$partId'
+import { Route as BlueprintsPickLocationRouteImport } from './routes/blueprints/pick-location'
 import { Route as BlueprintsNewRouteImport } from './routes/blueprints/new'
 import { Route as BlueprintsBlueprintIdRouteImport } from './routes/blueprints/$blueprintId'
 import { Route as ApiVerifyTokenRouteImport } from './routes/api/verify-token'
@@ -98,6 +99,11 @@ const PartsPartIdRoute = PartsPartIdRouteImport.update({
   path: '/parts/$partId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlueprintsPickLocationRoute = BlueprintsPickLocationRouteImport.update({
+  id: '/blueprints/pick-location',
+  path: '/blueprints/pick-location',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlueprintsNewRoute = BlueprintsNewRouteImport.update({
   id: '/blueprints/new',
   path: '/blueprints/new',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/api/verify-token': typeof ApiVerifyTokenRoute
   '/blueprints/$blueprintId': typeof BlueprintsBlueprintIdRoute
   '/blueprints/new': typeof BlueprintsNewRoute
+  '/blueprints/pick-location': typeof BlueprintsPickLocationRoute
   '/parts/$partId': typeof PartsPartIdRoute
   '/parts/new': typeof PartsNewRoute
   '/blueprints/': typeof BlueprintsIndexRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByTo {
   '/api/verify-token': typeof ApiVerifyTokenRoute
   '/blueprints/$blueprintId': typeof BlueprintsBlueprintIdRoute
   '/blueprints/new': typeof BlueprintsNewRoute
+  '/blueprints/pick-location': typeof BlueprintsPickLocationRoute
   '/parts/$partId': typeof PartsPartIdRoute
   '/parts/new': typeof PartsNewRoute
   '/blueprints': typeof BlueprintsIndexRoute
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/api/verify-token': typeof ApiVerifyTokenRoute
   '/blueprints/$blueprintId': typeof BlueprintsBlueprintIdRoute
   '/blueprints/new': typeof BlueprintsNewRoute
+  '/blueprints/pick-location': typeof BlueprintsPickLocationRoute
   '/parts/$partId': typeof PartsPartIdRoute
   '/parts/new': typeof PartsNewRoute
   '/blueprints/': typeof BlueprintsIndexRoute
@@ -192,6 +201,7 @@ export interface FileRouteTypes {
     | '/api/verify-token'
     | '/blueprints/$blueprintId'
     | '/blueprints/new'
+    | '/blueprints/pick-location'
     | '/parts/$partId'
     | '/parts/new'
     | '/blueprints/'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/api/verify-token'
     | '/blueprints/$blueprintId'
     | '/blueprints/new'
+    | '/blueprints/pick-location'
     | '/parts/$partId'
     | '/parts/new'
     | '/blueprints'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/api/verify-token'
     | '/blueprints/$blueprintId'
     | '/blueprints/new'
+    | '/blueprints/pick-location'
     | '/parts/$partId'
     | '/parts/new'
     | '/blueprints/'
@@ -253,6 +265,7 @@ export interface RootRouteChildren {
   ApiVerifyTokenRoute: typeof ApiVerifyTokenRoute
   BlueprintsBlueprintIdRoute: typeof BlueprintsBlueprintIdRoute
   BlueprintsNewRoute: typeof BlueprintsNewRoute
+  BlueprintsPickLocationRoute: typeof BlueprintsPickLocationRoute
   PartsPartIdRoute: typeof PartsPartIdRoute
   PartsNewRoute: typeof PartsNewRoute
   BlueprintsIndexRoute: typeof BlueprintsIndexRoute
@@ -364,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartsPartIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blueprints/pick-location': {
+      id: '/blueprints/pick-location'
+      path: '/blueprints/pick-location'
+      fullPath: '/blueprints/pick-location'
+      preLoaderRoute: typeof BlueprintsPickLocationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blueprints/new': {
       id: '/blueprints/new'
       path: '/blueprints/new'
@@ -405,6 +425,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVerifyTokenRoute: ApiVerifyTokenRoute,
   BlueprintsBlueprintIdRoute: BlueprintsBlueprintIdRoute,
   BlueprintsNewRoute: BlueprintsNewRoute,
+  BlueprintsPickLocationRoute: BlueprintsPickLocationRoute,
   PartsPartIdRoute: PartsPartIdRoute,
   PartsNewRoute: PartsNewRoute,
   BlueprintsIndexRoute: BlueprintsIndexRoute,

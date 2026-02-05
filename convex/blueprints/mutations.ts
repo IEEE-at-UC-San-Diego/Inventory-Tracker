@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole, UserContext } from '../auth_helpers'
+import { requireOrgRole } from '../auth_helpers'
 import { getCurrentOrgId } from '../organization_helpers'
 import { authContextSchema } from '../types/auth'
 
@@ -81,12 +81,10 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+	const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
-
-    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
+	// Require Editor or Admin role
+	await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
 
     await ctx.db.patch(args.blueprintId, {
       name: args.name,
@@ -296,8 +294,8 @@ export const forceReleaseLock = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+	// Require Admin role
+    await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 

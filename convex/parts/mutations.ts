@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole, UserContext } from '../auth_helpers'
+import { requireOrgRole } from '../auth_helpers'
 import { getCurrentOrgId } from '../organization_helpers'
 import { authContextSchema } from '../types/auth'
 
@@ -18,6 +18,8 @@ export const create = mutation({
     category: v.string(),
     description: v.optional(v.string()),
     imageId: v.optional(v.id('_storage')),
+    unit: v.string(),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.id('parts'),
   handler: async (ctx, args): Promise<Id<'parts'>> => {
@@ -55,6 +57,8 @@ export const create = mutation({
       imageId: args.imageId,
       archived: false,
       orgId,
+      unit: args.unit,
+      tags: args.tags ?? [],
       createdAt: now,
       updatedAt: now,
     })
@@ -76,6 +80,8 @@ export const update = mutation({
     category: v.optional(v.string()),
     description: v.optional(v.string()),
     imageId: v.optional(v.id('_storage')),
+    unit: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
@@ -119,6 +125,8 @@ export const update = mutation({
     if (args.category !== undefined) updates.category = args.category
     if (args.description !== undefined) updates.description = args.description
     if (args.imageId !== undefined) updates.imageId = args.imageId
+    if (args.unit !== undefined) updates.unit = args.unit
+    if (args.tags !== undefined) updates.tags = args.tags
 
     await ctx.db.patch(args.partId, updates)
     return true

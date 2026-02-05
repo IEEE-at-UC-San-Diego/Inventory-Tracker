@@ -33,6 +33,7 @@ import type * as seed from "../seed.js";
 import type * as storage from "../storage.js";
 import type * as transactions_queries from "../transactions/queries.js";
 import type * as types_auth from "../types/auth.js";
+import type * as users_queries from "../users/queries.js";
 
 import type {
   ApiFromModules,
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   storage: typeof storage;
   "transactions/queries": typeof transactions_queries;
   "types/auth": typeof types_auth;
+  "users/queries": typeof users_queries;
 }>;
 
 /**

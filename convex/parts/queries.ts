@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
-import { Doc, Id } from '../_generated/dataModel'
-import { getCurrentUser, requireOrgRole, UserContext } from '../auth_helpers'
+import { Doc } from '../_generated/dataModel'
+import { getCurrentUser } from '../auth_helpers'
 import { getCurrentOrgId } from '../organization_helpers'
 import { authContextSchema } from '../types/auth'
 
@@ -25,6 +25,8 @@ export const list = query({
       imageId: v.optional(v.id('_storage')),
       archived: v.boolean(),
       orgId: v.id('organizations'),
+      unit: v.string(),
+      tags: v.array(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -74,6 +76,8 @@ export const get = query({
       imageId: v.optional(v.id('_storage')),
       archived: v.boolean(),
       orgId: v.id('organizations'),
+      unit: v.string(),
+      tags: v.array(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     }),
@@ -116,6 +120,8 @@ export const search = query({
         imageId: v.optional(v.id('_storage')),
         archived: v.boolean(),
         orgId: v.id('organizations'),
+        unit: v.string(),
+        tags: v.array(v.string()),
         createdAt: v.number(),
         updatedAt: v.number(),
       })
@@ -172,6 +178,8 @@ export const getByCategory = query({
       imageId: v.optional(v.id('_storage')),
       archived: v.boolean(),
       orgId: v.id('organizations'),
+      unit: v.string(),
+      tags: v.array(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -211,6 +219,8 @@ export const getWithInventory = query({
         imageId: v.optional(v.id('_storage')),
         archived: v.boolean(),
         orgId: v.id('organizations'),
+        unit: v.string(),
+        tags: v.array(v.string()),
         createdAt: v.number(),
         updatedAt: v.number(),
       }),

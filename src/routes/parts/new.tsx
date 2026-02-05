@@ -1,36 +1,36 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft } from 'lucide-react'
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
-import { PartForm } from '@/components/parts/PartForm'
-import { useToast } from '@/components/ui/toast'
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { PartForm } from "@/components/parts/PartForm";
+import { useToast } from "@/components/ui/toast";
 
-export const Route = createFileRoute('/parts/new')({
+export const Route = createFileRoute("/parts/new")({
   component: NewPartPage,
-})
+});
 
 function NewPartPage() {
   return (
     <ProtectedRoute requiredRole="Executive Officers">
       <NewPartContent />
     </ProtectedRoute>
-  )
+  );
 }
 
 function NewPartContent() {
-  const navigate = useNavigate()
-  const { toast } = useToast()
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSubmit = (partId: string) => {
-    toast.success('Part created successfully')
-    navigate({ to: '/parts/$partId', params: { partId } })
-  }
+    toast.success("Part created successfully");
+    navigate({ to: "/parts/$partId", params: { partId } });
+  };
 
   const handleCancel = () => {
-    navigate({ to: '/parts' })
-  }
+    navigate({ to: "/parts" });
+  };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <button
@@ -41,15 +41,14 @@ function NewPartContent() {
         </button>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Create New Part</h1>
-          <p className="text-gray-600 mt-1">Add a new part to your inventory</p>
+          <p className="text-gray-600 mt-1">
+            Add a new part to your inventory with location and quantity
+          </p>
         </div>
       </div>
 
-      {/* Form */}
-      <PartForm
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-      />
+      {/* Wizard Form */}
+      <PartForm onSubmit={handleSubmit} onCancel={handleCancel} />
     </div>
-  )
+  );
 }

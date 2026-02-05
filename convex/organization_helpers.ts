@@ -21,8 +21,7 @@ export async function withOrgScope<T extends Doc<any>>(
   ctx: QueryCtx,
   authContext: AuthContext,
   table: 'users' | 'parts' | 'blueprints' | 'inventory' | 'transactions',
-  indexName: string,
-  additionalFilters?: (q: any) => any
+  indexName: string
 ): Promise<{ items: T[]; userContext: UserContext }> {
   const userContext = await getCurrentUser(ctx, authContext)
 

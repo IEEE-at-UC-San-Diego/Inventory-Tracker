@@ -1,6 +1,5 @@
 import { v } from 'convex/values'
 import { internalMutation } from '../_generated/server'
-import { Id, Doc } from '../_generated/dataModel'
 
 /**
  * Maximum number of retry attempts before marking as failed

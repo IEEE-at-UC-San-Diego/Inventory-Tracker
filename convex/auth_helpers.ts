@@ -403,7 +403,7 @@ export const getMyProfile = query({
         logtoUserId: v.string(),
         name: v.string(),
         email: v.string(),
-        orgId: v.id('organizations'),
+        orgId: v.union(v.id('organizations'), v.string()),
         role: v.union(
           v.literal('Administrator'),
           v.literal('Executive Officers'),

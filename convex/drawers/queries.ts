@@ -1,6 +1,5 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
-import { Doc, Id } from '../_generated/dataModel'
 import { getCurrentUser } from '../auth_helpers'
 import { authContextSchema } from '../types/auth'
 

@@ -1,9 +1,8 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole, UserContext } from '../auth_helpers'
+import { requireOrgRole } from '../auth_helpers'
 import { getCurrentOrgId } from '../organization_helpers'
-import { ActionType } from '../schema'
 import { authContextSchema } from '../types/auth'
 
 /**
