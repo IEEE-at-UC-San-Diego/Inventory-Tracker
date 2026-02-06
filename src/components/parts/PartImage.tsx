@@ -209,7 +209,9 @@ export function PartImageUpload({
 		[onFileSelect],
 	);
 
-	const existingImageUrl = existingImageId ? `/api/storage/${existingImageId}` : undefined;
+	const existingImageUrl = existingImageId
+		? `/api/storage/${existingImageId}`
+		: undefined;
 	const displayUrl = previewUrl || existingImageUrl;
 
 	if (displayUrl) {

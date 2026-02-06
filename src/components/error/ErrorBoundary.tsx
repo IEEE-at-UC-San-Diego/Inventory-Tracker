@@ -144,11 +144,11 @@ export function ErrorFallback({
 							</button>
 						)}
 						<Link
-							to="/dashboard"
+							to="/home"
 							className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
 						>
 							<Home className="w-4 h-4" />
-							Go to Dashboard
+							Go to Home
 						</Link>
 						<button
 							type="button"

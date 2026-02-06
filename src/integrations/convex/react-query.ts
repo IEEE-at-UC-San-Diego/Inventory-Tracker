@@ -50,7 +50,7 @@ export function useQuery<
 
 	return useConvexQuery(
 		functionRef,
-		...[args] as OptionalRestArgsOrSkip<ConvexQueryReference>,
+		...([args] as OptionalRestArgsOrSkip<ConvexQueryReference>),
 	);
 }
 

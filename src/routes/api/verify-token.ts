@@ -131,7 +131,7 @@ async function syncUserToConvex(
 				name,
 				updated_at: Math.floor(Date.now() / 1000),
 			},
-	}),
+		}),
 	});
 	if (DEBUG_AUTH) {
 		console.log("[verify-token] syncUserToConvex called with role:", role);
@@ -213,7 +213,10 @@ export const Route = createFileRoute("/api/verify-token")({
 					}
 
 					if (DEBUG_AUTH) {
-						console.log("[verify-token] accessToken length:", cleanToken.length);
+						console.log(
+							"[verify-token] accessToken length:",
+							cleanToken.length,
+						);
 					}
 
 					// Verify JWT signature using Logto's JWKS

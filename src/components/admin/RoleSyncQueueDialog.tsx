@@ -51,7 +51,12 @@ export function RoleSyncQueueDialog({
 	// Fetch users to populate names/emails
 	const usersResult = useQuery(
 		api.organizations.queries.getOrgMembers as any,
-		authContext ? { authContext: authContext ?? undefined, organizationId: authContext.orgId } : undefined,
+		authContext
+			? {
+					authContext: authContext ?? undefined,
+					organizationId: authContext.orgId,
+				}
+			: undefined,
 		{
 			enabled: !!authContext && !isLoading,
 		},
@@ -59,7 +64,9 @@ export function RoleSyncQueueDialog({
 	const users = (usersResult as any[]) || [];
 
 	// Mutation for retrying failed syncs
-	const retryMutation = useMutation((api as any).role_sync_queue.mutations.retryRoleSync);
+	const retryMutation = useMutation(
+		(api as any).role_sync_queue.mutations.retryRoleSync,
+	);
 
 	// Manually retry a failed sync
 	const handleRetry = async (queueItemId: string) => {

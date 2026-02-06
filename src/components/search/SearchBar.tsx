@@ -385,7 +385,10 @@ export function SearchBar({ onClose }: SearchBarProps) {
 																		params={{
 																			blueprintId: location.blueprintId,
 																		}}
-																		search={{ partId: result._id, mode: undefined }}
+																		search={{
+																			partId: result._id,
+																			mode: undefined,
+																		}}
 																		onClick={(e) =>
 																			handleZoomToLocation(
 																				e,

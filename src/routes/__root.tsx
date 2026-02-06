@@ -57,7 +57,7 @@ function NotFound() {
 					The page you're looking for doesn't exist or has been moved.
 				</p>
 				<Link
-					to="/dashboard"
+					to="/home"
 					className="inline-block px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
 				>
 					Go to Dashboard

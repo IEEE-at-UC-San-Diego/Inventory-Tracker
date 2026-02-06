@@ -1,4 +1,4 @@
-import { LogtoProvider, LogtoRequestError, useLogto } from "@logto/react";
+import { LogtoProvider, useLogto } from "@logto/react";
 import {
 	useCallback,
 	useContext,
@@ -79,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	const hasInitializedRef = useRef(false);
 	const hasHydratedFromLogtoRef = useRef(false);
+	const hydrateInFlightRef = useRef<Promise<void> | null>(null);
 	// Avoid stampeding refresh calls when multiple components ask for a "fresh" auth context.
 	const refreshInFlightRef = useRef<Promise<AuthContextType | null> | null>(
 		null,
@@ -95,6 +96,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		fetchUserInfo,
 		signOut,
 	};
+
+	const isLogtoRequestErrorLike = useCallback((err: unknown): boolean => {
+		if (!err || typeof err !== "object") return false;
+
+		const record = err as Record<string, unknown>;
+		const name = typeof record.name === "string" ? record.name : undefined;
+		const code = typeof record.code === "string" ? record.code : undefined;
+		const error = typeof record.error === "string" ? record.error : undefined;
+
+		return (
+			name === "LogtoRequestError" ||
+			code?.startsWith("oidc.") === true ||
+			error === "invalid_grant"
+		);
+	}, []);
+
+	const clearLogtoStorage = useCallback(() => {
+		if (typeof window === "undefined") return;
+
+		Object.keys(localStorage).forEach((key) => {
+			if (key.startsWith("logto:")) {
+				localStorage.removeItem(key);
+			}
+		});
+	}, []);
 
 	const forceLogoutDueToInvalidContext = useCallback(
 		async (message: string) => {
@@ -227,9 +253,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					if (!accessToken) return localContext ?? null;
 
 					// Verify and refresh auth context
-					const result = await verifyAndRefreshAuthContext(accessToken, logtoUser);
+					const result = await verifyAndRefreshAuthContext(
+						accessToken,
+						logtoUser,
+					);
 					return result.authContext || localContext || null;
-				} catch {
+				} catch (err) {
+					if (isLogtoRequestErrorLike(err)) {
+						clearLogtoStorage();
+						await forceLogoutDueToInvalidContext(
+							"[useAuth] Logto session invalid while refreshing auth context",
+						);
+						return null;
+					}
 					return localContext ?? null;
 				} finally {
 					refreshInFlightRef.current = null;
@@ -240,11 +276,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			return refreshPromise;
 		}, [
 			logtoAuthenticated,
-			apiResource,
 			logtoUser,
 			verifyAndRefreshAuthContext,
 			authContext,
-			AUTH_CONTEXT_REFRESH_THRESHOLD_MINUTES,
+			clearLogtoStorage,
+			isLogtoRequestErrorLike,
+			forceLogoutDueToInvalidContext,
 		]);
 
 	// Initialize auth state from storage on first mount
@@ -301,6 +338,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 
+		if (hydrateInFlightRef.current) {
+			return;
+		}
+
 		let cancelled = false;
 
 		const hydrateFromLogto = async () => {
@@ -342,18 +383,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 						setLogtoUser(userInfo);
 					}
 				} catch (err) {
-					if (err instanceof LogtoRequestError) {
+					if (isLogtoRequestErrorLike(err)) {
 						console.log(
 							"[useAuth] Invalid user info token, clearing stale session:",
-							err.message,
+							err instanceof Error ? err.message : String(err),
 						);
-						if (typeof window !== "undefined") {
-							Object.keys(localStorage).forEach((key) => {
-								if (key.startsWith("logto:")) {
-									localStorage.removeItem(key);
-								}
-							});
-						}
+						clearLogtoStorage();
 						await forceLogoutDueToInvalidContext(
 							"[useAuth] Cleared stale session after invalid user info token",
 						);
@@ -367,18 +402,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					accessToken =
 						await logtoFunctionsRef.current.getAccessToken(apiResource);
 				} catch (err) {
-					if (err instanceof LogtoRequestError) {
+					if (isLogtoRequestErrorLike(err)) {
 						console.log(
 							"[useAuth] Invalid access token, clearing stale session:",
-							err.message,
+							err instanceof Error ? err.message : String(err),
 						);
-						if (typeof window !== "undefined") {
-							Object.keys(localStorage).forEach((key) => {
-								if (key.startsWith("logto:")) {
-									localStorage.removeItem(key);
-								}
-							});
-						}
+						clearLogtoStorage();
 						await forceLogoutDueToInvalidContext(
 							"[useAuth] Cleared stale session after invalid access token",
 						);
@@ -440,7 +469,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 		};
 
-		hydrateFromLogto();
+		const promise = hydrateFromLogto();
+		hydrateInFlightRef.current = promise;
+		void promise.finally(() => {
+			if (hydrateInFlightRef.current === promise) {
+				hydrateInFlightRef.current = null;
+			}
+		});
 
 		return () => {
 			cancelled = true;
@@ -449,9 +484,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		logtoAuthenticated,
 		logtoLoading,
 		hasAuthFailed,
-		apiResource,
 		forceLogoutDueToInvalidContext,
-		// remove verifyAndRefreshAuthContext from deps - it has empty deps and stays stable
+		clearLogtoStorage,
+		isLogtoRequestErrorLike,
+		verifyAndRefreshAuthContext,
 	]);
 
 	/**
@@ -669,6 +705,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					}
 				}
 			} catch (error) {
+				if (isLogtoRequestErrorLike(error)) {
+					clearLogtoStorage();
+					await forceLogoutDueToInvalidContext(
+						"[useAuth] Logto session invalid during forced refresh",
+					);
+					return;
+				}
 				console.error("[useAuth] Failed to refresh auth context:", error);
 				setError(
 					error instanceof Error
@@ -677,7 +720,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				);
 			}
 		}
-	}, [logtoAuthenticated, logtoLoading, logtoUser, apiResource]);
+	}, [
+		logtoAuthenticated,
+		logtoLoading,
+		logtoUser,
+		clearLogtoStorage,
+		isLogtoRequestErrorLike,
+		forceLogoutDueToInvalidContext,
+	]);
 
 	const value = useMemo(() => {
 		const appIsAuthenticated = Boolean(user && authContext);
@@ -704,13 +754,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		user,
 		logtoUser,
 		authContext,
-		logtoAuthenticated,
 		isLoading,
-		logtoLoading,
 		error,
 		hasRole,
+		hasPermission,
 		signOutWithCleanup,
 		getFreshAuthContext,
+		forceRefreshAuthContext,
 	]);
 
 	// Debug: Log auth state changes (only when the value changes)

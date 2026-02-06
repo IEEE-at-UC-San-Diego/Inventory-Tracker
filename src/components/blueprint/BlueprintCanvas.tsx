@@ -1,4 +1,4 @@
-import type { KonvaEventObject } from "konva/lib/Node";
+import type { KonvaEventObject, Node as KonvaNode } from "konva/lib/Node";
 import type { Stage as KonvaStage } from "konva/lib/Stage";
 import {
 	forwardRef,
@@ -8,16 +8,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	Group,
-	Image as KonvaImage,
-	Layer,
-	Line,
-	Rect,
-	Stage,
-	Text,
-} from "react-konva";
-import useImage from "use-image";
+import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type {
 	CanvasMode,
 	Compartment,
@@ -34,16 +25,19 @@ import { useCanvasViewport } from "./useCanvasViewport";
 interface BlueprintCanvasProps {
 	width: number;
 	height: number;
-	backgroundImageUrl?: string | null;
 	drawers: DrawerWithCompartments[];
 	selectedElement: SelectedElement;
+	selectedDrawerIds: string[];
 	mode: CanvasMode;
 	tool?: BlueprintTool;
 	isLocked: boolean;
 	isLockedByMe: boolean;
 	highlightedPartId?: string;
 	highlightedCompartmentIds?: string[];
-	onSelectElement: (element: SelectedElement) => void;
+	onSelectionChange: (next: {
+		selectedElement: SelectedElement;
+		selectedDrawerIds: string[];
+	}) => void;
 	onCompartmentDoubleClick?: (compartment: Compartment, drawer: Drawer) => void;
 	onCreateDrawerFromTool?: (drawer: {
 		x: number;
@@ -61,7 +55,9 @@ interface BlueprintCanvasProps {
 		aCompartmentId: string,
 		bCompartmentId: string,
 	) => Promise<void> | void;
-	onUpdateDrawer: (drawerId: string, updates: Partial<Drawer>) => void;
+	onUpdateDrawers?: (
+		updates: Array<{ drawerId: string; x: number; y: number }>,
+	) => void;
 	onUpdateCompartment: (
 		compartmentId: string,
 		updates: Partial<Compartment>,
@@ -81,67 +77,30 @@ interface BlueprintCanvasProps {
 		| null
 	>;
 	compartmentsWithInventory?: Map<string, number>; // compartmentId -> inventory count
-	onContextMenu?: (info: {
-		screenX: number;
-		screenY: number;
-		worldX: number;
-		worldY: number;
-		drawer: DrawerWithCompartments | null;
-	}) => void;
 }
 
 const GRID_SIZE = 50;
 const GRID_COLOR = "#e2e8f0";
 const PAN_DRAG_THRESHOLD_PX = 3;
 
-// Background image wrapper component with useImage
-const BlueprintBackgroundImage = ({
-	imageUrl,
-}: {
-	imageUrl?: string | null;
-}) => {
-	const [image] = useImage(imageUrl ?? "", "anonymous");
-	const [imageDimensions, setImageDimensions] = useState<{
-		width: number;
-		height: number;
-	} | null>(null);
-
-	useEffect(() => {
-		if (image) {
-			setImageDimensions({ width: image.width, height: image.height });
-		}
-	}, [image]);
-
-	if (!image || !imageDimensions) return null;
-
-	return (
-		<KonvaImage
-			image={image}
-			width={imageDimensions.width}
-			height={imageDimensions.height}
-			opacity={0.7}
-		/>
-	);
-};
-
 export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 	{
 		width,
 		height,
-		backgroundImageUrl,
 		drawers,
 		selectedElement,
+		selectedDrawerIds,
 		mode,
 		tool = "select",
 		isLocked,
 		isLockedByMe,
 		highlightedCompartmentIds,
-		onSelectElement,
+		onSelectionChange,
 		onCompartmentDoubleClick,
 		onCreateDrawerFromTool,
 		onSplitDrawerFromTool,
 		onSwapCompartments,
-		onUpdateDrawer,
+		onUpdateDrawers,
 		onUpdateCompartment,
 		onViewportChange,
 		zoomInRef,
@@ -150,7 +109,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		resetViewRef,
 		zoomToLocationRef,
 		compartmentsWithInventory,
-		onContextMenu: onContextMenuProp,
 	}: BlueprintCanvasProps,
 	_ref,
 ) {
@@ -162,7 +120,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		null,
 	);
 	const clickCandidate = useRef(false);
-	const didPanWithRightClickRef = useRef(false);
 	const pendingDragMove = useRef<{
 		compartmentId: string;
 		fromDrawerId: string;
@@ -201,6 +158,97 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		targetDrawerId: string | null;
 		targetCompartmentId: string | null;
 	} | null>(null);
+
+	const selectedDrawerIdSet = useMemo(() => {
+		return new Set(selectedDrawerIds);
+	}, [selectedDrawerIds]);
+
+	const [selectionBox, setSelectionBox] = useState<{
+		startClientX: number;
+		startClientY: number;
+		startWorldX: number;
+		startWorldY: number;
+		endWorldX: number;
+		endWorldY: number;
+	} | null>(null);
+
+	const movingSelectionRef = useRef<{
+		startWorldX: number;
+		startWorldY: number;
+		drawerIds: string[];
+		startPositions: Record<string, { x: number; y: number }>;
+		lastSnappedDx: number;
+		lastSnappedDy: number;
+	} | null>(null);
+
+	const [drawerPositionOverrides, setDrawerPositionOverrides] = useState<Record<
+		string,
+		{ x: number; y: number }
+	> | null>(null);
+
+	const [invalidDrop, setInvalidDrop] = useState<boolean>(false);
+
+	// Check if any drawer in a multi-move would cause overlap
+	const checkBulkMoveCollision = useCallback(
+		(
+			drawerIds: string[],
+			positionOverrides: Record<string, { x: number; y: number }>,
+			allDrawers: DrawerWithCompartments[],
+		): boolean => {
+			// Check overlaps between selected drawers
+			for (const drawerId of drawerIds) {
+				const newPos = positionOverrides[drawerId];
+				if (!newPos) continue;
+
+				for (const otherId of drawerIds) {
+					if (drawerId === otherId) continue;
+					const otherPos = positionOverrides[otherId];
+					if (!otherPos) continue;
+
+					const d1 = allDrawers.find((d) => d._id === drawerId);
+					const d2 = allDrawers.find((d) => d._id === otherId);
+					if (!d1 || !d2) continue;
+
+					const halfW1 = d1.width / 2;
+					const halfH1 = d1.height / 2;
+					const halfW2 = d2.width / 2;
+					const halfH2 = d2.height / 2;
+
+					const overlapX = Math.abs(newPos.x - otherPos.x) < halfW1 + halfW2;
+					const overlapY = Math.abs(newPos.y - otherPos.y) < halfH1 + halfH2;
+
+					if (overlapX && overlapY) return true;
+				}
+			}
+
+			// Check overlaps with non-selected drawers
+			const nonSelectedDrawers = allDrawers.filter(
+				(d) => !drawerIds.includes(d._id),
+			);
+			for (const drawerId of drawerIds) {
+				const newPos = positionOverrides[drawerId];
+				if (!newPos) continue;
+
+				const movingDrawer = allDrawers.find((d) => d._id === drawerId);
+				if (!movingDrawer) continue;
+
+				const halfDW = movingDrawer.width / 2;
+				const halfDH = movingDrawer.height / 2;
+
+				for (const other of nonSelectedDrawers) {
+					const halfW = other.width / 2;
+					const halfH = other.height / 2;
+
+					const overlapX = Math.abs(newPos.x - other.x) < halfDW + halfW;
+					const overlapY = Math.abs(newPos.y - other.y) < halfDH + halfH;
+
+					if (overlapX && overlapY) return true;
+				}
+			}
+			return false;
+		},
+		[],
+	);
 
 	const {
 		viewport,
@@ -294,7 +342,18 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			if (e.code === "Escape") {
 				setDraftDrawer(null);
 				setDraftSplit(null);
-				onSelectElement(null);
+				onSelectionChange({ selectedElement: null, selectedDrawerIds: [] });
+			}
+
+			if (
+				tool === "split" &&
+				isLockedByMe &&
+				(e.key === "r" || e.key === "R")
+			) {
+				e.preventDefault();
+				setSplitOrientation((prev) =>
+					prev === "vertical" ? "horizontal" : "vertical",
+				);
 			}
 		};
 
@@ -302,7 +361,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [onSelectElement]);
+	}, [isLockedByMe, onSelectionChange, tool]);
 
 	const snapToGrid = useCallback((value: number): number => {
 		return Math.round(value / GRID_SIZE) * GRID_SIZE;
@@ -365,6 +424,26 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		[],
 	);
 
+	const getDrawerNodeFromEvent = useCallback(
+		(e: KonvaEventObject<MouseEvent>) => {
+			const target = e.target as KonvaNode;
+			// Never treat compartment gestures as drawer gestures.
+			const compartmentNode = target.findAncestor(".compartment", true);
+			if (compartmentNode) return null;
+			return target.findAncestor(".drawer", true);
+		},
+		[],
+	);
+
+	const getDrawerIdFromEvent = useCallback(
+		(e: KonvaEventObject<MouseEvent>): string | null => {
+			const drawerNode = getDrawerNodeFromEvent(e);
+			const drawerId = drawerNode?.getAttr("drawerId") as string | undefined;
+			return drawerId ?? null;
+		},
+		[getDrawerNodeFromEvent],
+	);
+
 	// Wheel zoom
 	const handleWheel = useCallback(
 		(e: KonvaEventObject<WheelEvent>) => {
@@ -384,43 +463,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		[zoom],
 	);
 
-	const handleContextMenu = useCallback(
-		(e: KonvaEventObject<PointerEvent>) => {
-			e.evt.preventDefault();
-
-			// If the user was panning with right-click drag, suppress "right-click toggles"
-			// behaviors on mouseup.
-			if (didPanWithRightClickRef.current) {
-				didPanWithRightClickRef.current = false;
-				return;
-			}
-
-			// Right click (no pan) in split tool: toggle split orientation.
-			if (tool === "split" && isLockedByMe) {
-				setSplitOrientation((prev) =>
-					prev === "vertical" ? "horizontal" : "vertical",
-				);
-				return;
-			}
-
-			// Emit context menu event to parent for all other tools.
-			if (onContextMenuProp) {
-				const world = getWorldPointer();
-				if (world) {
-					const drawer = findDrawerAtWorldPoint(world);
-					onContextMenuProp({
-						screenX: e.evt.clientX,
-						screenY: e.evt.clientY,
-						worldX: world.x,
-						worldY: world.y,
-						drawer,
-					});
-				}
-			}
-		},
-		[isLockedByMe, tool, onContextMenuProp, getWorldPointer, findDrawerAtWorldPoint],
-	);
-
 	// Mouse events for panning/selection
 	const handleMouseDown = useCallback(
 		(e: KonvaEventObject<MouseEvent>) => {
@@ -438,7 +480,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 					button: 2,
 				};
 				lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
-				didPanWithRightClickRef.current = false;
 				return;
 			}
 
@@ -514,7 +555,58 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 				return;
 			}
 
-			// Default: left-click on empty canvas deselects (no panning on left-drag in select mode).
+			// Selection + multi-move (select tool).
+			if (tool === "select" && world) {
+				const drawerId = getDrawerIdFromEvent(e);
+
+				// Click-drag on empty canvas: selection box.
+				if (isStage && !drawerId) {
+					setSelectionBox({
+						startClientX: e.evt.clientX,
+						startClientY: e.evt.clientY,
+						startWorldX: world.x,
+						startWorldY: world.y,
+						endWorldX: world.x,
+						endWorldY: world.y,
+					});
+					lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
+					return;
+				}
+
+				// Left-click + drag on a drawer: move selected drawers (edit only).
+				if (drawerId && mode === "edit" && isLockedByMe) {
+					const nextSelectedIds = selectedDrawerIdSet.has(drawerId)
+						? [...selectedDrawerIdSet]
+						: [drawerId];
+
+					const primaryDrawer = drawers.find((d) => d._id === drawerId) ?? null;
+					onSelectionChange({
+						selectedDrawerIds: nextSelectedIds,
+						selectedElement: primaryDrawer
+							? { type: "drawer", id: primaryDrawer._id, data: primaryDrawer }
+							: null,
+					});
+
+					const startPositions: Record<string, { x: number; y: number }> = {};
+					for (const id of nextSelectedIds) {
+						const d = drawers.find((dr) => dr._id === id);
+						if (d) startPositions[id] = { x: d.x, y: d.y };
+					}
+
+					movingSelectionRef.current = {
+						startWorldX: world.x,
+						startWorldY: world.y,
+						drawerIds: nextSelectedIds,
+						startPositions,
+						lastSnappedDx: 0,
+						lastSnappedDy: 0,
+					};
+					lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
+					return;
+				}
+			}
+
+			// Default: left-click on empty canvas deselects.
 			if (isStage) {
 				clickCandidate.current = true;
 				lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
@@ -524,12 +616,16 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		},
 		[
 			drawers,
+			getDrawerIdFromEvent,
 			findCompartmentAtWorldPoint,
 			findDrawerAtWorldPoint,
 			getWorldPointer,
 			hoverSplit,
 			isLockedByMe,
+			mode,
+			onSelectionChange,
 			selectedElement,
+			selectedDrawerIdSet,
 			splitOrientation,
 			snapToGrid,
 			tool,
@@ -538,6 +634,58 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 
 	const handleMouseMove = useCallback(
 		(e: KonvaEventObject<MouseEvent>) => {
+			// Selection box drag.
+			if (selectionBox) {
+				const world = getWorldPointer();
+				if (!world) return;
+				setSelectionBox((prev) => {
+					if (!prev) return prev;
+					return { ...prev, endWorldX: world.x, endWorldY: world.y };
+				});
+				return;
+			}
+
+			// Move selected drawers drag.
+			if (movingSelectionRef.current) {
+				const world = getWorldPointer();
+				if (!world) return;
+
+				const rawDx = world.x - movingSelectionRef.current.startWorldX;
+				const rawDy = world.y - movingSelectionRef.current.startWorldY;
+				const snappedDx = snapToGrid(rawDx);
+				const snappedDy = snapToGrid(rawDy);
+
+				if (
+					snappedDx === movingSelectionRef.current.lastSnappedDx &&
+					snappedDy === movingSelectionRef.current.lastSnappedDy
+				) {
+					return;
+				}
+
+				movingSelectionRef.current.lastSnappedDx = snappedDx;
+				movingSelectionRef.current.lastSnappedDy = snappedDy;
+
+				const nextOverrides: Record<string, { x: number; y: number }> = {};
+				for (const drawerId of movingSelectionRef.current.drawerIds) {
+					const start = movingSelectionRef.current.startPositions[drawerId];
+					if (!start) continue;
+					nextOverrides[drawerId] = {
+						x: start.x + snappedDx,
+						y: start.y + snappedDy,
+					};
+				}
+
+				// Check for collisions and update visual feedback
+				const hasCollision = checkBulkMoveCollision(
+					movingSelectionRef.current.drawerIds,
+					nextOverrides,
+					drawers,
+				);
+				setInvalidDrop(hasCollision);
+				setDrawerPositionOverrides(nextOverrides);
+				return;
+			}
+
 			// Hover split preview (no click).
 			if (
 				tool === "split" &&
@@ -644,9 +792,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 
 			if (!isPanning && movedEnough) {
 				setIsPanning(true);
-				if (panCandidate.current.button === 2) {
-					didPanWithRightClickRef.current = true;
-				}
 			}
 
 			if (!isPanning && !movedEnough) return;
@@ -662,6 +807,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			};
 		},
 		[
+			selectionBox,
 			draftDrawer,
 			draftSplit,
 			drawers,
@@ -677,10 +823,103 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			splitOrientation,
 			snapToGrid,
 			tool,
+			checkBulkMoveCollision,
 		],
 	);
 
 	const handleMouseUp = useCallback(() => {
+		// Commit selection box.
+		if (selectionBox) {
+			const movedEnough =
+				Math.abs(selectionBox.endWorldX - selectionBox.startWorldX) >
+					GRID_SIZE / 4 ||
+				Math.abs(selectionBox.endWorldY - selectionBox.startWorldY) >
+					GRID_SIZE / 4;
+
+			const x1 = Math.min(selectionBox.startWorldX, selectionBox.endWorldX);
+			const y1 = Math.min(selectionBox.startWorldY, selectionBox.endWorldY);
+			const x2 = Math.max(selectionBox.startWorldX, selectionBox.endWorldX);
+			const y2 = Math.max(selectionBox.startWorldY, selectionBox.endWorldY);
+
+			setSelectionBox(null);
+
+			// Click (no drag): deselect.
+			if (!movedEnough) {
+				onSelectionChange({ selectedElement: null, selectedDrawerIds: [] });
+				panCandidate.current = null;
+				setIsPanning(false);
+				lastPointerPosition.current = null;
+				return;
+			}
+
+			const nextSelected: string[] = [];
+			for (const drawer of drawers) {
+				const halfW = drawer.width / 2;
+				const halfH = drawer.height / 2;
+				const dLeft = drawer.x - halfW;
+				const dRight = drawer.x + halfW;
+				const dTop = drawer.y - halfH;
+				const dBottom = drawer.y + halfH;
+
+				const overlaps =
+					dLeft <= x2 && dRight >= x1 && dTop <= y2 && dBottom >= y1;
+				if (overlaps) nextSelected.push(drawer._id);
+			}
+
+			if (nextSelected.length === 1) {
+				const only = drawers.find((d) => d._id === nextSelected[0]) ?? null;
+				onSelectionChange({
+					selectedDrawerIds: nextSelected,
+					selectedElement: only
+						? { type: "drawer", id: only._id, data: only }
+						: null,
+				});
+			} else {
+				onSelectionChange({
+					selectedElement: null,
+					selectedDrawerIds: nextSelected,
+				});
+			}
+
+			panCandidate.current = null;
+			setIsPanning(false);
+			lastPointerPosition.current = null;
+			return;
+		}
+
+		// Commit multi-drawer move.
+		if (movingSelectionRef.current) {
+			const move = movingSelectionRef.current;
+			const movedEnough =
+				Math.abs(move.lastSnappedDx) > 0 || Math.abs(move.lastSnappedDy) > 0;
+
+			const overrides = drawerPositionOverrides;
+			movingSelectionRef.current = null;
+			setDrawerPositionOverrides(null);
+			setInvalidDrop(false);
+
+			// Only commit move if no collision and actually moved
+			if (
+				movedEnough &&
+				overrides &&
+				onUpdateDrawers &&
+				!checkBulkMoveCollision(move.drawerIds, overrides, drawers)
+			) {
+				const updates = Object.entries(overrides).map(([drawerId, pos]) => ({
+					drawerId,
+					x: pos.x,
+					y: pos.y,
+				}));
+				onUpdateDrawers(updates);
+			}
+			// If collision exists, move is silently rejected - drawers return to original position
+
+			panCandidate.current = null;
+			setIsPanning(false);
+			lastPointerPosition.current = null;
+			return;
+		}
+
 		// Commit drawer.
 		if (draftDrawer && isLockedByMe) {
 			const x1 = Math.min(draftDrawer.startX, draftDrawer.endX);
@@ -724,42 +963,53 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 
 		// Pan commit / click-to-deselect.
 		if (clickCandidate.current && !isPanning && tool !== "pan") {
-			onSelectElement(null);
+			onSelectionChange({ selectedElement: null, selectedDrawerIds: [] });
 		}
 		clickCandidate.current = false;
 		panCandidate.current = null;
 		setIsPanning(false);
 		lastPointerPosition.current = null;
 	}, [
+		selectionBox,
+		drawers,
+		drawerPositionOverrides,
 		draftDrawer,
 		draftSplit,
 		isLockedByMe,
 		isPanning,
 		onCreateDrawerFromTool,
-		onSelectElement,
+		onSelectionChange,
+		onUpdateDrawers,
 		onSplitDrawerFromTool,
 		tool,
+		checkBulkMoveCollision,
 	]);
 
 	// Drawer selection
 	const handleDrawerSelect = useCallback(
 		(drawer: Drawer) => {
-			onSelectElement({ type: "drawer", id: drawer._id, data: drawer });
+			onSelectionChange({
+				selectedElement: { type: "drawer", id: drawer._id, data: drawer },
+				selectedDrawerIds: [drawer._id],
+			});
 		},
-		[onSelectElement],
+		[onSelectionChange],
 	);
 
 	// Compartment selection
 	const handleCompartmentSelect = useCallback(
 		(compartment: Compartment, drawerId: string) => {
-			onSelectElement({
-				type: "compartment",
-				id: compartment._id,
-				data: compartment,
-				drawerId,
+			onSelectionChange({
+				selectedElement: {
+					type: "compartment",
+					id: compartment._id,
+					data: compartment,
+					drawerId,
+				},
+				selectedDrawerIds: [],
 			});
 		},
-		[onSelectElement],
+		[onSelectionChange],
 	);
 
 	// Compartment double-click for details panel
@@ -768,29 +1018,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			onCompartmentDoubleClick?.(compartment, drawer);
 		},
 		[onCompartmentDoubleClick],
-	);
-
-	// Drawer drag end
-	const handleDrawerDragEnd = useCallback(
-		(drawerId: string, x: number, y: number) => {
-			onUpdateDrawer(drawerId, { x, y });
-		},
-		[onUpdateDrawer],
-	);
-
-	// Drawer transform end
-	const handleDrawerTransformEnd = useCallback(
-		(
-			drawerId: string,
-			x: number,
-			y: number,
-			width: number,
-			height: number,
-			rotation: number,
-		) => {
-			onUpdateDrawer(drawerId, { x, y, width, height, rotation });
-		},
-		[onUpdateDrawer],
 	);
 
 	const handleCompartmentDragStart = useCallback(
@@ -879,24 +1106,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 
 			// If dropping onto another compartment, swap (including sizes; and drawerId if across drawers).
 			if (targetComp && targetComp._id !== movingComp._id) {
-				if (onSwapCompartments) {
-					await onSwapCompartments(movingComp._id, targetComp._id);
-				} else {
-					await onUpdateCompartment(movingComp._id, {
-						drawerId: targetDrawer._id,
-						x: targetComp.x,
-						y: targetComp.y,
-						width: targetComp.width,
-						height: targetComp.height,
-					});
-					await onUpdateCompartment(targetComp._id, {
-						drawerId: fromDrawer._id,
-						x: movingComp.x,
-						y: movingComp.y,
-						width: movingComp.width,
-						height: movingComp.height,
-					});
-				}
+				await onSwapCompartments?.(movingComp._id, targetComp._id);
 				return;
 			}
 
@@ -1041,6 +1251,14 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 	const sortedDrawers = useMemo(() => {
 		return [...drawers].sort((a, b) => a.zIndex - b.zIndex);
 	}, [drawers]);
+
+	const drawersForRender = useMemo(() => {
+		if (!drawerPositionOverrides) return sortedDrawers;
+		return sortedDrawers.map((drawer) => {
+			const override = drawerPositionOverrides[drawer._id];
+			return override ? { ...drawer, x: override.x, y: override.y } : drawer;
+		});
+	}, [drawerPositionOverrides, sortedDrawers]);
 	const performanceMode = isPanning || dragState !== null;
 	const showLabels = !isPanning && viewport.zoom >= 0.5;
 
@@ -1051,7 +1269,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 	const highlightedDrawerIdSet = useMemo(() => {
 		if (highlightedCompartmentIdSet.size === 0) return new Set<string>();
 		const result = new Set<string>();
-		for (const drawer of drawers) {
+		for (const drawer of drawersForRender) {
 			if (
 				drawer.compartments.some((c) => highlightedCompartmentIdSet.has(c._id))
 			) {
@@ -1059,8 +1277,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			}
 		}
 		return result;
-	}, [drawers, highlightedCompartmentIdSet]);
-
+	}, [drawersForRender, highlightedCompartmentIdSet]);
 
 	// Generate grid lines
 	const gridLines = useMemo(() => {
@@ -1141,26 +1358,13 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 				width={width + 2}
 				height={height + 2}
 				onWheel={handleWheel}
-				onContextMenu={handleContextMenu}
+				onContextMenu={(e) => e.evt.preventDefault()}
 				onMouseDown={handleMouseDown}
 				onMouseMove={handleMouseMove}
 				onMouseUp={handleMouseUp}
 				onMouseLeave={handleMouseUp}
 				draggable={false}
 			>
-				{/* Background Image Layer - renders below everything */}
-				{backgroundImageUrl && (
-					<Layer
-						listening={false}
-						x={viewport.x}
-						y={viewport.y}
-						scaleX={viewport.zoom}
-						scaleY={viewport.zoom}
-					>
-						<BlueprintBackgroundImage imageUrl={backgroundImageUrl} />
-					</Layer>
-				)}
-
 				{/* Grid Layer */}
 				<Layer listening={false}>{gridLines}</Layer>
 
@@ -1171,32 +1375,46 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 					scaleX={viewport.zoom}
 					scaleY={viewport.zoom}
 				>
+					{/* Selection box (world coords) */}
+					{selectionBox && (
+						<Rect
+							x={Math.min(selectionBox.startWorldX, selectionBox.endWorldX)}
+							y={Math.min(selectionBox.startWorldY, selectionBox.endWorldY)}
+							width={Math.abs(
+								selectionBox.endWorldX - selectionBox.startWorldX,
+							)}
+							height={Math.abs(
+								selectionBox.endWorldY - selectionBox.startWorldY,
+							)}
+							fill="rgba(2,132,199,0.08)"
+							stroke="rgba(2,132,199,0.9)"
+							strokeWidth={2}
+							dash={[8, 6]}
+							listening={false}
+						/>
+					)}
+
 					{/* Drawers */}
-					{sortedDrawers.map((drawer) => (
+					{drawersForRender.map((drawer) => (
 						<DrawerShape
 							key={drawer._id}
 							drawer={drawer}
-							isSelected={
-								selectedElement?.type === "drawer" &&
-								selectedElement.id === drawer._id
-							}
+							isSelected={selectedDrawerIdSet.has(drawer._id)}
 							isLocked={isLocked}
 							isLockedByMe={isLockedByMe}
 							mode={mode}
-							viewport={viewport}
 							selectEnabled={tool !== "pan"}
 							editEnabled={mode === "edit" && isLockedByMe && tool === "select"}
 							performanceMode={performanceMode}
 							showLabel={showLabels}
 							highlighted={highlightedDrawerIdSet.has(drawer._id)}
+							invalidDrop={invalidDrop && selectedDrawerIdSet.has(drawer._id)}
 							onSelect={handleDrawerSelect}
-							onDragEnd={handleDrawerDragEnd}
-							onTransformEnd={handleDrawerTransformEnd}
 						/>
 					))}
 
 					{/* Compartments */}
-					{sortedDrawers.map((drawer) =>
+					{drawersForRender.map((drawer) =>
 						drawer.compartments.map((compartment) => (
 							<CompartmentShape
 								key={compartment._id}

@@ -35,7 +35,12 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 type WizardStep = 1 | 2 | 3 | 4;
-const RETURN_TO_ROUTES = ["/parts/new", "/parts", "/inventory", "/blueprints"] as const;
+const RETURN_TO_ROUTES = [
+	"/parts/new",
+	"/parts",
+	"/inventory",
+	"/blueprints",
+] as const;
 type ReturnToRoute = (typeof RETURN_TO_ROUTES)[number];
 
 const isReturnToRoute = (value: string): value is ReturnToRoute =>
@@ -320,60 +325,60 @@ function LocationPickerContent() {
 									ref={stageRef}
 									width={canvasSize.width}
 									height={canvasSize.height}
-										onWheel={(e: KonvaEventObject<WheelEvent>) => {
-											e.evt.preventDefault();
-											const zoomFactor = 1 - e.evt.deltaY / 1000;
-											zoom(zoomFactor, {
+									onWheel={(e: KonvaEventObject<WheelEvent>) => {
+										e.evt.preventDefault();
+										const zoomFactor = 1 - e.evt.deltaY / 1000;
+										zoom(zoomFactor, {
+											x: e.evt.offsetX,
+											y: e.evt.offsetY,
+										});
+									}}
+									onMouseDown={(e: KonvaEventObject<MouseEvent>) => {
+										if (e.evt.button === 2) {
+											startDrag({
 												x: e.evt.offsetX,
 												y: e.evt.offsetY,
 											});
-										}}
-										onMouseDown={(e: KonvaEventObject<MouseEvent>) => {
-											if (e.evt.button === 2) {
-												startDrag({
-													x: e.evt.offsetX,
-													y: e.evt.offsetY,
-												});
-											}
-										}}
-										onMouseMove={(e: KonvaEventObject<MouseEvent>) => {
-											if (e.evt.buttons === 2) {
-												drag({
-													x: e.evt.offsetX,
-													y: e.evt.offsetY,
-												});
-											}
-										}}
-										onMouseUp={() => endDrag()}
-										onTouchStart={(e: KonvaEventObject<TouchEvent>) => {
-											const touch = e.evt.touches[0];
-											if (!touch || !containerRef.current) return;
-											const bounds = containerRef.current.getBoundingClientRect();
-											startDrag({
-												x: touch.clientX - bounds.left,
-												y: touch.clientY - bounds.top,
-											});
-										}}
-										onTouchMove={(e: KonvaEventObject<TouchEvent>) => {
-											e.evt.preventDefault();
-											const touch = e.evt.touches[0];
-											if (!touch || !containerRef.current) return;
-											const bounds = containerRef.current.getBoundingClientRect();
+										}
+									}}
+									onMouseMove={(e: KonvaEventObject<MouseEvent>) => {
+										if (e.evt.buttons === 2) {
 											drag({
-												x: touch.clientX - bounds.left,
-												y: touch.clientY - bounds.top,
+												x: e.evt.offsetX,
+												y: e.evt.offsetY,
 											});
-										}}
-										onTouchEnd={() => endDrag()}
-										draggable={false}
-									>
-										<Layer listening={false}>
-											<Rect
-												width={canvasSize.width}
-												height={canvasSize.height}
-												fill="#f0f4f8"
-											/>
-										</Layer>
+										}
+									}}
+									onMouseUp={() => endDrag()}
+									onTouchStart={(e: KonvaEventObject<TouchEvent>) => {
+										const touch = e.evt.touches[0];
+										if (!touch || !containerRef.current) return;
+										const bounds = containerRef.current.getBoundingClientRect();
+										startDrag({
+											x: touch.clientX - bounds.left,
+											y: touch.clientY - bounds.top,
+										});
+									}}
+									onTouchMove={(e: KonvaEventObject<TouchEvent>) => {
+										e.evt.preventDefault();
+										const touch = e.evt.touches[0];
+										if (!touch || !containerRef.current) return;
+										const bounds = containerRef.current.getBoundingClientRect();
+										drag({
+											x: touch.clientX - bounds.left,
+											y: touch.clientY - bounds.top,
+										});
+									}}
+									onTouchEnd={() => endDrag()}
+									draggable={false}
+								>
+									<Layer listening={false}>
+										<Rect
+											width={canvasSize.width}
+											height={canvasSize.height}
+											fill="#f0f4f8"
+										/>
+									</Layer>
 
 									{backgroundImageUrl && (
 										<Layer

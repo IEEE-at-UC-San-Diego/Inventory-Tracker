@@ -33,25 +33,25 @@ import { ToastProvider } from "../components/ui/toast";
 import { useAuth } from "../hooks/useAuth";
 import { useRole } from "../hooks/useRole";
 
-export const Route = createFileRoute("/dashboard")({
-	component: DashboardPage,
+export const Route = createFileRoute("/home")({
+	component: HomePage,
 });
 
-function DashboardPage() {
+function HomePage() {
 	return (
 		<ProtectedRoute>
 			<ToastProvider>
-				<DashboardContent />
+				<HomeContent />
 			</ToastProvider>
 		</ProtectedRoute>
 	);
 }
 
-function DashboardContent() {
+function HomeContent() {
 	const { user, authContext, isLoading } = useAuth();
 	const { isAdmin, isEditor } = useRole();
 
-	// Fetch dashboard data with real-time subscriptions
+	// Fetch home data with real-time subscriptions
 	const stats = useQuery(
 		api.organization_helpers.getOrgStats,
 		authContext ? { authContext } : undefined,
@@ -273,7 +273,7 @@ function DashboardContent() {
 								description="Add inventory to storage"
 								color="green"
 							/>
-								{(isEditor() || isAdmin()) && (
+							{(isEditor() || isAdmin()) && (
 								<QuickActionButton
 									to="/inventory"
 									icon={<ArrowRight className="w-5 h-5 rotate-90" />}
@@ -392,15 +392,15 @@ function DashboardContent() {
 										</li>
 									))}
 								</ul>
-									{inventoryItems.filter((i) => i.quantity < 10).length > 5 && (
-											<Link
-												to="/inventory"
-												className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
-											>
-												View all alerts
-												<ArrowRight className="w-4 h-4" />
-											</Link>
-										)}
+								{inventoryItems.filter((i) => i.quantity < 10).length > 5 && (
+									<Link
+										to="/inventory"
+										className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
+									>
+										View all alerts
+										<ArrowRight className="w-4 h-4" />
+									</Link>
+								)}
 							</div>
 						) : (
 							<EmptyState

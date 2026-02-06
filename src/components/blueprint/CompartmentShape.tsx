@@ -57,9 +57,9 @@ const COMPARTMENT_COLORS = {
 		strokeWidth: 1,
 	},
 	selected: {
-		fill: "#e0f2fe", // cyan-100
-		stroke: "#0ea5e9", // cyan-500
-		strokeWidth: 2,
+		fill: "#f3e8ff", // purple-100
+		stroke: "#a855f7", // purple-500 - distinct from drawer's blue
+		strokeWidth: 3,
 	},
 	highlighted: {
 		fill: "#dcfce7", // green-100
@@ -212,6 +212,9 @@ export const CompartmentShape = memo(function CompartmentShape({
 
 	return (
 		<Group
+			name="compartment"
+			compartmentId={compartment._id}
+			drawerId={drawer._id}
 			x={absoluteX}
 			y={absoluteY}
 			rotation={drawer.rotation + compartment.rotation}
@@ -332,8 +335,8 @@ export const CompartmentShape = memo(function CompartmentShape({
 					y={-compartment.height / 2 - 2}
 					width={compartment.width + 4}
 					height={compartment.height + 4}
-					stroke={isDragOrigin ? "rgba(2,132,199,0.9)" : "#0ea5e9"}
-					strokeWidth={1}
+					stroke={isDragOrigin ? "rgba(2,132,199,0.9)" : "#a855f7"}
+					strokeWidth={2}
 					dash={[4, 2]}
 					cornerRadius={3}
 					listening={false}

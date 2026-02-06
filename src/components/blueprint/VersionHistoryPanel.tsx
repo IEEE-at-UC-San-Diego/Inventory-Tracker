@@ -33,16 +33,23 @@ export function VersionHistoryPanel({
 	const { toast } = useToast();
 	const { canEdit } = useRole();
 	const { authContext, getFreshAuthContext } = useAuth();
-	const revisions = useQuery(api.blueprint_revisions.queries.listRevisions, authContext ? {
-		authContext: authContext as any,
-		blueprintId,
-	} : undefined);
+	const revisions = useQuery(
+		api.blueprint_revisions.queries.listRevisions,
+		authContext
+			? {
+					authContext: authContext as any,
+					blueprintId,
+				}
+			: undefined,
+	);
 	const revisionCount = useQuery(
 		api.blueprint_revisions.queries.getRevisionCount,
-		authContext ? {
-			authContext: authContext as any,
-			blueprintId,
-		} : undefined,
+		authContext
+			? {
+					authContext: authContext as any,
+					blueprintId,
+				}
+			: undefined,
 	);
 
 	const restoreRevision = useMutation(
@@ -275,8 +282,7 @@ export function VersionHistoryPanel({
 				confirmLabel="Restore"
 				variant="destructive"
 				onConfirm={handleRestore}
-			>
-			</AlertDialog>
+			></AlertDialog>
 
 			{/* Footer info */}
 			{revisionCount?.isNearLimit && (

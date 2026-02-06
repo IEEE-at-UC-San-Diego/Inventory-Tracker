@@ -450,16 +450,14 @@ export function filterTransactions(
 ): TransactionFilterable[] {
 	return transactions.filter((transaction) => {
 		// Search filter
-			if (filters.searchQuery) {
-				const query = filters.searchQuery.toLowerCase();
-				const matchesPart =
-					transaction.part?.name?.toLowerCase().includes(query) ||
-					transaction.part?.sku?.toLowerCase().includes(query);
-				const matchesUser = transaction.user?.name
-					?.toLowerCase()
-					.includes(query);
-				if (!matchesPart && !matchesUser) return false;
-			}
+		if (filters.searchQuery) {
+			const query = filters.searchQuery.toLowerCase();
+			const matchesPart =
+				transaction.part?.name?.toLowerCase().includes(query) ||
+				transaction.part?.sku?.toLowerCase().includes(query);
+			const matchesUser = transaction.user?.name?.toLowerCase().includes(query);
+			if (!matchesPart && !matchesUser) return false;
+		}
 
 		// Action type filter
 		if (filters.selectedActions.length > 0) {
@@ -497,19 +495,18 @@ export function filterTransactions(
 		}
 
 		// User filter
-			if (filters.selectedUserId) {
-				if (transaction.user?._id !== filters.selectedUserId) return false;
-			}
+		if (filters.selectedUserId) {
+			if (transaction.user?._id !== filters.selectedUserId) return false;
+		}
 
 		// Compartment filter (source or destination)
-			if (filters.selectedCompartmentId) {
-				const matchesSource =
-					transaction.sourceCompartment?._id ===
-					filters.selectedCompartmentId;
-				const matchesDest =
-					transaction.destCompartment?._id === filters.selectedCompartmentId;
-				if (!matchesSource && !matchesDest) return false;
-			}
+		if (filters.selectedCompartmentId) {
+			const matchesSource =
+				transaction.sourceCompartment?._id === filters.selectedCompartmentId;
+			const matchesDest =
+				transaction.destCompartment?._id === filters.selectedCompartmentId;
+			if (!matchesSource && !matchesDest) return false;
+		}
 
 		return true;
 	});

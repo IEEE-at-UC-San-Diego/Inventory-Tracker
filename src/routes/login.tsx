@@ -19,8 +19,7 @@ function LoginPage() {
 
 	// If already authenticated, redirect to dashboard
 	if (isAuthenticated && !isLoading) {
-		const redirectTo =
-			(search as { redirect?: string }).redirect || "/dashboard";
+		const redirectTo = (search as { redirect?: string }).redirect || "/home";
 		return <Navigate to={redirectTo} />;
 	}
 
@@ -146,7 +145,7 @@ function DevLoginButton({ role, label }: { role: UserRole; label: string }) {
 		);
 
 		// Reload to trigger auth state refresh
-		window.location.href = "/dashboard";
+		window.location.href = "/home";
 	};
 
 	return (

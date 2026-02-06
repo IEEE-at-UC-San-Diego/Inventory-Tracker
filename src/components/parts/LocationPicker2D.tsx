@@ -17,12 +17,7 @@ import { useQuery } from "@/integrations/convex/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type {
-	Blueprint,
-	Drawer,
-	Compartment,
-	Viewport,
-} from "@/types";
+import type { Blueprint, Drawer, Compartment, Viewport } from "@/types";
 
 interface LocationPicker2DProps {
 	orgId: string;
@@ -49,7 +44,10 @@ const GRID_COLOR = "#e2e8f0";
 // Utility Functions
 // ============================================
 
-function getDefaultViewport(canvasWidth: number, canvasHeight: number): Viewport {
+function getDefaultViewport(
+	canvasWidth: number,
+	canvasHeight: number,
+): Viewport {
 	const zoom = Math.min(canvasWidth / 1000, canvasHeight / 1000, 1) * 0.9;
 	const scaledWidth = 1000 * zoom;
 	const scaledHeight = 1000 * zoom;
@@ -131,7 +129,9 @@ function SimpleDrawerShape({
 			y={drawer.y}
 			rotation={drawer.rotation}
 			onClick={handleClick}
-			onTap={handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void}
+			onTap={
+				handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void
+			}
 			cursor="pointer"
 		>
 			<Rect
@@ -203,7 +203,9 @@ function SimpleCompartmentShape({
 			y={absoluteY}
 			rotation={drawer.rotation + compartment.rotation}
 			onClick={handleClick}
-			onTap={handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void}
+			onTap={
+				handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void
+			}
 			cursor="pointer"
 		>
 			<Rect
@@ -320,43 +322,37 @@ function CanvasView({
 		});
 	}, [drawers, width, height]);
 
-	const handleWheel = useCallback(
-		(e: KonvaEventObject<WheelEvent>) => {
-			e.evt.preventDefault();
-			const stage = stageRef.current;
-			if (!stage) return;
+	const handleWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
+		e.evt.preventDefault();
+		const stage = stageRef.current;
+		if (!stage) return;
 
-			const pointer = stage.getPointerPosition();
-			if (!pointer) return;
+		const pointer = stage.getPointerPosition();
+		if (!pointer) return;
 
-			const delta = e.evt.deltaY;
-			const factor = delta > 0 ? 0.9 : 1.1;
+		const delta = e.evt.deltaY;
+		const factor = delta > 0 ? 0.9 : 1.1;
 
-			setViewport((prev) => {
-				const newZoom = clampZoom(prev.zoom * factor);
-				const zoomRatio = newZoom / prev.zoom;
-				return {
-					zoom: newZoom,
-					x: pointer.x - (pointer.x - prev.x) * zoomRatio,
-					y: pointer.y - (pointer.y - prev.y) * zoomRatio,
-				};
-			});
-		},
-		[],
-	);
+		setViewport((prev) => {
+			const newZoom = clampZoom(prev.zoom * factor);
+			const zoomRatio = newZoom / prev.zoom;
+			return {
+				zoom: newZoom,
+				x: pointer.x - (pointer.x - prev.x) * zoomRatio,
+				y: pointer.y - (pointer.y - prev.y) * zoomRatio,
+			};
+		});
+	}, []);
 
-	const handleMouseDown = useCallback(
-		(e: KonvaEventObject<MouseEvent>) => {
-			if (e.evt.button === 1 || (e.evt.button === 0 && e.evt.shiftKey)) {
-				setIsPanning(true);
-				lastPointerPosition.current = {
-					x: e.evt.clientX,
-					y: e.evt.clientY,
-				};
-			}
-		},
-		[],
-	);
+	const handleMouseDown = useCallback((e: KonvaEventObject<MouseEvent>) => {
+		if (e.evt.button === 1 || (e.evt.button === 0 && e.evt.shiftKey)) {
+			setIsPanning(true);
+			lastPointerPosition.current = {
+				x: e.evt.clientX,
+				y: e.evt.clientY,
+			};
+		}
+	}, []);
 
 	const handleMouseMove = useCallback(
 		(e: KonvaEventObject<MouseEvent>) => {
@@ -478,7 +474,11 @@ interface BlueprintGridCardProps {
 	onClick: () => void;
 }
 
-function BlueprintGridCard({ blueprint, isSelected, onClick }: BlueprintGridCardProps) {
+function BlueprintGridCard({
+	blueprint,
+	isSelected,
+	onClick,
+}: BlueprintGridCardProps) {
 	return (
 		<Card
 			onClick={onClick}
@@ -560,7 +560,10 @@ export function LocationPicker2D({
 				}
 			: undefined,
 		{
-			enabled: !!authContext && !!localSelection.blueprintId && viewLevel !== "blueprints",
+			enabled:
+				!!authContext &&
+				!!localSelection.blueprintId &&
+				viewLevel !== "blueprints",
 		},
 	);
 
@@ -568,7 +571,8 @@ export function LocationPicker2D({
 	const drawers = (drawersQuery ?? []) as DrawerWithCompartments[];
 
 	const selectedBlueprint = useMemo(
-		() => blueprints.find((b: Blueprint) => b._id === localSelection.blueprintId),
+		() =>
+			blueprints.find((b: Blueprint) => b._id === localSelection.blueprintId),
 		[blueprints, localSelection.blueprintId],
 	);
 
@@ -639,15 +643,23 @@ export function LocationPicker2D({
 	}, [onLocationChange]);
 
 	const breadcrumbItems = useMemo(() => {
-		const items: Array<{ label: string; level: ViewLevel }> = [{ label: "Blueprints", level: "blueprints" }];
+		const items: Array<{ label: string; level: ViewLevel }> = [
+			{ label: "Blueprints", level: "blueprints" },
+		];
 		if (selectedBlueprint) {
 			items.push({ label: selectedBlueprint.name, level: "drawers" });
 		}
 		if (selectedDrawer) {
-			items.push({ label: selectedDrawer.label || "Drawer", level: "compartments" });
+			items.push({
+				label: selectedDrawer.label || "Drawer",
+				level: "compartments",
+			});
 		}
 		if (selectedCompartment) {
-			items.push({ label: selectedCompartment.label || "Compartment", level: "compartments" });
+			items.push({
+				label: selectedCompartment.label || "Compartment",
+				level: "compartments",
+			});
 		}
 		return items;
 	}, [selectedBlueprint, selectedDrawer, selectedCompartment]);
@@ -669,7 +681,9 @@ export function LocationPicker2D({
 				<nav className="flex items-center space-x-2 text-sm">
 					{breadcrumbItems.map((item, index) => (
 						<div key={`${item.label}-${index}`} className="flex items-center">
-							{index > 0 && <ChevronRight className="w-4 h-4 text-gray-400 mx-1" />}
+							{index > 0 && (
+								<ChevronRight className="w-4 h-4 text-gray-400 mx-1" />
+							)}
 							<button
 								type="button"
 								onClick={() => handleBreadcrumbClick(item.level)}
@@ -688,7 +702,13 @@ export function LocationPicker2D({
 
 				<div className="flex items-center gap-2">
 					{allowSkip && (
-						<Button type="button" variant="ghost" size="sm" onClick={handleSkip} className="text-gray-500">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={handleSkip}
+							className="text-gray-500"
+						>
 							Skip
 						</Button>
 					)}
@@ -712,7 +732,8 @@ export function LocationPicker2D({
 					<div className="flex items-center gap-2 text-sm text-cyan-800">
 						<MapPin className="w-4 h-4" />
 						<span className="font-medium">
-							{selectedBlueprint?.name} → {selectedDrawer?.label || "Drawer"} → {selectedCompartment.label || "Compartment"}
+							{selectedBlueprint?.name} → {selectedDrawer?.label || "Drawer"} →{" "}
+							{selectedCompartment.label || "Compartment"}
 						</span>
 					</div>
 				</div>
@@ -721,12 +742,16 @@ export function LocationPicker2D({
 			<div className="border rounded-lg overflow-hidden bg-white">
 				{viewLevel === "blueprints" && (
 					<div className="p-4">
-						<h4 className="text-sm font-medium text-gray-700 mb-3">Select a Blueprint</h4>
+						<h4 className="text-sm font-medium text-gray-700 mb-3">
+							Select a Blueprint
+						</h4>
 						{blueprints.length === 0 ? (
 							<div className="text-center py-8 text-gray-500">
 								<Layers className="w-12 h-12 mx-auto mb-3 text-gray-300" />
 								<p>No blueprints available</p>
-								<p className="text-sm">Create a blueprint first to select a location</p>
+								<p className="text-sm">
+									Create a blueprint first to select a location
+								</p>
 							</div>
 						) : (
 							<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -775,12 +800,16 @@ export function LocationPicker2D({
 							<div className="bg-white/90 backdrop-blur rounded-lg shadow-sm border px-3 py-2 text-xs text-gray-600 max-w-[200px]">
 								{viewLevel === "drawers" ? (
 									<>
-										<p className="font-medium text-gray-900 mb-1">Select a Drawer</p>
+										<p className="font-medium text-gray-900 mb-1">
+											Select a Drawer
+										</p>
 										<p>Click on a drawer to view its compartments</p>
 									</>
 								) : (
 									<>
-										<p className="font-medium text-gray-900 mb-1">Select a Compartment</p>
+										<p className="font-medium text-gray-900 mb-1">
+											Select a Compartment
+										</p>
 										<p>Click on a compartment to assign the location</p>
 									</>
 								)}

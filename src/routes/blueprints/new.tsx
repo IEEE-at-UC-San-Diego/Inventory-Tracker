@@ -23,7 +23,7 @@ function NewBlueprintContent() {
 	const { toast } = useToast();
 	const { authContext } = useAuth();
 
-const createBlueprint = useMutation(api.blueprints.mutations.create);
+	const createBlueprint = useMutation(api.blueprints.mutations.create);
 
 	const handleCreateBlueprint = async (name: string) => {
 		if (!authContext) return;
@@ -34,14 +34,14 @@ const createBlueprint = useMutation(api.blueprints.mutations.create);
 				authContext,
 			});
 
-				if (result) {
-					toast.success("Blueprint created successfully");
-					navigate({
-						to: "/blueprints/$blueprintId",
-						params: { blueprintId: result },
-						search: { partId: undefined, mode: undefined },
-					});
-				}
+			if (result) {
+				toast.success("Blueprint created successfully");
+				navigate({
+					to: "/blueprints/$blueprintId",
+					params: { blueprintId: result },
+					search: { partId: undefined, mode: undefined },
+				});
+			}
 		} catch (error) {
 			toast.error("Failed to create blueprint");
 			console.error("Create blueprint error:", error);

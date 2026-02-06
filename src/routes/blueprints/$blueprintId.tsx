@@ -10,8 +10,10 @@ import {
 	History,
 	Lock,
 	PanelRightOpen,
+	Redo2,
 	Save,
 	Trash2,
+	Undo2,
 	Unlock,
 	X,
 } from "lucide-react";
@@ -26,16 +28,13 @@ import {
 import { createPortal } from "react-dom";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import {
+	ActionHistoryPanel,
 	BlueprintCanvas,
 	BlueprintControls,
 	useBlueprintLock,
 	VersionHistoryPanel,
 } from "@/components/blueprint";
 import type { BlueprintTool } from "@/components/blueprint/BlueprintControls";
-import {
-	EditorContextMenu,
-	type ContextMenuState,
-} from "@/components/blueprint/EditorContextMenu";
 import { Button } from "@/components/ui/button";
 import { AlertDialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -55,6 +54,16 @@ import type {
 } from "@/types";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import {
+	type HistoryState,
+	createHistoryState,
+	pushEntry,
+	canUndo,
+	canRedo,
+	moveBackward,
+	moveForward,
+} from "@/lib/history";
+import { useBlueprintHistory } from "@/hooks/useBlueprintHistory";
 
 export const Route = createFileRoute("/blueprints/$blueprintId")({
 	component: BlueprintEditorPage,
@@ -66,6 +75,9 @@ export const Route = createFileRoute("/blueprints/$blueprintId")({
 				: undefined,
 	}),
 });
+
+// Re-export HistoryState for ActionHistoryPanel
+export type { HistoryState } from "@/lib/history";
 
 function FullScreenPortal({ children }: { children: React.ReactNode }) {
 	const [mounted, setMounted] = useState(false);
@@ -128,6 +140,7 @@ function BlueprintEditorContent() {
 		initialMode === "edit" ? "edit" : "view",
 	);
 	const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
+	const [selectedDrawerIds, setSelectedDrawerIds] = useState<string[]>([]);
 	const [highlightedCompartmentIds, setHighlightedCompartmentIds] = useState<
 		string[]
 	>([]);
@@ -140,39 +153,47 @@ function BlueprintEditorContent() {
 	}));
 	const [zoomLevel, setZoomLevel] = useState(100);
 	const [showVersionHistory, setShowVersionHistory] = useState(false);
+	const [showActionHistory, setShowActionHistory] = useState(false);
 	const [isInspectorOpen, setIsInspectorOpen] = useState(false);
-	const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(
-		null,
-	);
 	const [showDeleteDrawerDialog, setShowDeleteDrawerDialog] = useState(false);
 	const [showDeleteCompartmentDialog, setShowDeleteCompartmentDialog] =
 		useState(false);
-	const [pendingDeleteDrawerId, setPendingDeleteDrawerId] = useState<
-		string | null
-	>(null);
+	const [pendingDeleteDrawerIds, setPendingDeleteDrawerIds] = useState<
+		string[]
+	>([]);
 	const [pendingDeleteCompartmentId, setPendingDeleteCompartmentId] = useState<
 		string | null
 	>(null);
+	const [viewport, setViewport] = useState<Viewport>({
+		zoom: 1,
+		x: 0,
+		y: 0,
+	});
 
-	// History (undo/redo) state
-	const [history, setHistory] = useState<
-		Array<{
-			type: string;
-			data: Record<string, unknown>;
-			timestamp: number;
-		}>
-	>([]);
-	const [historyIndex, setHistoryIndex] = useState(-1);
+	// =============================================================================
+	// Mutations (must be defined before historyMutations)
+	// =============================================================================
+	const updateBlueprint = useMutation(api.blueprints.mutations.update);
+	const deleteBlueprint = useMutation(api.blueprints.mutations.deleteBlueprint);
+	const createDrawer = useMutation(api.drawers.mutations.create);
+	const updateDrawer = useMutation(api.drawers.mutations.update);
+	const deleteDrawer = useMutation(api.drawers.mutations.deleteDrawer);
+	const createCompartment = useMutation(api.compartments.mutations.create);
+	const updateCompartment = useMutation(api.compartments.mutations.update);
+	const swapCompartments = useMutation(api.compartments.mutations.swap);
+	const setGridForDrawer = useMutation(
+		api.compartments.mutations.setGridForDrawer,
+	);
+	const deleteCompartment = useMutation(
+		api.compartments.mutations.deleteCompartment,
+	);
+	const createRevision = useMutation(
+		api.blueprint_revisions.mutations.createRevision,
+	);
 
-	// Refs for canvas controls
-	const zoomInRef = useRef<(() => void) | null>(null);
-	const zoomOutRef = useRef<(() => void) | null>(null);
-	const zoomToFitRef = useRef<(() => void) | null>(null);
-	const resetViewRef = useRef<(() => void) | null>(null);
-	const zoomToLocationRef = useRef<
-		((x: number, y: number, w?: number, h?: number) => void) | null
-	>(null);
-
+	// =============================================================================
+	// Data Queries (must be defined before history hook)
+	// =============================================================================
 	// Fetch blueprint with full hierarchy
 	const blueprintData = useQuery(
 		api.blueprints.queries.getWithHierarchy,
@@ -212,21 +233,166 @@ function BlueprintEditorContent() {
 		},
 	);
 
-	// Fetch background image URL if blueprint has one
-	const backgroundImageUrl = useQuery(
-		api.storage.getImageUrl,
-		authContext && blueprintData?.backgroundImageId
-			? { authContext, storageId: blueprintData.backgroundImageId }
-			: undefined,
-		{
-			enabled: !!blueprintData?.backgroundImageId && !!authContext,
-		},
-	);
-
 	// Type assertion for blueprint data
 	const blueprint = blueprintData ?? null;
 
-	// Lock management - MUST be called before any early returns
+	// Track if changes were made during edit session
+	const [hasChanges, setHasChanges] = useState(false);
+
+	const drawers = useMemo<DrawerWithCompartments[]>(() => {
+		return blueprint?.drawers || [];
+	}, [blueprint]);
+
+	// Restore selection from history snapshot (converts logical to physical)
+	const restoreSelection = useCallback(
+		(snapshot: {
+			selectedDrawerIds: string[];
+			selectedCompartmentId: string | null;
+		}) => {
+			// The snapshot contains logical IDs that need to be converted
+			// This is a simplified version that just applies the IDs directly
+			// The hook handles the logical→physical ID mapping internally
+			setSelectedDrawerIds(snapshot.selectedDrawerIds);
+		},
+		[],
+	);
+
+	// Restore viewport from history snapshot
+	const restoreViewport = useCallback(
+		(newViewport: { zoom: number; x: number; y: number }) => {
+			setViewport({
+				zoom: newViewport.zoom,
+				x: newViewport.x,
+				y: newViewport.y,
+			});
+		},
+		[],
+	);
+
+	// =============================================================================
+	// New History System
+	// =============================================================================
+
+	// Build mutation objects for history hook
+	const historyMutations = useMemo(
+		() => ({
+			createDrawer: async (args: {
+				authContext: {
+					orgId: string;
+					userId: string;
+					token: string;
+				};
+				blueprintId: Id<"blueprints">;
+				x: number;
+				y: number;
+				width: number;
+				height: number;
+				rotation?: number;
+				zIndex?: number;
+				gridRows?: number;
+				gridCols?: number;
+				label?: string;
+			}) => {
+				return await createDrawer(args);
+			},
+			updateDrawer: async (args: {
+				authContext: {
+					orgId: string;
+					userId: string;
+					token: string;
+				};
+				drawerId: Id<"drawers">;
+				x?: number;
+				y?: number;
+				width?: number;
+				height?: number;
+				rotation?: number;
+				zIndex?: number;
+				gridRows?: number;
+				gridCols?: number;
+				label?: string;
+			}) => {
+				await updateDrawer(args);
+			},
+			deleteDrawer: async (args: {
+				authContext: {
+					orgId: string;
+					userId: string;
+					token: string;
+				};
+				drawerId: Id<"drawers">;
+			}) => {
+				await deleteDrawer(args);
+			},
+			createCompartment: async (args: {
+				authContext: {
+					orgId: string;
+					userId: string;
+					token: string;
+				};
+				drawerId: Id<"drawers">;
+				x: number;
+				y: number;
+				width: number;
+				height: number;
+				rotation?: number;
+				zIndex?: number;
+				label?: string;
+			}) => {
+				return await createCompartment(args);
+			},
+			updateCompartment: async (args: {
+				authContext: {
+					orgId: string;
+					userId: string;
+					token: string;
+				};
+				compartmentId: Id<"compartments">;
+				drawerId?: Id<"drawers">;
+				x?: number;
+				y?: number;
+				width?: number;
+				height?: number;
+				rotation?: number;
+				zIndex?: number;
+				label?: string;
+			}) => {
+				await updateCompartment(args);
+			},
+			deleteCompartment: async (args: {
+				authContext: {
+					orgId: string;
+					userId: string;
+					token: string;
+				};
+				compartmentId: Id<"compartments">;
+			}) => {
+				await deleteCompartment(args);
+			},
+			updateBlueprint: async (args: {
+				authContext: {
+					orgId: string;
+					userId: string;
+					token: string;
+				};
+				blueprintId: Id<"blueprints">;
+				name?: string;
+			}) => {
+				await updateBlueprint(args);
+			},
+		}),
+		[
+			createDrawer,
+			updateDrawer,
+			deleteDrawer,
+			createCompartment,
+			updateCompartment,
+			deleteCompartment,
+			updateBlueprint,
+		],
+	);
+
+	// Lock management - MUST be called before useBlueprintHistory
 	const {
 		isLocked,
 		isLockedByMe,
@@ -296,30 +462,40 @@ function BlueprintEditorContent() {
 		},
 	});
 
-	// Mutations
-	const updateBlueprint = useMutation(api.blueprints.mutations.update);
-	const deleteBlueprint = useMutation(api.blueprints.mutations.deleteBlueprint);
-	const createDrawer = useMutation(api.drawers.mutations.create);
-	const updateDrawer = useMutation(api.drawers.mutations.update);
-	const deleteDrawer = useMutation(api.drawers.mutations.deleteDrawer);
-	const createCompartment = useMutation(api.compartments.mutations.create);
-	const updateCompartment = useMutation(api.compartments.mutations.update);
-	const swapCompartments = useMutation(api.compartments.mutations.swap);
-	const setGridForDrawer = useMutation(
-		api.compartments.mutations.setGridForDrawer,
-	);
-	const deleteCompartment = useMutation(
-		api.compartments.mutations.deleteCompartment,
-	);
-	const createRevision = useMutation(
-		api.blueprint_revisions.mutations.createRevision,
-	);
-	// Track if changes were made during edit session
-	const [hasChanges, setHasChanges] = useState(false);
+	// New history hook
+	const {
+		historyState,
+		canUndo: canUndoNow,
+		canRedo: canRedoNow,
+		isApplying: isApplyingHistory,
+		pushHistoryEntry,
+		undo: handleUndo,
+		redo: handleRedo,
+	} = useBlueprintHistory({
+		getAuthContext: getRequiredAuthContext,
+		mutations: historyMutations,
+		blueprintId: blueprintId as Id<"blueprints">,
+		blueprintName: blueprint?.name ?? "",
+		drawers,
+		viewport,
+		selection: {
+			selectedElement,
+			selectedDrawerIds,
+		},
+		isLockedByMe,
+		restoreSelection,
+		restoreViewport,
+		onError: (title, message) => toast.error(title, message),
+	});
 
-	const drawers = useMemo<DrawerWithCompartments[]>(() => {
-		return blueprint?.drawers || [];
-	}, [blueprint]);
+	// Refs for canvas controls
+	const zoomInRef = useRef<(() => void) | null>(null);
+	const zoomOutRef = useRef<(() => void) | null>(null);
+	const zoomToFitRef = useRef<(() => void) | null>(null);
+	const resetViewRef = useRef<(() => void) | null>(null);
+	const zoomToLocationRef = useRef<
+		((x: number, y: number, w?: number, h?: number) => void) | null
+	>(null);
 
 	const selectedDrawer = useMemo(() => {
 		if (selectedElement?.type === "drawer") {
@@ -337,24 +513,103 @@ function BlueprintEditorContent() {
 			: null;
 	}, [selectedElement]);
 
+	const applySelection = useCallback(
+		(next: {
+			selectedElement: SelectedElement;
+			selectedDrawerIds: string[];
+		}) => {
+			setSelectedElement(next.selectedElement);
+			setSelectedDrawerIds(next.selectedDrawerIds);
+		},
+		[],
+	);
+
+	const setSelectionSilent = useCallback(
+		(next: {
+			selectedElement: SelectedElement;
+			selectedDrawerIds: string[];
+		}) => {
+			setSelectedElement(next.selectedElement);
+			setSelectedDrawerIds(next.selectedDrawerIds);
+		},
+		[],
+	);
+
+	useEffect(() => {
+		if (!selectedElement && selectedDrawerIds.length === 0) return;
+
+		const drawerById = new Map(drawers.map((d) => [d._id, d]));
+		const nextSelectedDrawerIds = selectedDrawerIds.filter((id) =>
+			drawerById.has(id),
+		);
+
+		let nextSelectedElement: SelectedElement = selectedElement;
+
+		if (selectedElement?.type === "drawer") {
+			const drawer = drawerById.get(selectedElement.id) ?? null;
+			nextSelectedElement = drawer
+				? { type: "drawer", id: drawer._id, data: drawer }
+				: null;
+
+			// Keep multi-select in sync when a single drawer is selected.
+			if (drawer && nextSelectedDrawerIds.length === 0) {
+				nextSelectedDrawerIds.push(drawer._id);
+			}
+		} else if (selectedElement?.type === "compartment") {
+			const drawer = drawerById.get(selectedElement.drawerId) ?? null;
+			const compartment =
+				drawer?.compartments.find((c) => c._id === selectedElement.id) ?? null;
+			nextSelectedElement =
+				drawer && compartment
+					? {
+							type: "compartment",
+							id: compartment._id,
+							data: compartment,
+							drawerId: drawer._id,
+						}
+					: null;
+		}
+
+		const selectionChanged =
+			nextSelectedElement?.type !== selectedElement?.type ||
+			(nextSelectedElement?.type === "drawer" &&
+				selectedElement?.type === "drawer" &&
+				nextSelectedElement.id !== selectedElement.id) ||
+			(nextSelectedElement?.type === "compartment" &&
+				selectedElement?.type === "compartment" &&
+				(nextSelectedElement.id !== selectedElement.id ||
+					nextSelectedElement.drawerId !== selectedElement.drawerId)) ||
+			(nextSelectedElement === null && selectedElement !== null) ||
+			nextSelectedDrawerIds.length !== selectedDrawerIds.length ||
+			nextSelectedDrawerIds.some((id, i) => id !== selectedDrawerIds[i]);
+
+		if (!selectionChanged) return;
+		setSelectionSilent({
+			selectedElement: nextSelectedElement,
+			selectedDrawerIds: nextSelectedDrawerIds,
+		});
+	}, [drawers, selectedDrawerIds, selectedElement, setSelectionSilent]);
+
 	// Local drafts for labels so we don't patch on every keystroke.
 	const [drawerLabelDraft, setDrawerLabelDraft] = useState("");
 	const [compartmentLabelDraft, setCompartmentLabelDraft] = useState("");
 
 	useEffect(() => {
 		setDrawerLabelDraft(selectedDrawer?.label ?? "");
-	}, [selectedDrawer?._id]);
+	}, [selectedDrawer?.label]);
 
 	useEffect(() => {
 		setCompartmentLabelDraft(selectedCompartment?.label ?? "");
-	}, [selectedCompartment?._id]);
+	}, [selectedCompartment?.label]);
 
 	// Canvas tool selection
-	const [tool, setTool] = useState<BlueprintTool>("pan");
+	const [tool, setTool] = useState<BlueprintTool>("select");
 	useEffect(() => {
-		// In view mode, default to pan so click-drag moves around quickly.
-		setTool(isLockedByMe ? "select" : "pan");
-	}, [isLockedByMe]);
+		// Prevent edit-only tools when not holding the lock.
+		if (!isLockedByMe && (tool === "drawer" || tool === "split")) {
+			setTool("select");
+		}
+	}, [isLockedByMe, tool]);
 
 	// Drawer grid UI state (rows/cols)
 	const [gridRows, setGridRows] = useState(1);
@@ -397,6 +652,25 @@ function BlueprintEditorContent() {
 			toast.success("Grid updated");
 		},
 		[getRequiredAuthContext, selectedDrawer, setGridForDrawer, toast],
+	);
+
+	const requestApplyGrid = useCallback(
+		(rows: number, cols: number) => {
+			if (!selectedDrawer) return;
+			const safeRows = Math.max(1, Math.floor(rows));
+			const safeCols = Math.max(1, Math.floor(cols));
+			const newCells = safeRows * safeCols;
+			const existing = selectedDrawer.compartments.length;
+
+			if (newCells < existing) {
+				pendingGridRef.current = { rows: safeRows, cols: safeCols };
+				setShowGridWarning(true);
+				return;
+			}
+
+			void applyGrid(safeRows, safeCols);
+		},
+		[applyGrid, selectedDrawer],
 	);
 
 	// Set initial name value when blueprint loads
@@ -482,11 +756,27 @@ function BlueprintEditorContent() {
 	// Handlers
 	const handleSaveName = async () => {
 		try {
+			if (!blueprint) return;
+			const prevName = blueprint.name;
+			const nextName = nameValue;
 			const context = await getRequiredAuthContext();
 			await updateBlueprint({
 				authContext: context,
 				blueprintId: blueprintId as Id<"blueprints">,
-				name: nameValue,
+				name: nextName,
+			});
+			pushHistoryEntry({
+				label: "Rename blueprint",
+				requiresLock: true,
+				steps: [
+					{
+						type: "updateBlueprintName",
+						blueprintId: blueprintId as string,
+						prevName,
+						nextName,
+					},
+				],
+				timestamp: Date.now(),
 			});
 			toast.success("Blueprint name updated");
 			setIsEditingName(false);
@@ -518,15 +808,58 @@ function BlueprintEditorContent() {
 	const handleCreateDrawer = async (drawerData: Partial<Drawer>) => {
 		try {
 			const context = await getRequiredAuthContext();
-			await createDrawer({
+			const rawX = drawerData.x ?? 100;
+			const rawY = drawerData.y ?? 100;
+			const rawWidth = drawerData.width ?? 150;
+			const rawHeight = drawerData.height ?? 100;
+			const rotation = drawerData.rotation ?? 0;
+			const label = drawerData.label;
+
+			// Snap to grid
+			const x = snapToGrid(rawX);
+			const y = snapToGrid(rawY);
+			const width = Math.max(GRID_SIZE, snapToGrid(rawWidth));
+			const height = Math.max(GRID_SIZE, snapToGrid(rawHeight));
+
+			const overlapsExisting = drawers.some((other) => {
+				const overlapX = Math.abs(x - other.x) < width / 2 + other.width / 2;
+				const overlapY = Math.abs(y - other.y) < height / 2 + other.height / 2;
+				return overlapX && overlapY;
+			});
+			if (overlapsExisting) {
+				toast.error("Cannot create drawer", "New drawers cannot overlap");
+				return;
+			}
+
+			const drawerId = await createDrawer({
 				authContext: context,
 				blueprintId: blueprintId as Id<"blueprints">,
-				x: drawerData.x ?? 100,
-				y: drawerData.y ?? 100,
-				width: drawerData.width ?? 150,
-				height: drawerData.height ?? 100,
-				rotation: drawerData.rotation ?? 0,
-				label: drawerData.label,
+				x,
+				y,
+				width,
+				height,
+				rotation,
+				label,
+			});
+			pushHistoryEntry({
+				label: "Create drawer",
+				requiresLock: true,
+				steps: [
+					{
+						type: "createDrawer",
+						blueprintId: blueprintId as string,
+						args: {
+							x,
+							y,
+							width,
+							height,
+							rotation,
+							label,
+						},
+						drawerId: drawerId as unknown as string,
+					},
+				],
+				timestamp: Date.now(),
 			});
 			toast.success("Drawer created");
 		} catch (error) {
@@ -537,73 +870,125 @@ function BlueprintEditorContent() {
 		}
 	};
 
-	const handleUpdateDrawer = async (
-		drawerId: string,
-		updates: Partial<Drawer>,
-	) => {
-		try {
-			const context = await getRequiredAuthContext();
-			await updateDrawer({
-				authContext: context,
-				drawerId: drawerId as Id<"drawers">,
-				...updates,
-			});
-			setHasChanges(true);
-		} catch (error) {
-			toast.error(
-				"Failed to update drawer",
-				error instanceof Error ? error.message : "An error occurred",
-			);
-		}
-	};
+	const handleDeleteDrawers = useCallback(
+		async (drawerIds: string[]) => {
+			const uniqueDrawerIds = Array.from(new Set(drawerIds));
+			if (uniqueDrawerIds.length === 0) return;
 
-	const handleDeleteDrawer = async (drawerId: string) => {
-		try {
-			const context = await getRequiredAuthContext();
-			await deleteDrawer({
-				authContext: context,
-				drawerId: drawerId as Id<"drawers">,
-			});
-			setSelectedElement(null);
-			toast.success("Drawer deleted");
-		} catch (error) {
-			toast.error(
-				"Failed to delete drawer",
-				error instanceof Error ? error.message : "An error occurred",
-			);
-		}
-	};
+			try {
+				const context = await getRequiredAuthContext();
+				const steps: HistoryStep[] = [];
 
-	const handleUpdateCompartment = async (
-		compartmentId: string,
-		updates: Partial<Compartment>,
-	) => {
-		try {
-			const context = await getRequiredAuthContext();
-			const { drawerId, ...rest } = updates;
-			await updateCompartment({
-				authContext: context,
-				compartmentId: compartmentId as Id<"compartments">,
-				...(drawerId ? { drawerId: drawerId as Id<"drawers"> } : {}),
-				...rest,
-			});
-			setHasChanges(true);
-		} catch (error) {
-			toast.error(
-				"Failed to update compartment",
-				error instanceof Error ? error.message : "An error occurred",
-			);
-		}
-	};
+				for (const drawerId of uniqueDrawerIds) {
+					const snapshot = drawers.find((d) => d._id === drawerId) ?? null;
+					if (!snapshot) continue;
+
+					await deleteDrawer({
+						authContext: context,
+						drawerId: drawerId as Id<"drawers">,
+					});
+					steps.push({
+						type: "deleteDrawer",
+						snapshot,
+						currentDrawerId: drawerId,
+					});
+				}
+
+				if (steps.length === 0) {
+					return;
+				}
+
+				setSelectedElement(null);
+				setSelectedDrawerIds([]);
+				pushHistoryEntry({
+					label:
+						steps.length === 1
+							? "Delete drawer"
+							: `Delete ${steps.length} drawers`,
+					requiresLock: true,
+					steps,
+					timestamp: Date.now(),
+				});
+				setHasChanges(true);
+				toast.success(
+					steps.length === 1
+						? "Drawer deleted"
+						: `${steps.length} drawers deleted`,
+				);
+			} catch (error) {
+				toast.error(
+					"Failed to delete drawer",
+					error instanceof Error ? error.message : "An error occurred",
+				);
+			}
+		},
+		[deleteDrawer, drawers, getRequiredAuthContext, pushHistoryEntry, toast],
+	);
 
 	const handleSwapCompartments = useCallback(
 		async (aCompartmentId: string, bCompartmentId: string) => {
 			try {
+				let a: Compartment | null = null;
+				let b: Compartment | null = null;
+				for (const d of drawers) {
+					a = a ?? d.compartments.find((c) => c._id === aCompartmentId) ?? null;
+					b = b ?? d.compartments.find((c) => c._id === bCompartmentId) ?? null;
+					if (a && b) break;
+				}
+				if (!a || !b) return;
+
 				const context = await getRequiredAuthContext();
 				await swapCompartments({
 					authContext: context,
 					aCompartmentId: aCompartmentId as Id<"compartments">,
 					bCompartmentId: bCompartmentId as Id<"compartments">,
+				});
+				pushHistoryEntry({
+					label: "Swap compartments",
+					requiresLock: true,
+					steps: [
+						{
+							type: "updateCompartment",
+							compartmentId: aCompartmentId,
+							prev: {
+								drawerId: a.drawerId,
+								x: a.x,
+								y: a.y,
+								width: a.width,
+								height: a.height,
+								rotation: a.rotation,
+							},
+							next: {
+								drawerId: b.drawerId,
+								x: b.x,
+								y: b.y,
+								width: b.width,
+								height: b.height,
+								rotation: b.rotation,
+							},
+						},
+						{
+							type: "updateCompartment",
+							compartmentId: bCompartmentId,
+							prev: {
+								drawerId: b.drawerId,
+								x: b.x,
+								y: b.y,
+								width: b.width,
+								height: b.height,
+								rotation: b.rotation,
+							},
+							next: {
+								drawerId: a.drawerId,
+								x: a.x,
+								y: a.y,
+								width: a.width,
+								height: a.height,
+								rotation: a.rotation,
+							},
+						},
+					],
+					timestamp: Date.now(),
 				});
 				setHasChanges(true);
 			} catch (error) {
@@ -613,25 +998,61 @@ function BlueprintEditorContent() {
 				);
 			}
 		},
-		[getRequiredAuthContext, swapCompartments, toast],
+		[
+			drawers,
+			getRequiredAuthContext,
+			pushHistoryEntry,
+			swapCompartments,
+			toast,
+		],
 	);
 
-	const handleDeleteCompartment = async (compartmentId: string) => {
-		try {
-			const context = await getRequiredAuthContext();
-			await deleteCompartment({
-				authContext: context,
-				compartmentId: compartmentId as Id<"compartments">,
-			});
-			setSelectedElement(null);
-			toast.success("Compartment deleted");
-		} catch (error) {
-			toast.error(
-				"Failed to delete compartment",
-				error instanceof Error ? error.message : "An error occurred",
-			);
-		}
-	};
+	const handleDeleteCompartment = useCallback(
+		async (compartmentId: string) => {
+			try {
+				let snapshot: Compartment | null = null;
+				for (const d of drawers) {
+					snapshot =
+						d.compartments.find((c) => c._id === compartmentId) ?? null;
+					if (snapshot) break;
+				}
+				if (!snapshot) return;
+
+				const context = await getRequiredAuthContext();
+				await deleteCompartment({
+					authContext: context,
+					compartmentId: compartmentId as Id<"compartments">,
+				});
+				setSelectedElement(null);
+				setSelectedDrawerIds([]);
+				pushHistoryEntry({
+					label: "Delete compartment",
+					requiresLock: true,
+					steps: [
+						{
+							type: "deleteCompartment",
+							snapshot,
+							currentCompartmentId: compartmentId,
+						},
+					],
+					timestamp: Date.now(),
+				});
+				toast.success("Compartment deleted");
+			} catch (error) {
+				toast.error(
+					"Failed to delete compartment",
+					error instanceof Error ? error.message : "An error occurred",
+				);
+			}
+		},
+		[
+			deleteCompartment,
+			drawers,
+			getRequiredAuthContext,
+			pushHistoryEntry,
+			toast,
+		],
+	);
 
 	const handleViewportChange = useCallback((viewport: Viewport) => {
 		setZoomLevel(Math.round(viewport.zoom * 100));
@@ -748,16 +1169,39 @@ function BlueprintEditorContent() {
 					const rightCenterX = position + rightW / 2;
 
 					const context = await getRequiredAuthContext();
-					await createCompartment({
-						authContext: context,
-						drawerId: drawer._id as Id<"drawers">,
-						x: leftCenterX,
-						y: target.y,
-						width: leftW,
-						height: target.height,
-						rotation: 0,
-					});
-					await createCompartment({
+					const steps: HistoryStep[] = [];
+
+					// Preserve existing compartment by updating it to be the left side
+					if (target._id && targetCompartment) {
+						// Update existing compartment to be the left portion
+						await updateCompartment({
+							authContext: context,
+							compartmentId: target._id as Id<"compartments">,
+							x: leftCenterX,
+							y: target.y,
+							width: leftW,
+							height: target.height,
+						});
+						steps.push({
+							type: "updateCompartment",
+							compartmentId: target._id,
+							prev: {
+								x: targetCompartment.x,
+								y: targetCompartment.y,
+								width: targetCompartment.width,
+								height: targetCompartment.height,
+							},
+							next: {
+								x: leftCenterX,
+								y: target.y,
+								width: leftW,
+								height: target.height,
+							},
+						});
+					}
+
+					// Create only one new compartment for the right side
+					const rightId = await createCompartment({
 						authContext: context,
 						drawerId: drawer._id as Id<"drawers">,
 						x: rightCenterX,
@@ -766,11 +1210,51 @@ function BlueprintEditorContent() {
 						height: target.height,
 						rotation: 0,
 					});
+					steps.push({
+						type: "createCompartment",
+						compartmentId: rightId as unknown as string,
+						args: {
+							drawerId: drawer._id,
+							x: rightCenterX,
+							y: target.y,
+							width: rightW,
+							height: target.height,
+							rotation: 0,
+						},
+					});
 
-					if (target._id) {
-						await deleteCompartment({
+					// If splitting an empty drawer (no target._id), also create the left compartment
+					if (!target._id) {
+						const leftId = await createCompartment({
 							authContext: context,
-							compartmentId: target._id as Id<"compartments">,
+							drawerId: drawer._id as Id<"drawers">,
+							x: leftCenterX,
+							y: target.y,
+							width: leftW,
+							height: target.height,
+							rotation: 0,
+						});
+						// Insert the left compartment step before the right compartment step
+						steps.splice(steps.length - 1, 0, {
+							type: "createCompartment",
+							compartmentId: leftId as unknown as string,
+							args: {
+								drawerId: drawer._id,
+								x: leftCenterX,
+								y: target.y,
+								width: leftW,
+								height: target.height,
+								rotation: 0,
+							},
+						});
+					}
+
+					if (steps.length > 0) {
+						pushHistoryEntry({
+							label: "Split compartment",
+							requiresLock: true,
+							steps,
+							timestamp: Date.now(),
 						});
 					}
 				} else {
@@ -787,16 +1271,40 @@ function BlueprintEditorContent() {
 					const bottomCenterY = position + bottomH / 2;
 
 					const context = await getRequiredAuthContext();
-					await createCompartment({
-						authContext: context,
-						drawerId: drawer._id as Id<"drawers">,
-						x: target.x,
-						y: topCenterY,
-						width: target.width,
-						height: topH,
-						rotation: 0,
-					});
-					await createCompartment({
+					const steps: HistoryStep[] = [];
+
+					// Preserve existing compartment by updating it to be the top side
+					if (target._id && targetCompartment) {
+						// Update existing compartment to be the top portion
+						await updateCompartment({
+							authContext: context,
+							compartmentId: target._id as Id<"compartments">,
+							x: target.x,
+							y: topCenterY,
+							width: target.width,
+							height: topH,
+							rotation: 0,
+						});
+						steps.push({
+							type: "updateCompartment",
+							compartmentId: target._id,
+							prev: {
+								x: targetCompartment.x,
+								y: targetCompartment.y,
+								width: targetCompartment.width,
+								height: targetCompartment.height,
+							},
+							next: {
+								x: target.x,
+								y: topCenterY,
+								width: target.width,
+								height: topH,
+							},
+						});
+					}
+
+					// Create only one new compartment for the bottom side
+					const bottomId = await createCompartment({
 						authContext: context,
 						drawerId: drawer._id as Id<"drawers">,
 						x: target.x,
@@ -805,11 +1313,51 @@ function BlueprintEditorContent() {
 						height: bottomH,
 						rotation: 0,
 					});
+					steps.push({
+						type: "createCompartment",
+						compartmentId: bottomId as unknown as string,
+						args: {
+							drawerId: drawer._id,
+							x: target.x,
+							y: bottomCenterY,
+							width: target.width,
+							height: bottomH,
+							rotation: 0,
+						},
+					});
 
-					if (target._id) {
-						await deleteCompartment({
+					// If splitting an empty drawer (no target._id), also create the top compartment
+					if (!target._id) {
+						const topId = await createCompartment({
 							authContext: context,
-							compartmentId: target._id as Id<"compartments">,
+							drawerId: drawer._id as Id<"drawers">,
+							x: target.x,
+							y: topCenterY,
+							width: target.width,
+							height: topH,
+							rotation: 0,
+						});
+						// Insert the top compartment step before the bottom compartment step
+						steps.splice(steps.length - 1, 0, {
+							type: "createCompartment",
+							compartmentId: topId as unknown as string,
+							args: {
+								drawerId: drawer._id,
+								x: target.x,
+								y: topCenterY,
+								width: target.width,
+								height: topH,
+								rotation: 0,
+							},
+						});
+					}
+
+					if (steps.length > 0) {
+						pushHistoryEntry({
+							label: "Split compartment",
+							requiresLock: true,
+							steps,
+							timestamp: Date.now(),
 						});
 					}
 				}
@@ -826,11 +1374,12 @@ function BlueprintEditorContent() {
 		[
 			compartmentsWithInventory,
 			createCompartment,
-			deleteCompartment,
 			drawers,
 			getRequiredAuthContext,
 			isLockedByMe,
+			pushHistoryEntry,
 			toast,
+			updateCompartment,
 		],
 	);
 
@@ -860,202 +1409,146 @@ function BlueprintEditorContent() {
 		});
 	}, [blueprintId, navigate]);
 
-	// --- History (undo/redo) support ---
-	const pushHistory = useCallback(
-		(type: string, data: Record<string, unknown>) => {
-			setHistory((prev) => {
-				const truncated = prev.slice(0, historyIndex + 1);
-				const entry = { type, data, timestamp: Date.now() };
-				return [...truncated, entry];
-			});
-			setHistoryIndex((prev) => prev + 1);
-		},
-		[historyIndex],
-	);
-
-	const canUndo = historyIndex >= 0;
-	const canRedo = historyIndex < history.length - 1;
-
-	const handleUndo = useCallback(async () => {
-		if (!canUndo || !isLockedByMe) return;
-		const entry = history[historyIndex];
-		if (!entry) return;
-		try {
-			const context = await getRequiredAuthContext();
-			if (entry.type === "updateDrawer" && entry.data.prev) {
-				const prev = entry.data.prev as Partial<Drawer> & { _id: string };
-				await updateDrawer({
-					authContext: context,
-					drawerId: prev._id as Id<"drawers">,
-					...prev,
-				});
-			} else if (entry.type === "updateCompartment" && entry.data.prev) {
-				const prev = entry.data.prev as Partial<Compartment> & {
-					_id: string;
-				};
-				const { _id, drawerId, ...rest } = prev;
-				await updateCompartment({
-					authContext: context,
-					compartmentId: _id as Id<"compartments">,
-					...(drawerId ? { drawerId: drawerId as Id<"drawers"> } : {}),
-					...rest,
-				});
-			}
-			setHistoryIndex((prev) => prev - 1);
-		} catch (error) {
-			toast.error("Undo failed");
-		}
-	}, [
-		canUndo,
-		history,
-		historyIndex,
-		isLockedByMe,
-		getRequiredAuthContext,
-		updateDrawer,
-		updateCompartment,
-		toast,
-	]);
-
-	const handleRedo = useCallback(async () => {
-		if (!canRedo || !isLockedByMe) return;
-		const entry = history[historyIndex + 1];
-		if (!entry) return;
-		try {
-			const context = await getRequiredAuthContext();
-			if (entry.type === "updateDrawer" && entry.data.next) {
-				const next = entry.data.next as Partial<Drawer> & { _id: string };
-				await updateDrawer({
-					authContext: context,
-					drawerId: next._id as Id<"drawers">,
-					...next,
-				});
-			} else if (entry.type === "updateCompartment" && entry.data.next) {
-				const next = entry.data.next as Partial<Compartment> & {
-					_id: string;
-				};
-				const { _id, drawerId, ...rest } = next;
-				await updateCompartment({
-					authContext: context,
-					compartmentId: _id as Id<"compartments">,
-					...(drawerId ? { drawerId: drawerId as Id<"drawers"> } : {}),
-					...rest,
-				});
-			}
-			setHistoryIndex((prev) => prev + 1);
-		} catch (error) {
-			toast.error("Redo failed");
-		}
-	}, [
-		canRedo,
-		history,
-		historyIndex,
-		isLockedByMe,
-		getRequiredAuthContext,
-		updateDrawer,
-		updateCompartment,
-		toast,
-	]);
-
-	// --- Collision detection for drawers ---
-	const checkDrawerCollision = useCallback(
-		(
-			movingDrawerId: string,
-			newX: number,
-			newY: number,
-			newWidth?: number,
-			newHeight?: number,
-		): boolean => {
-			const moving = drawers.find((d) => d._id === movingDrawerId);
-			if (!moving) return false;
-			const w = newWidth ?? moving.width;
-			const h = newHeight ?? moving.height;
-			const halfW = w / 2;
-			const halfH = h / 2;
-
-			for (const other of drawers) {
-				if (other._id === movingDrawerId) continue;
-				const oHalfW = other.width / 2;
-				const oHalfH = other.height / 2;
-
-				// AABB overlap check
-				const overlapX =
-					Math.abs(newX - other.x) < halfW + oHalfW;
-				const overlapY =
-					Math.abs(newY - other.y) < halfH + oHalfH;
-
-				if (overlapX && overlapY) return true;
-			}
-			return false;
-		},
-		[drawers],
-	);
-
 	// --- Wrapped update handlers with history + collision ---
 	const handleUpdateDrawerWithHistory = useCallback(
 		async (drawerId: string, updates: Partial<Drawer>) => {
 			const drawer = drawers.find((d) => d._id === drawerId);
 			if (!drawer) return;
 
-			// Collision detection for position/size changes
-			if (updates.x !== undefined || updates.y !== undefined || updates.width !== undefined || updates.height !== undefined) {
-				const newX = updates.x ?? drawer.x;
-				const newY = updates.y ?? drawer.y;
-				const newW = updates.width ?? drawer.width;
-				const newH = updates.height ?? drawer.height;
-				if (checkDrawerCollision(drawerId, newX, newY, newW, newH)) {
-					toast.error("Cannot move drawer: overlaps with another drawer");
-					return;
-				}
-			}
+			// Collision detection is now handled in BlueprintCanvas with visual feedback
+			// No need for toast errors here
 
-			// Push to history
-			pushHistory("updateDrawer", {
-				prev: { _id: drawerId, x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, label: drawer.label },
-				next: { _id: drawerId, ...updates },
-			});
+			const prev: Partial<Drawer> = {};
+			const next: Partial<Drawer> = {};
+			for (const [key, value] of Object.entries(updates) as Array<
+				[keyof Drawer, Drawer[keyof Drawer]]
+			>) {
+				if (value === undefined) continue;
+				prev[key] = drawer[key] as never;
+				next[key] = value as never;
+			}
 
 			// If drawer size changed, proportionally scale compartments inside
 			const newW = updates.width ?? drawer.width;
 			const newH = updates.height ?? drawer.height;
-			if (newW !== drawer.width || newH !== drawer.height) {
-				const scaleX = newW / drawer.width;
-				const scaleY = newH / drawer.height;
-				for (const comp of drawer.compartments) {
-					const scaledW = Math.max(GRID_SIZE, snapToGrid(comp.width * scaleX));
-					const scaledH = Math.max(GRID_SIZE, snapToGrid(comp.height * scaleY));
-					const scaledX = comp.x * scaleX;
-					const scaledY = comp.y * scaleY;
-					// Snap the compartment center so its edges align to grid
-					const absCenterX = (updates.x ?? drawer.x) + scaledX;
-					const absCenterY = (updates.y ?? drawer.y) + scaledY;
-					const snappedAbsX = snapCenterToGridEdges(absCenterX, scaledW);
-					const snappedAbsY = snapCenterToGridEdges(absCenterY, scaledH);
-					const finalRelX = snappedAbsX - (updates.x ?? drawer.x);
-					const finalRelY = snappedAbsY - (updates.y ?? drawer.y);
-					// Clamp within new drawer bounds
-					const halfW = newW / 2;
-					const halfH = newH / 2;
-					const halfCW = scaledW / 2;
-					const halfCH = scaledH / 2;
-					const clampedX = Math.max(-halfW + halfCW, Math.min(halfW - halfCW, finalRelX));
-					const clampedY = Math.max(-halfH + halfCH, Math.min(halfH - halfCH, finalRelY));
-					await handleUpdateCompartment(comp._id, {
-						x: clampedX,
-						y: clampedY,
-						width: scaledW,
-						height: scaledH,
+			const willScaleCompartments =
+				newW !== drawer.width || newH !== drawer.height;
+
+			try {
+				const context = await getRequiredAuthContext();
+
+				const steps: HistoryStep[] = [];
+				if (Object.keys(next).length > 0) {
+					await updateDrawer({
+						authContext: context,
+						drawerId: drawerId as Id<"drawers">,
+						...next,
+					});
+					steps.push({
+						type: "updateDrawer",
+						drawerId,
+						prev,
+						next,
 					});
 				}
-			}
 
-			await handleUpdateDrawer(drawerId, updates);
+				if (willScaleCompartments) {
+					const scaleX = newW / drawer.width;
+					const scaleY = newH / drawer.height;
+					for (const comp of drawer.compartments) {
+						const scaledW = Math.max(
+							GRID_SIZE,
+							snapToGrid(comp.width * scaleX),
+						);
+						const scaledH = Math.max(
+							GRID_SIZE,
+							snapToGrid(comp.height * scaleY),
+						);
+						const scaledX = comp.x * scaleX;
+						const scaledY = comp.y * scaleY;
+
+						const absCenterX = (updates.x ?? drawer.x) + scaledX;
+						const absCenterY = (updates.y ?? drawer.y) + scaledY;
+						const snappedAbsX = snapCenterToGridEdges(absCenterX, scaledW);
+						const snappedAbsY = snapCenterToGridEdges(absCenterY, scaledH);
+						const finalRelX = snappedAbsX - (updates.x ?? drawer.x);
+						const finalRelY = snappedAbsY - (updates.y ?? drawer.y);
+
+						const halfW = newW / 2;
+						const halfH = newH / 2;
+						const halfCW = scaledW / 2;
+						const halfCH = scaledH / 2;
+						const clampedX = Math.max(
+							-halfW + halfCW,
+							Math.min(halfW - halfCW, finalRelX),
+						);
+						const clampedY = Math.max(
+							-halfH + halfCH,
+							Math.min(halfH - halfCH, finalRelY),
+						);
+
+						const compPrev: Partial<Compartment> = {
+							x: comp.x,
+							y: comp.y,
+							width: comp.width,
+							height: comp.height,
+						};
+						const compNext: Partial<Compartment> = {
+							x: clampedX,
+							y: clampedY,
+							width: scaledW,
+							height: scaledH,
+						};
+
+						await updateCompartment({
+							authContext: context,
+							compartmentId: comp._id as Id<"compartments">,
+							x: compNext.x,
+							y: compNext.y,
+							width: compNext.width,
+							height: compNext.height,
+						});
+
+						steps.push({
+							type: "updateCompartment",
+							compartmentId: comp._id,
+							prev: compPrev,
+							next: compNext,
+						});
+					}
+				}
+
+				if (steps.length > 0) {
+					pushHistoryEntry({
+						label: "Update drawer",
+						requiresLock: true,
+						steps,
+						timestamp: Date.now(),
+					});
+				}
+
+				setHasChanges(true);
+			} catch (error) {
+				toast.error(
+					"Failed to update drawer",
+					error instanceof Error ? error.message : "An error occurred",
+				);
+			}
 		},
-		[drawers, checkDrawerCollision, pushHistory, handleUpdateDrawer, handleUpdateCompartment, snapToGrid, snapCenterToGridEdges, toast],
+		[
+			drawers,
+			getRequiredAuthContext,
+			pushHistoryEntry,
+			snapCenterToGridEdges,
+			snapToGrid,
+			toast,
+			updateCompartment,
+			updateDrawer,
+		],
 	);
 
 	const handleUpdateCompartmentWithHistory = useCallback(
 		async (compartmentId: string, updates: Partial<Compartment>) => {
-			// Find the compartment in drawers
 			let foundComp: Compartment | null = null;
 			let foundDrawerId: string | null = null;
 			for (const d of drawers) {
@@ -1066,101 +1559,143 @@ function BlueprintEditorContent() {
 					break;
 				}
 			}
-			if (foundComp && foundDrawerId) {
-				pushHistory("updateCompartment", {
-					prev: { _id: compartmentId, drawerId: foundDrawerId, x: foundComp.x, y: foundComp.y, width: foundComp.width, height: foundComp.height },
-					next: { _id: compartmentId, ...updates },
-				});
+
+			if (!foundComp || !foundDrawerId) return;
+
+			const prev: Partial<Compartment> & { drawerId?: string } = {};
+			const next: Partial<Compartment> & { drawerId?: string } = {};
+
+			for (const [key, value] of Object.entries(updates) as Array<
+				[keyof Compartment, Compartment[keyof Compartment]]
+			>) {
+				if (value === undefined) continue;
+				prev[key] = foundComp[key] as never;
+				next[key] = value as never;
 			}
 
-			await handleUpdateCompartment(compartmentId, updates);
+			try {
+				const context = await getRequiredAuthContext();
+				const { drawerId, ...rest } = next;
+				await updateCompartment({
+					authContext: context,
+					compartmentId: compartmentId as Id<"compartments">,
+					...(drawerId ? { drawerId: drawerId as Id<"drawers"> } : {}),
+					...rest,
+				});
+
+				pushHistoryEntry({
+					label: "Update compartment",
+					requiresLock: true,
+					steps: [
+						{
+							type: "updateCompartment",
+							compartmentId,
+							prev,
+							next,
+						},
+					],
+					timestamp: Date.now(),
+				});
+
+				setHasChanges(true);
+			} catch (error) {
+				toast.error(
+					"Failed to update compartment",
+					error instanceof Error ? error.message : "An error occurred",
+				);
+			}
 		},
-		[drawers, pushHistory, handleUpdateCompartment],
+		[
+			drawers,
+			getRequiredAuthContext,
+			pushHistoryEntry,
+			toast,
+			updateCompartment,
+		],
 	);
 
-	// --- Context menu handlers ---
-	const handleContextMenu = useCallback(
-		(info: {
-			screenX: number;
-			screenY: number;
-			worldX: number;
-			worldY: number;
-			drawer: DrawerWithCompartments | null;
-		}) => {
-			setContextMenu({
-				x: info.screenX,
-				y: info.screenY,
-				worldX: info.worldX,
-				worldY: info.worldY,
-				drawer: info.drawer,
-			});
-		},
-		[],
-	);
+	const handleUpdateDrawersBulkWithHistory = useCallback(
+		async (updates: Array<{ drawerId: string; x: number; y: number }>) => {
+			if (updates.length === 0) return;
 
-	const handleContextMenuClose = useCallback(() => {
-		setContextMenu(null);
-	}, []);
+			const nextById = new Map(
+				updates.map((u) => [u.drawerId, { x: u.x, y: u.y }]),
+			);
 
-	const handleContextMenuMoveDrawer = useCallback(
-		(drawer: Drawer) => {
-			setSelectedElement({ type: "drawer", id: drawer._id, data: drawer });
-			setIsInspectorOpen(true);
-			setTool("select");
-		},
-		[],
-	);
+			// Bulk collision detection (treat all moves as a single operation).
+			for (let i = 0; i < drawers.length; i++) {
+				const a = drawers[i];
+				const ax = nextById.get(a._id)?.x ?? a.x;
+				const ay = nextById.get(a._id)?.y ?? a.y;
+				const aHalfW = a.width / 2;
+				const aHalfH = a.height / 2;
 
-	const handleContextMenuRenameDrawer = useCallback(
-		(drawer: Drawer) => {
-			setSelectedElement({ type: "drawer", id: drawer._id, data: drawer });
-			setIsInspectorOpen(true);
-			setDrawerLabelDraft(drawer.label ?? "");
-		},
-		[],
-	);
+				for (let j = i + 1; j < drawers.length; j++) {
+					const b = drawers[j];
+					const bx = nextById.get(b._id)?.x ?? b.x;
+					const by = nextById.get(b._id)?.y ?? b.y;
+					const bHalfW = b.width / 2;
+					const bHalfH = b.height / 2;
 
-	const handleContextMenuResizeDrawer = useCallback(
-		(drawer: Drawer) => {
-			setSelectedElement({ type: "drawer", id: drawer._id, data: drawer });
-			setIsInspectorOpen(true);
-			setTool("select");
-		},
-		[],
-	);
+					const overlapX = Math.abs(ax - bx) < aHalfW + bHalfW;
+					const overlapY = Math.abs(ay - by) < aHalfH + bHalfH;
+					if (overlapX && overlapY) {
+						// Collision detected - return without saving (silently reject the move)
+						return;
+					}
+				}
+			}
 
-	const handleContextMenuDeleteDrawer = useCallback(
-		(drawer: Drawer) => {
-			setPendingDeleteDrawerId(drawer._id);
-			setShowDeleteDrawerDialog(true);
-		},
-		[],
-	);
+			try {
+				const context = await getRequiredAuthContext();
+				const steps: HistoryStep[] = [];
 
-	const handleContextMenuAddDrawer = useCallback(
-		async (worldX: number, worldY: number) => {
-			const GRID_SIZE = 50;
-			const snappedX =
-				Math.round((worldX - 75) / GRID_SIZE) * GRID_SIZE + 75;
-			const snappedY =
-				Math.round((worldY - 50) / GRID_SIZE) * GRID_SIZE + 50;
-			await handleCreateDrawer({
-				x: snappedX,
-				y: snappedY,
-				width: 150,
-				height: 100,
-			});
+				for (const update of updates) {
+					const drawer = drawers.find((d) => d._id === update.drawerId);
+					if (!drawer) continue;
+
+					await updateDrawer({
+						authContext: context,
+						drawerId: update.drawerId as Id<"drawers">,
+						x: update.x,
+						y: update.y,
+					});
+
+					steps.push({
+						type: "updateDrawer",
+						drawerId: update.drawerId,
+						prev: { x: drawer.x, y: drawer.y },
+						next: { x: update.x, y: update.y },
+					});
+				}
+
+				if (steps.length > 0) {
+					pushHistoryEntry({
+						label: "Move drawers",
+						requiresLock: true,
+						steps,
+						timestamp: Date.now(),
+					});
+				}
+
+				setHasChanges(true);
+			} catch (error) {
+				toast.error(
+					"Failed to move drawers",
+					error instanceof Error ? error.message : "An error occurred",
+				);
+			}
 		},
-		[handleCreateDrawer],
+		[drawers, getRequiredAuthContext, pushHistoryEntry, toast, updateDrawer],
 	);
 
 	// --- Delete confirmation handlers ---
 	const confirmDeleteDrawer = useCallback(async () => {
-		if (!pendingDeleteDrawerId) return;
-		await handleDeleteDrawer(pendingDeleteDrawerId);
-		setPendingDeleteDrawerId(null);
+		if (pendingDeleteDrawerIds.length === 0) return;
+		await handleDeleteDrawers(pendingDeleteDrawerIds);
+		setPendingDeleteDrawerIds([]);
 		setShowDeleteDrawerDialog(false);
-	}, [pendingDeleteDrawerId, handleDeleteDrawer]);
+	}, [pendingDeleteDrawerIds, handleDeleteDrawers]);
 
 	const confirmDeleteCompartment = useCallback(async () => {
 		if (!pendingDeleteCompartmentId) return;
@@ -1181,18 +1716,20 @@ function BlueprintEditorContent() {
 				tag === "select" ||
 				(target?.isContentEditable ?? false);
 
-			// Delete selected element (with confirmation)
+			// Delete selected element(s) (with confirmation)
 			if (
 				!isTypingTarget &&
 				(e.key === "Delete" || e.key === "Backspace") &&
-				selectedElement &&
 				isLockedByMe
 			) {
 				e.preventDefault();
-				if (selectedElement.type === "drawer") {
-					setPendingDeleteDrawerId(selectedElement.id);
+				if (selectedDrawerIds.length > 1) {
+					setPendingDeleteDrawerIds(selectedDrawerIds);
 					setShowDeleteDrawerDialog(true);
-				} else if (selectedElement.type === "compartment") {
+				} else if (selectedElement?.type === "drawer") {
+					setPendingDeleteDrawerIds([selectedElement.id]);
+					setShowDeleteDrawerDialog(true);
+				} else if (selectedElement?.type === "compartment") {
 					setPendingDeleteCompartmentId(selectedElement.id);
 					setShowDeleteCompartmentDialog(true);
 				}
@@ -1203,8 +1740,7 @@ function BlueprintEditorContent() {
 				!isTypingTarget &&
 				(e.ctrlKey || e.metaKey) &&
 				e.key === "z" &&
-				!e.shiftKey &&
-				isLockedByMe
+				!e.shiftKey
 			) {
 				e.preventDefault();
 				await handleUndo();
@@ -1215,8 +1751,17 @@ function BlueprintEditorContent() {
 				!isTypingTarget &&
 				(e.ctrlKey || e.metaKey) &&
 				e.key === "z" &&
-				e.shiftKey &&
-				isLockedByMe
+				e.shiftKey
+			) {
+				e.preventDefault();
+				await handleRedo();
+			}
+
+			// Ctrl/Cmd + Y to redo
+			if (
+				!isTypingTarget &&
+				(e.ctrlKey || e.metaKey) &&
+				(e.key === "y" || e.key === "Y")
 			) {
 				e.preventDefault();
 				await handleRedo();
@@ -1232,6 +1777,7 @@ function BlueprintEditorContent() {
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [
+		selectedDrawerIds,
 		selectedElement,
 		isLockedByMe,
 		handleUndo,
@@ -1259,6 +1805,7 @@ function BlueprintEditorContent() {
 						The blueprint you're looking for doesn't exist or has been deleted.
 					</p>
 					<button
+						type="button"
 						onClick={() => navigate({ to: "/blueprints" })}
 						className="mt-4 inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-700"
 					>
@@ -1270,29 +1817,24 @@ function BlueprintEditorContent() {
 		);
 	}
 
-	const handleSnapNumber = (value: number) => {
-		const GRID_SIZE = 50;
-		return Math.round(value / GRID_SIZE) * GRID_SIZE;
-	};
-
 	return (
 		<div className="fixed inset-0 overflow-hidden bg-white">
-			<div id="canvas-container" className="absolute inset-0">
+			<div className="absolute inset-0">
 				<BlueprintCanvas
 					width={canvasSize.width}
 					height={canvasSize.height}
-					backgroundImageUrl={backgroundImageUrl}
 					drawers={drawers}
 					selectedElement={selectedElement}
+					selectedDrawerIds={selectedDrawerIds}
 					mode={mode}
 					tool={tool}
 					isLocked={isLocked}
 					isLockedByMe={isLockedByMe}
-					onSelectElement={setSelectedElement}
+					onSelectionChange={applySelection}
 					onCreateDrawerFromTool={(drawer) => handleCreateDrawer(drawer)}
 					onSplitDrawerFromTool={handleSplitDrawer}
 					onSwapCompartments={handleSwapCompartments}
-					onUpdateDrawer={handleUpdateDrawerWithHistory}
+					onUpdateDrawers={handleUpdateDrawersBulkWithHistory}
 					onUpdateCompartment={handleUpdateCompartmentWithHistory}
 					onViewportChange={handleViewportChange}
 					zoomInRef={zoomInRef}
@@ -1302,7 +1844,6 @@ function BlueprintEditorContent() {
 					zoomToLocationRef={zoomToLocationRef}
 					compartmentsWithInventory={compartmentsWithInventory}
 					highlightedCompartmentIds={highlightedCompartmentIds}
-					onContextMenu={handleContextMenu}
 				/>
 
 				<BlueprintControls
@@ -1374,9 +1915,56 @@ function BlueprintEditorContent() {
 
 						<div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white/95 backdrop-blur-sm shadow-lg px-3 py-2">
 							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => void handleUndo()}
+								disabled={!canUndoNow}
+								title="Undo (Ctrl/Cmd+Z)"
+							>
+								<Undo2 className="w-4 h-4" />
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => void handleRedo()}
+								disabled={!canRedoNow}
+								title="Redo (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z)"
+							>
+								<Redo2 className="w-4 h-4" />
+							</Button>
+							{isLockedByMe &&
+								(selectedDrawerIds.length > 1 || selectedElement) && (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => {
+											if (selectedDrawerIds.length > 1) {
+												setPendingDeleteDrawerIds(selectedDrawerIds);
+												setShowDeleteDrawerDialog(true);
+												return;
+											}
+											if (selectedElement?.type === "drawer") {
+												setPendingDeleteDrawerIds([selectedElement.id]);
+												setShowDeleteDrawerDialog(true);
+												return;
+											}
+											if (selectedElement?.type === "compartment") {
+												setPendingDeleteCompartmentId(selectedElement.id);
+												setShowDeleteCompartmentDialog(true);
+											}
+										}}
+										className="text-red-700 hover:text-red-800"
+									>
+										<Trash2 className="w-4 h-4 mr-2" />
+										{selectedDrawerIds.length > 1
+											? `Delete ${selectedDrawerIds.length}`
+											: "Delete Selected"}
+									</Button>
+								)}
+							<Button
 								variant="outline"
 								size="sm"
-								onClick={() => setShowVersionHistory(true)}
+								onClick={() => setShowActionHistory(true)}
 							>
 								<History className="w-4 h-4 mr-2" />
 								History
@@ -1426,6 +2014,23 @@ function BlueprintEditorContent() {
 						</Button>
 					</div>
 				)}
+				{selectedDrawerIds.length > 1 && (
+					<div className="absolute top-32 right-4 z-20">
+						<Button
+							variant="destructive"
+							size="sm"
+							className="shadow-lg"
+							onClick={() => {
+								setPendingDeleteDrawerIds(selectedDrawerIds);
+								setShowDeleteDrawerDialog(true);
+							}}
+							disabled={!isLockedByMe}
+						>
+							<Trash2 className="mr-2 h-4 w-4" />
+							Delete Selected ({selectedDrawerIds.length})
+						</Button>
+					</div>
+				)}
 				{(selectedDrawer || selectedCompartment) && isInspectorOpen && (
 					<div className="absolute top-20 right-4 z-20 w-85 max-h-[70vh] overflow-auto rounded-xl border border-gray-200 bg-white/95 backdrop-blur-sm shadow-lg p-3">
 						<div className="flex items-center justify-between gap-2 mb-2">
@@ -1454,7 +2059,7 @@ function BlueprintEditorContent() {
 											onKeyDown={(e) => {
 												if (e.key !== "Enter") return;
 												e.preventDefault();
-												handleUpdateDrawer(selectedDrawer._id, {
+												void handleUpdateDrawerWithHistory(selectedDrawer._id, {
 													label: drawerLabelDraft.trim() || undefined,
 												});
 											}}
@@ -1465,7 +2070,7 @@ function BlueprintEditorContent() {
 											size="sm"
 											variant="outline"
 											onClick={() =>
-												handleUpdateDrawer(selectedDrawer._id, {
+												void handleUpdateDrawerWithHistory(selectedDrawer._id, {
 													label: drawerLabelDraft.trim() || undefined,
 												})
 											}
@@ -1476,84 +2081,8 @@ function BlueprintEditorContent() {
 									</div>
 								</div>
 
-								<div className="grid grid-cols-2 gap-2">
-									<div className="space-y-1">
-										<Label>X</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedDrawer.x)}
-											onChange={(e) =>
-												handleUpdateDrawer(selectedDrawer._id, {
-													x: snapCenterToGridEdges(
-														Number(e.target.value),
-														selectedDrawer.width,
-													),
-												})
-											}
-											disabled={!isLockedByMe || tool !== "select"}
-										/>
-									</div>
-									<div className="space-y-1">
-										<Label>Y</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedDrawer.y)}
-											onChange={(e) =>
-												handleUpdateDrawer(selectedDrawer._id, {
-													y: snapCenterToGridEdges(
-														Number(e.target.value),
-														selectedDrawer.height,
-													),
-												})
-											}
-											disabled={!isLockedByMe || tool !== "select"}
-										/>
-									</div>
-									<div className="space-y-1">
-										<Label>Width</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedDrawer.width)}
-											onChange={(e) => {
-												const nextWidth = Math.max(
-													GRID_SIZE,
-													handleSnapNumber(Number(e.target.value)),
-												);
-												handleUpdateDrawer(selectedDrawer._id, {
-													width: nextWidth,
-													x: snapCenterToGridEdges(selectedDrawer.x, nextWidth),
-												});
-											}}
-											disabled={!isLockedByMe || tool !== "select"}
-											min={50}
-										/>
-									</div>
-									<div className="space-y-1">
-										<Label>Height</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedDrawer.height)}
-											onChange={(e) => {
-												const nextHeight = Math.max(
-													GRID_SIZE,
-													handleSnapNumber(Number(e.target.value)),
-												);
-												handleUpdateDrawer(selectedDrawer._id, {
-													height: nextHeight,
-													y: snapCenterToGridEdges(
-														selectedDrawer.y,
-														nextHeight,
-													),
-												});
-											}}
-											disabled={!isLockedByMe || tool !== "select"}
-											min={50}
-										/>
-									</div>
-								</div>
-
-								<div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-									<div className="text-xs font-medium text-amber-900">
+								<div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+									<div className="text-xs font-medium text-gray-900">
 										Grid Layout (Rows x Columns)
 									</div>
 									<div className="mt-2 grid grid-cols-2 gap-2">
@@ -1578,28 +2107,57 @@ function BlueprintEditorContent() {
 											/>
 										</div>
 									</div>
+									<div className="mt-2 grid grid-cols-2 gap-2">
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												requestApplyGrid(gridRows + 1, gridCols);
+											}}
+											disabled={!isLockedByMe}
+										>
+											Add Row
+										</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												requestApplyGrid(gridRows, gridCols + 1);
+											}}
+											disabled={!isLockedByMe}
+										>
+											Add Column
+										</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												requestApplyGrid(gridRows - 1, gridCols);
+											}}
+											disabled={!isLockedByMe || gridRows <= 1}
+										>
+											Remove Row
+										</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												requestApplyGrid(gridRows, gridCols - 1);
+											}}
+											disabled={!isLockedByMe || gridCols <= 1}
+										>
+											Remove Column
+										</Button>
+									</div>
 									<div className="mt-2 flex items-center justify-between gap-2">
-										<div className="text-xs text-amber-800">
-											Reducing rows/cols may delete compartments (and any empty
-											data in them).
+										<div className="text-xs text-gray-600">
+											Reducing rows/cols may delete compartments.
 										</div>
 										<Button
 											size="sm"
 											variant="outline"
 											onClick={() => {
-												if (!selectedDrawer) return;
-												const rows = Math.max(1, Math.floor(gridRows));
-												const cols = Math.max(1, Math.floor(gridCols));
-												const newCells = rows * cols;
-												const existing = selectedDrawer.compartments.length;
-
-												if (newCells < existing) {
-													pendingGridRef.current = { rows, cols };
-													setShowGridWarning(true);
-													return;
-												}
-
-												applyGrid(rows, cols);
+												requestApplyGrid(gridRows, gridCols);
 											}}
 											disabled={!isLockedByMe}
 										>
@@ -1613,7 +2171,7 @@ function BlueprintEditorContent() {
 										variant="destructive"
 										className="flex-1"
 										onClick={() => {
-											setPendingDeleteDrawerId(selectedDrawer._id);
+											setPendingDeleteDrawerIds([selectedDrawer._id]);
 											setShowDeleteDrawerDialog(true);
 										}}
 										disabled={!isLockedByMe}
@@ -1639,9 +2197,12 @@ function BlueprintEditorContent() {
 											onKeyDown={(e) => {
 												if (e.key !== "Enter") return;
 												e.preventDefault();
-												handleUpdateCompartment(selectedCompartment._id, {
-													label: compartmentLabelDraft.trim() || undefined,
-												});
+												void handleUpdateCompartmentWithHistory(
+													selectedCompartment._id,
+													{
+														label: compartmentLabelDraft.trim() || undefined,
+													},
+												);
 											}}
 											disabled={!isLockedByMe || tool !== "select"}
 											placeholder="Compartment name"
@@ -1650,107 +2211,17 @@ function BlueprintEditorContent() {
 											size="sm"
 											variant="outline"
 											onClick={() =>
-												handleUpdateCompartment(selectedCompartment._id, {
-													label: compartmentLabelDraft.trim() || undefined,
-												})
+												void handleUpdateCompartmentWithHistory(
+													selectedCompartment._id,
+													{
+														label: compartmentLabelDraft.trim() || undefined,
+													},
+												)
 											}
 											disabled={!isLockedByMe || tool !== "select"}
 										>
 											Save
 										</Button>
-									</div>
-								</div>
-
-								<div className="grid grid-cols-2 gap-2">
-									<div className="space-y-1">
-										<Label>Rel X</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedCompartment.x)}
-											onChange={(e) => {
-												const desiredRelX = Number(e.target.value);
-												const desiredAbsCenterX =
-													selectedDrawer.x + desiredRelX;
-												const snappedAbsCenterX = snapCenterToGridEdges(
-													desiredAbsCenterX,
-													selectedCompartment.width,
-												);
-												handleUpdateCompartment(selectedCompartment._id, {
-													x: snappedAbsCenterX - selectedDrawer.x,
-												});
-											}}
-											disabled={!isLockedByMe || tool !== "select"}
-										/>
-									</div>
-									<div className="space-y-1">
-										<Label>Rel Y</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedCompartment.y)}
-											onChange={(e) => {
-												const desiredRelY = Number(e.target.value);
-												const desiredAbsCenterY =
-													selectedDrawer.y + desiredRelY;
-												const snappedAbsCenterY = snapCenterToGridEdges(
-													desiredAbsCenterY,
-													selectedCompartment.height,
-												);
-												handleUpdateCompartment(selectedCompartment._id, {
-													y: snappedAbsCenterY - selectedDrawer.y,
-												});
-											}}
-											disabled={!isLockedByMe || tool !== "select"}
-										/>
-									</div>
-									<div className="space-y-1">
-										<Label>Width</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedCompartment.width)}
-											onChange={(e) => {
-												const nextWidth = Math.max(
-													GRID_SIZE,
-													handleSnapNumber(Number(e.target.value)),
-												);
-												const absCenterX =
-													selectedDrawer.x + selectedCompartment.x;
-												const snappedAbsCenterX = snapCenterToGridEdges(
-													absCenterX,
-													nextWidth,
-												);
-												handleUpdateCompartment(selectedCompartment._id, {
-													width: nextWidth,
-													x: snappedAbsCenterX - selectedDrawer.x,
-												});
-											}}
-											disabled={!isLockedByMe || tool !== "select"}
-											min={50}
-										/>
-									</div>
-									<div className="space-y-1">
-										<Label>Height</Label>
-										<Input
-											type="number"
-											value={Math.round(selectedCompartment.height)}
-											onChange={(e) => {
-												const nextHeight = Math.max(
-													GRID_SIZE,
-													handleSnapNumber(Number(e.target.value)),
-												);
-												const absCenterY =
-													selectedDrawer.y + selectedCompartment.y;
-												const snappedAbsCenterY = snapCenterToGridEdges(
-													absCenterY,
-													nextHeight,
-												);
-												handleUpdateCompartment(selectedCompartment._id, {
-													height: nextHeight,
-													y: snappedAbsCenterY - selectedDrawer.y,
-												});
-											}}
-											disabled={!isLockedByMe || tool !== "select"}
-											min={50}
-										/>
 									</div>
 								</div>
 
@@ -1790,6 +2261,7 @@ function BlueprintEditorContent() {
 									</span>
 								</div>
 								<button
+									type="button"
 									onClick={handleClearHighlight}
 									className="ml-2 p-1 hover:bg-green-100 rounded text-green-600"
 									title="Clear highlight"
@@ -1834,9 +2306,20 @@ function BlueprintEditorContent() {
 			{/* Delete Drawer confirmation */}
 			<AlertDialog
 				open={showDeleteDrawerDialog}
-				onOpenChange={setShowDeleteDrawerDialog}
-				title="Delete Drawer"
-				description="Are you sure you want to delete this drawer? All compartments inside it will also be deleted."
+				onOpenChange={(open) => {
+					setShowDeleteDrawerDialog(open);
+					if (!open) {
+						setPendingDeleteDrawerIds([]);
+					}
+				}}
+				title={
+					pendingDeleteDrawerIds.length > 1 ? "Delete Drawers" : "Delete Drawer"
+				}
+				description={
+					pendingDeleteDrawerIds.length > 1
+						? `Are you sure you want to delete ${pendingDeleteDrawerIds.length} drawers? All compartments inside them will also be deleted.`
+						: "Are you sure you want to delete this drawer? All compartments inside it will also be deleted."
+				}
 				confirmLabel="Delete"
 				cancelLabel="Cancel"
 				onConfirm={confirmDeleteDrawer}
@@ -1855,22 +2338,6 @@ function BlueprintEditorContent() {
 				variant="destructive"
 			/>
 
-			{/* Context menu overlay */}
-			<EditorContextMenu
-				state={contextMenu}
-				isLockedByMe={isLockedByMe}
-				onClose={handleContextMenuClose}
-				onMoveDrawer={handleContextMenuMoveDrawer}
-				onRenameDrawer={handleContextMenuRenameDrawer}
-				onResizeDrawer={handleContextMenuResizeDrawer}
-				onDeleteDrawer={handleContextMenuDeleteDrawer}
-				onAddDrawerHere={handleContextMenuAddDrawer}
-				onUndo={handleUndo}
-				onRedo={handleRedo}
-				canUndo={canUndo}
-				canRedo={canRedo}
-			/>
-
 			{/* Version History Panel */}
 			{showVersionHistory && (
 				<Sheet open={showVersionHistory} onOpenChange={setShowVersionHistory}>
@@ -1878,6 +2345,27 @@ function BlueprintEditorContent() {
 						<VersionHistoryPanel
 							blueprintId={blueprintId as Id<"blueprints">}
 							onClose={() => setShowVersionHistory(false)}
+						/>
+					</SheetContent>
+				</Sheet>
+			)}
+
+			{/* Action History Panel */}
+			{showActionHistory && (
+				<Sheet open={showActionHistory} onOpenChange={setShowActionHistory}>
+					<SheetContent
+						side="right"
+						className="w-96 overflow-y-auto"
+						showCloseButton={false}
+					>
+						<ActionHistoryPanel
+							historyState={historyState}
+							onUndo={handleUndo}
+							onRedo={handleRedo}
+							onClose={() => setShowActionHistory(false)}
+							canUndo={canUndoNow}
+							canRedo={canRedoNow}
+							isApplying={isApplyingHistory}
 						/>
 					</SheetContent>
 				</Sheet>

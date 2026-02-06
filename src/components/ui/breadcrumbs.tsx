@@ -20,7 +20,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
 				{/* Home link */}
 				<li>
 					<Link
-						to="/dashboard"
+						to="/home"
 						className="flex items-center gap-1 hover:text-cyan-600 transition-colors"
 					>
 						<Home className="w-4 h-4" />

@@ -90,7 +90,10 @@ function AdminUsersContent() {
 	const usersResult = useQuery(
 		api.organizations.queries.getOrgMembers,
 		authContext
-			? { authContext, organizationId: authContext.orgId as Id<"organizations"> }
+			? {
+					authContext,
+					organizationId: authContext.orgId as Id<"organizations">,
+				}
 			: undefined,
 		{
 			enabled: !!authContext && !isLoading,
@@ -144,10 +147,9 @@ function AdminUsersContent() {
 		const fetchCurrentUser = async () => {
 			try {
 				if (!authContext) return;
-				const result = await convex.query(
-					api.auth_helpers.getMyProfile,
-					{ authContext },
-				);
+				const result = await convex.query(api.auth_helpers.getMyProfile, {
+					authContext,
+				});
 				setCurrentUser(result?.user || null);
 			} catch (error) {
 				console.error("Failed to fetch current user:", error);
@@ -223,17 +225,17 @@ function AdminUsersContent() {
 	}, [inviteForm, toast, handleInviteMutation]);
 
 	const handleRoleChange = useCallback(
-			async (userId: string, newRole: UserRole) => {
-				try {
-					const context = (await getFreshAuthContext()) || authContext;
-					if (!context) {
-						throw new Error("Not authenticated");
-					}
-					await convex.mutation(api.organization_helpers.updateUserRole, {
-						authContext: context,
-						userId: userId as Id<"users">,
-						newRole,
-					});
+		async (userId: string, newRole: UserRole) => {
+			try {
+				const context = (await getFreshAuthContext()) || authContext;
+				if (!context) {
+					throw new Error("Not authenticated");
+				}
+				await convex.mutation(api.organization_helpers.updateUserRole, {
+					authContext: context,
+					userId: userId as Id<"users">,
+					newRole,
+				});
 				toast.success(
 					"Role updated",
 					`User role has been changed to ${newRole}`,
@@ -402,9 +404,9 @@ function AdminUsersContent() {
 					<CardContent className="p-4">
 						<div className="flex items-center justify-between">
 							<div>
-									<p className="text-sm font-medium text-gray-600">
-										Administrators
-									</p>
+								<p className="text-sm font-medium text-gray-600">
+									Administrators
+								</p>
 								<p className="text-2xl font-bold text-gray-900 mt-1">
 									{roleCounts.Administrator}
 								</p>
@@ -419,9 +421,9 @@ function AdminUsersContent() {
 					<CardContent className="p-4">
 						<div className="flex items-center justify-between">
 							<div>
-									<p className="text-sm font-medium text-gray-600">
-										Executive Officers
-									</p>
+								<p className="text-sm font-medium text-gray-600">
+									Executive Officers
+								</p>
 								<p className="text-2xl font-bold text-gray-900 mt-1">
 									{roleCounts["Executive Officers"]}
 								</p>
@@ -436,9 +438,9 @@ function AdminUsersContent() {
 					<CardContent className="p-4">
 						<div className="flex items-center justify-between">
 							<div>
-									<p className="text-sm font-medium text-gray-600">
-										General Officers
-									</p>
+								<p className="text-sm font-medium text-gray-600">
+									General Officers
+								</p>
 								<p className="text-2xl font-bold text-gray-900 mt-1">
 									{roleCounts["General Officers"]}
 								</p>
@@ -453,7 +455,7 @@ function AdminUsersContent() {
 					<CardContent className="p-4">
 						<div className="flex items-center justify-between">
 							<div>
-									<p className="text-sm font-medium text-gray-600">Members</p>
+								<p className="text-sm font-medium text-gray-600">Members</p>
 								<p className="text-2xl font-bold text-gray-900 mt-1">
 									{roleCounts.Member}
 								</p>
@@ -664,49 +666,47 @@ function AdminUsersContent() {
 										<SelectTrigger>
 											<SelectValue />
 										</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="Administrator">
-													<div className="flex items-center gap-2">
-														<ShieldAlert className="w-4 h-4" />
-														<div>
-															<p className="font-medium">Administrator</p>
-															<p className="text-xs text-gray-500">
-																Full access
-															</p>
-														</div>
+										<SelectContent>
+											<SelectItem value="Administrator">
+												<div className="flex items-center gap-2">
+													<ShieldAlert className="w-4 h-4" />
+													<div>
+														<p className="font-medium">Administrator</p>
+														<p className="text-xs text-gray-500">Full access</p>
 													</div>
-												</SelectItem>
-												<SelectItem value="Executive Officers">
-													<div className="flex items-center gap-2">
-														<Edit className="w-4 h-4" />
-														<div>
-															<p className="font-medium">Executive Officers</p>
-															<p className="text-xs text-gray-500">
-																Can edit inventory
-															</p>
-														</div>
+												</div>
+											</SelectItem>
+											<SelectItem value="Executive Officers">
+												<div className="flex items-center gap-2">
+													<Edit className="w-4 h-4" />
+													<div>
+														<p className="font-medium">Executive Officers</p>
+														<p className="text-xs text-gray-500">
+															Can edit inventory
+														</p>
 													</div>
-												</SelectItem>
-												<SelectItem value="General Officers">
-													<div className="flex items-center gap-2">
-														<Edit2 className="w-4 h-4" />
-														<div>
-															<p className="font-medium">General Officers</p>
-															<p className="text-xs text-gray-500">
-																Check in/out items
-															</p>
-														</div>
+												</div>
+											</SelectItem>
+											<SelectItem value="General Officers">
+												<div className="flex items-center gap-2">
+													<Edit2 className="w-4 h-4" />
+													<div>
+														<p className="font-medium">General Officers</p>
+														<p className="text-xs text-gray-500">
+															Check in/out items
+														</p>
 													</div>
-												</SelectItem>
-												<SelectItem value="Member">
-													<div className="flex items-center gap-2">
-														<Users className="w-4 h-4" />
-														<div>
-															<p className="font-medium">Member</p>
-															<p className="text-xs text-gray-500">
-																Read-only access
-															</p>
-														</div>
+												</div>
+											</SelectItem>
+											<SelectItem value="Member">
+												<div className="flex items-center gap-2">
+													<Users className="w-4 h-4" />
+													<div>
+														<p className="font-medium">Member</p>
+														<p className="text-xs text-gray-500">
+															Read-only access
+														</p>
+													</div>
 												</div>
 											</SelectItem>
 										</SelectContent>

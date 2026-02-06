@@ -139,7 +139,8 @@ export const update = mutation({
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
-      throw new Error('Drawer not found')
+      // Treat delete as idempotent to make undo/redo and repeated deletes reliable.
+      return true
     }
 
     // Verify user holds the lock on this blueprint

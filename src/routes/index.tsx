@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
 	Route as RouteIcon,
 	Server,
@@ -8,7 +8,12 @@ import {
 	Zap,
 } from "lucide-react";
 
-export const Route = createFileRoute("/")({ component: App });
+export const Route = createFileRoute("/")({
+	beforeLoad: () => {
+		throw redirect({ to: "/home" });
+	},
+	component: App,
+});
 
 function App() {
 	const features = [

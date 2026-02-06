@@ -123,31 +123,23 @@ export const EditorContextMenu = memo(function EditorContextMenu({
 					<ContextMenuItem
 						icon={<Move className="w-3.5 h-3.5" />}
 						label="Move"
-						onClick={() =>
-							handleAction(() => onMoveDrawer?.(drawer))
-						}
+						onClick={() => handleAction(() => onMoveDrawer?.(drawer))}
 					/>
 					<ContextMenuItem
 						icon={<PenLine className="w-3.5 h-3.5" />}
 						label="Rename"
-						onClick={() =>
-							handleAction(() => onRenameDrawer?.(drawer))
-						}
+						onClick={() => handleAction(() => onRenameDrawer?.(drawer))}
 					/>
 					<ContextMenuItem
 						icon={<Maximize2 className="w-3.5 h-3.5" />}
 						label="Resize"
-						onClick={() =>
-							handleAction(() => onResizeDrawer?.(drawer))
-						}
+						onClick={() => handleAction(() => onResizeDrawer?.(drawer))}
 					/>
 					<div className="h-px bg-gray-100 my-1" />
 					<ContextMenuItem
 						icon={<Trash2 className="w-3.5 h-3.5" />}
 						label="Delete Drawer"
-						onClick={() =>
-							handleAction(() => onDeleteDrawer?.(drawer))
-						}
+						onClick={() => handleAction(() => onDeleteDrawer?.(drawer))}
 						variant="destructive"
 					/>
 					<div className="h-px bg-gray-100 my-1" />
@@ -160,9 +152,7 @@ export const EditorContextMenu = memo(function EditorContextMenu({
 						icon={<Plus className="w-3.5 h-3.5" />}
 						label="Add Drawer Here"
 						onClick={() =>
-							handleAction(() =>
-								onAddDrawerHere?.(state.worldX, state.worldY),
-							)
+							handleAction(() => onAddDrawerHere?.(state.worldX, state.worldY))
 						}
 					/>
 					<div className="h-px bg-gray-100 my-1" />

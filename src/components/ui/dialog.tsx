@@ -32,11 +32,18 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
 
 interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
 	children: React.ReactNode;
+	title?: string;
 }
 
-function DialogContent({ className, children, ...props }: DialogContentProps) {
+function DialogContent({
+	className,
+	children,
+	title,
+	...props
+}: DialogContentProps) {
 	return (
 		<div className={cn("relative", className)} {...props}>
+			{title && <h2 className="sr-only">{title}</h2>}
 			{children}
 		</div>
 	);
@@ -109,13 +116,14 @@ interface DialogCloseProps {
 function DialogClose({ onClose, className }: DialogCloseProps) {
 	return (
 		<button
+			type="button"
 			onClick={onClose}
 			className={cn(
-				"absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
+				"absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
 				className,
 			)}
 		>
-			<X className="h-4 w-4" />
+			<X className="h-4 w-4 text-gray-600 hover:text-gray-900" />
 			<span className="sr-only">Close</span>
 		</button>
 	);
@@ -145,18 +153,26 @@ function AlertDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogClose onClose={() => onOpenChange(false)} />
-				<DialogHeader>
-					<DialogTitle>{title}</DialogTitle>
-					<DialogDescription>{description}</DialogDescription>
+				<DialogHeader className="pr-10">
+					<DialogTitle
+						className={variant === "destructive" ? "text-red-900" : ""}
+					>
+						{title}
+					</DialogTitle>
+					<DialogDescription className="text-gray-700">
+						{description}
+					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter className="mt-4">
 					<button
+						type="button"
 						onClick={() => onOpenChange(false)}
 						className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
 					>
 						{cancelLabel}
 					</button>
 					<button
+						type="button"
 						onClick={() => {
 							onConfirm();
 							onOpenChange(false);
@@ -164,7 +180,7 @@ function AlertDialog({
 						className={cn(
 							"inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2",
 							variant === "destructive"
-								? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+								? "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500"
 								: "bg-primary text-primary-foreground hover:bg-primary/90",
 						)}
 					>

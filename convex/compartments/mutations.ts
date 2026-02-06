@@ -166,7 +166,9 @@ export const deleteCompartment = mutation({
 
     const compartment = await ctx.db.get(args.compartmentId)
     if (!compartment) {
-      throw new Error('Compartment not found')
+      // Treat delete as idempotent. If the compartment is already gone (e.g. after
+      // undo/redo or concurrent edits), return success.
+      return true
     }
 
     const drawer = await ctx.db.get(compartment.drawerId)
@@ -325,14 +327,10 @@ export const setGridForDrawer = mutation({
       .withIndex('by_drawerId', (q) => q.eq('drawerId', args.drawerId))
       .collect()
 
-    const prevRows = drawer.gridRows ? Math.max(1, Math.floor(drawer.gridRows)) : null
-    const prevCols = drawer.gridCols ? Math.max(1, Math.floor(drawer.gridCols)) : null
-    // Calculate cell size from previous grid, or from current drawer size divided by requested grid
-    const prevCellW = prevRows && prevCols ? drawer.width / prevCols : Math.max(50, drawer.width / cols)
-    const prevCellH = prevRows && prevCols ? drawer.height / prevRows : Math.max(50, drawer.height / rows)
-    // Ensure drawer never shrinks below its current size when adding rows/cols
-    const nextDrawerWidth = Math.max(drawer.width, prevCellW * cols)
-    const nextDrawerHeight = Math.max(drawer.height, prevCellH * rows)
+    // Keep drawer dimensions stable when changing rows/columns.
+    // Grid operations should repartition existing space instead of resizing the whole drawer.
+    const nextDrawerWidth = drawer.width
+    const nextDrawerHeight = drawer.height
     const cellW = nextDrawerWidth / cols
     const cellH = nextDrawerHeight / rows
 
@@ -454,8 +452,6 @@ export const setGridForDrawer = mutation({
     }
 
     await ctx.db.patch(args.drawerId, {
-      width: nextDrawerWidth,
-      height: nextDrawerHeight,
       rotation: 0,
       gridRows: rows,
       gridCols: cols,

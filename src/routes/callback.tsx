@@ -147,7 +147,7 @@ function CallbackPage() {
 
 						// Redirect to the original destination or dashboard
 						const redirectTo =
-							(search as { redirect?: string }).redirect || "/dashboard";
+							(search as { redirect?: string }).redirect || "/home";
 						await waitForAuthProviderHydration();
 						navigate({ to: redirectTo });
 					} else {

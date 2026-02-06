@@ -182,7 +182,7 @@ function BlueprintsContent() {
 												<div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
 													<span className="flex items-center gap-1">
 														<Settings className="w-3 h-3" />
-															{blueprint.drawerCount ?? 0} drawers
+														{blueprint.drawerCount ?? 0} drawers
 													</span>
 													<span className="flex items-center gap-1">
 														<Edit className="w-3 h-3" />

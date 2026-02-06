@@ -34,8 +34,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
 	const navItems: NavItem[] = [
 		{
-			to: "/dashboard",
-			label: "Dashboard",
+			to: "/home",
+			label: "Home",
 			icon: <Home size={20} />,
 			requiredRole: "Member",
 		},

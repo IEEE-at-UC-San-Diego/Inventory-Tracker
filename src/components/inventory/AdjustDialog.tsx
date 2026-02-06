@@ -61,9 +61,13 @@ export function AdjustDialog({
 
 	// Get current inventory item
 	const currentInventory = inventoryId
-		? availableInventory?.find((item: { _id: string; compartmentId: string }) => item._id === inventoryId)
+		? availableInventory?.find(
+				(item: { _id: string; compartmentId: string }) =>
+					item._id === inventoryId,
+			)
 		: availableInventory?.find(
-				(item: { compartmentId: string }) => item.compartmentId === selectedCompartmentId,
+				(item: { compartmentId: string }) =>
+					item.compartmentId === selectedCompartmentId,
 			);
 
 	const currentQuantity = currentInventory?.quantity ?? 0;

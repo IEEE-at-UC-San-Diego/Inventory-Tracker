@@ -82,7 +82,10 @@ function TransactionsContent() {
 	const orgUsers = useQuery(
 		api.organizations.queries.getOrgMembers,
 		authContext
-			? { authContext, organizationId: authContext.orgId as Id<"organizations"> }
+			? {
+					authContext,
+					organizationId: authContext.orgId as Id<"organizations">,
+				}
 			: undefined,
 		{
 			enabled: !!authContext && !isLoading,

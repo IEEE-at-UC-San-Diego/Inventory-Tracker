@@ -98,7 +98,8 @@ export function CheckInDialog({
 			setIsSubmitting(true);
 
 			try {
-				const context = (await getFreshAuthContext()) ?? authContext ?? undefined;
+				const context =
+					(await getFreshAuthContext()) ?? authContext ?? undefined;
 				await (checkIn as any).mutateAsync({
 					authContext: context,
 					partId: selectedPartId as Id<"parts">,

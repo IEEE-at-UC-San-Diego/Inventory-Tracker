@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as R404RouteImport } from './routes/404'
 import { Route as IndexRouteImport } from './routes/index'
@@ -39,9 +39,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CallbackRoute = CallbackRouteImport.update({
@@ -129,7 +129,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/callback': typeof CallbackRoute
-  '/dashboard': typeof DashboardRoute
+  '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/api/verify-token': typeof ApiVerifyTokenRoute
@@ -150,7 +150,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/callback': typeof CallbackRoute
-  '/dashboard': typeof DashboardRoute
+  '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/api/verify-token': typeof ApiVerifyTokenRoute
@@ -172,7 +172,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/callback': typeof CallbackRoute
-  '/dashboard': typeof DashboardRoute
+  '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/api/verify-token': typeof ApiVerifyTokenRoute
@@ -195,7 +195,7 @@ export interface FileRouteTypes {
     | '/'
     | '/404'
     | '/callback'
-    | '/dashboard'
+    | '/home'
     | '/login'
     | '/logout'
     | '/api/verify-token'
@@ -216,7 +216,7 @@ export interface FileRouteTypes {
     | '/'
     | '/404'
     | '/callback'
-    | '/dashboard'
+    | '/home'
     | '/login'
     | '/logout'
     | '/api/verify-token'
@@ -237,7 +237,7 @@ export interface FileRouteTypes {
     | '/'
     | '/404'
     | '/callback'
-    | '/dashboard'
+    | '/home'
     | '/login'
     | '/logout'
     | '/api/verify-token'
@@ -259,7 +259,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   R404Route: typeof R404Route
   CallbackRoute: typeof CallbackRoute
-  DashboardRoute: typeof DashboardRoute
+  HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
   ApiVerifyTokenRoute: typeof ApiVerifyTokenRoute
@@ -293,11 +293,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/callback': {
@@ -419,7 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   R404Route: R404Route,
   CallbackRoute: CallbackRoute,
-  DashboardRoute: DashboardRoute,
+  HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
   ApiVerifyTokenRoute: ApiVerifyTokenRoute,

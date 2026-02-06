@@ -348,7 +348,10 @@ function SettingsContent() {
 						<CardContent className="space-y-3">
 							{statsResult ? (
 								<>
-									<StatItem label="Total Parts" value={statsResult.totalParts} />
+									<StatItem
+										label="Total Parts"
+										value={statsResult.totalParts}
+									/>
 									<StatItem
 										label="Blueprints"
 										value={statsResult.totalBlueprints}

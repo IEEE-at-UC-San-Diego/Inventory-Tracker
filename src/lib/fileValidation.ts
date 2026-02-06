@@ -22,4 +22,3 @@ export function sanitizeFileName(fileName: string): string {
 		.replace(/[^a-zA-Z0-9.-]/g, "_")
 		.substring(0, 100);
 }
-

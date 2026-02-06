@@ -219,8 +219,8 @@ function PartsContent() {
 
 	const handleArchive = useCallback(
 		async (partId: string, archived: boolean) => {
-				try {
-					const context = await getRequiredAuthContext();
+			try {
+				const context = await getRequiredAuthContext();
 				if (archived) {
 					await unarchivePart({
 						authContext: context,
@@ -241,8 +241,8 @@ function PartsContent() {
 				);
 			}
 		},
-			[archivePart, unarchivePart, toast, getRequiredAuthContext],
-		);
+		[archivePart, unarchivePart, toast, getRequiredAuthContext],
+	);
 
 	// Delete mutation
 	const deletePartMutation = useMutation(api.parts.mutations.remove);
@@ -251,8 +251,8 @@ function PartsContent() {
 		if (!deletePart) return;
 
 		setIsDeleting(true);
-			try {
-				const context = await getRequiredAuthContext();
+		try {
+			const context = await getRequiredAuthContext();
 			await deletePartMutation({
 				authContext: context,
 				partId: deletePart._id as Id<"parts">,
@@ -267,7 +267,7 @@ function PartsContent() {
 		} finally {
 			setIsDeleting(false);
 		}
-		}, [deletePart, deletePartMutation, toast, getRequiredAuthContext]);
+	}, [deletePart, deletePartMutation, toast, getRequiredAuthContext]);
 
 	// Export parts to CSV
 	const handleExportParts = useCallback(() => {

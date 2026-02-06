@@ -386,10 +386,10 @@ function PartDetailContent() {
 									Recent Activity
 								</CardTitle>
 							</CardHeader>
-								<CardContent>
-									{transactions && transactions.length > 0 ? (
-										<div className="space-y-2">
-											{transactions.map((transaction) => (
+							<CardContent>
+								{transactions && transactions.length > 0 ? (
+									<div className="space-y-2">
+										{transactions.map((transaction) => (
 											<div
 												key={transaction._id}
 												className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
@@ -452,12 +452,12 @@ function PartDetailContent() {
 											.map(
 												(blueprint) =>
 													blueprint && (
-															<Link
-																key={blueprint._id}
-																to="/blueprints/$blueprintId"
-																params={{ blueprintId: blueprint._id }}
-																search={{ partId, mode: undefined }}
-															>
+														<Link
+															key={blueprint._id}
+															to="/blueprints/$blueprintId"
+															params={{ blueprintId: blueprint._id }}
+															search={{ partId, mode: undefined }}
+														>
 															<Button variant="outline" size="sm">
 																<Grid3X3 className="w-4 h-4 mr-2" />
 																{blueprint.name}

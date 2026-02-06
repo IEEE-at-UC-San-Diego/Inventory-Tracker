@@ -31,7 +31,7 @@ function NotFoundPage() {
 					{/* Action buttons */}
 					<div className="flex flex-col sm:flex-row gap-3 justify-center">
 						<Link
-							to="/dashboard"
+							to="/home"
 							className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
 						>
 							<Home className="w-4 h-4" />

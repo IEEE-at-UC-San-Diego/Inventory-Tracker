@@ -1,3 +1,4 @@
+export { ActionHistoryPanel } from "./ActionHistoryPanel";
 export { BlueprintCanvas } from "./BlueprintCanvas";
 export { BlueprintCard } from "./BlueprintCard";
 export { BlueprintControls } from "./BlueprintControls";

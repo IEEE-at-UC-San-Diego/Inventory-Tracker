@@ -388,13 +388,13 @@ function InventoryContent() {
 					</CardHeader>
 					<CardContent>
 						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-								{lowStockItems.slice(0, 6).map((item) => (
-									<Link
-										key={item._id}
-										to="/parts/$partId"
-										params={{ partId: item.partId }}
-										className="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-200 hover:border-yellow-300 transition-colors"
-									>
+							{lowStockItems.slice(0, 6).map((item) => (
+								<Link
+									key={item._id}
+									to="/parts/$partId"
+									params={{ partId: item.partId }}
+									className="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-200 hover:border-yellow-300 transition-colors"
+								>
 									<span className="font-medium text-sm">{item.part?.name}</span>
 									<span className="text-red-600 font-medium">
 										{item.quantity} units
@@ -508,11 +508,11 @@ function InventoryContent() {
 												{transaction.actionType}
 											</span>{" "}
 											{Math.abs(transaction.quantityDelta)} units of{" "}
-												<Link
-													to="/parts/$partId"
-													params={{ partId: transaction.partId }}
-													className="text-cyan-600 hover:underline"
-												>
+											<Link
+												to="/parts/$partId"
+												params={{ partId: transaction.partId }}
+												className="text-cyan-600 hover:underline"
+											>
 												{transaction.part?.name || "Unknown Part"}
 											</Link>
 										</p>
