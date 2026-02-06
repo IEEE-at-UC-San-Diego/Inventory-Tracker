@@ -416,6 +416,7 @@ function LocationPickerContent() {
 															isLocked={false}
 															isLockedByMe={true}
 															mode="view"
+															viewport={viewport}
 															highlighted={false}
 															onSelect={() => handleSelectDrawer(drawer)}
 															onDragEnd={() => {}}
@@ -439,6 +440,7 @@ function LocationPickerContent() {
 															}
 															isLockedByMe={true}
 															mode="view"
+															viewport={viewport}
 															highlighted={false}
 															inventoryCount={0}
 															onSelect={() =>

@@ -29,8 +29,8 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
-import { useQuery } from "@/integrations/convex/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@/integrations/convex/react-query";
 import type { Compartment, Drawer } from "@/types";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -75,6 +75,9 @@ export function CompartmentDetailsPanel({
 		(sum, item) => sum + item.quantity,
 		0,
 	);
+	const compartmentDisplayLabel =
+		compartment.label || `Compartment ${compartment._id.slice(-4)}`;
+	const drawerDisplayLabel = drawer.label || `Drawer ${drawer._id.slice(-4)}`;
 
 	// Handle check in
 	const handleCheckIn = useCallback(() => {
@@ -113,53 +116,56 @@ export function CompartmentDetailsPanel({
 			<Sheet open={open} onOpenChange={onOpenChange}>
 				<SheetContent
 					side="right"
-					className="w-[400px] sm:w-[500px] flex flex-col"
+					className="w-[360px] sm:w-[420px] flex flex-col"
 				>
 					<SheetHeader>
-						<SheetTitle className="flex items-center gap-2">
+						<SheetTitle className="flex items-center justify-between gap-2">
 							<Package className="w-5 h-5 text-blue-600" />
-							Compartment Details
+							<span className="truncate">{compartmentDisplayLabel}</span>
+							<Badge
+								variant={totalInCompartment > 0 ? "default" : "secondary"}
+								className="flex-shrink-0"
+							>
+								{totalInCompartment}{" "}
+								{totalInCompartment === 1 ? "unit" : "units"}
+							</Badge>
 						</SheetTitle>
-						<SheetDescription>
-							Showing parts and inventory in this compartment
+						<SheetDescription className="truncate">
+							{drawerDisplayLabel}
 						</SheetDescription>
 					</SheetHeader>
 
-					<div className="flex-1 overflow-y-auto space-y-4 mt-6">
+					<div className="flex-1 overflow-y-auto space-y-3 mt-4">
 						{/* Compartment Info Card */}
-						<Card className="p-4">
-							<div className="space-y-3">
-								<div>
-									<p className="text-sm text-gray-500">Compartment</p>
-									<p className="font-semibold">
-										{compartment.label ||
-											`Compartment ${compartment._id.slice(-4)}`}
-									</p>
-								</div>
-								<div>
-									<p className="text-sm text-gray-500">Parent Drawer</p>
-									<p className="font-medium">
-										{drawer.label || `Drawer ${drawer._id.slice(-4)}`}
-									</p>
-								</div>
+						<Card className="p-3">
+							<div className="space-y-2">
 								<div className="flex items-center gap-2">
 									<Calendar className="w-4 h-4 text-gray-400" />
 									<p className="text-sm text-gray-500">
 										Updated: {formatDate(compartment.updatedAt)}
 									</p>
 								</div>
-								<div className="flex items-center justify-between pt-2 border-t">
-									<Badge
-										variant={totalInCompartment > 0 ? "default" : "secondary"}
-									>
-										{totalInCompartment}{" "}
-										{totalInCompartment === 1 ? "unit" : "units"}
-									</Badge>
+								<div className="flex items-center justify-between gap-2 pt-2 border-t">
 									<MemberOnly>
-										<Button size="sm" onClick={handleCheckIn}>
-											<Plus className="w-4 h-4 mr-1" />
-											Check In
-										</Button>
+										<div className="flex gap-2">
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={handleCheckIn}
+											>
+												<Plus className="w-4 h-4 mr-1" />
+												Check In
+											</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={handleCheckOut}
+												disabled={totalInCompartment <= 0}
+											>
+												<Minus className="w-4 h-4 mr-1" />
+												Check Out
+											</Button>
+										</div>
 									</MemberOnly>
 								</div>
 							</div>
@@ -191,36 +197,6 @@ export function CompartmentDetailsPanel({
 									/>
 								))}
 							</div>
-						)}
-
-						{/* Quick Actions Section */}
-						{totalInCompartment > 0 && (
-							<Card className="p-4">
-								<p className="text-sm font-medium mb-3">Quick Actions</p>
-								<div className="space-y-2">
-									<MemberOnly>
-										<Button
-											className="w-full justify-start"
-											size="sm"
-											variant="outline"
-											onClick={handleCheckIn}
-										>
-											<Plus className="w-4 h-4 mr-2" />
-											Check In
-										</Button>
-										<Button
-											className="w-full justify-start"
-											size="sm"
-											variant="outline"
-											onClick={handleCheckOut}
-											disabled={totalInCompartment <= 0}
-										>
-											<Minus className="w-4 h-4 mr-2" />
-											Check Out
-										</Button>
-									</MemberOnly>
-								</div>
-							</Card>
 						)}
 					</div>
 				</SheetContent>

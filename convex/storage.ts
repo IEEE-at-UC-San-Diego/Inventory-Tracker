@@ -149,6 +149,35 @@ export const getImageUrl = query({
   },
 })
 
+export const getImageUrls = query({
+  args: {
+    authContext: authContextSchema,
+    storageIds: v.array(v.id('_storage')),
+  },
+  returns: v.array(
+    v.object({
+      storageId: v.id('_storage'),
+      url: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const userContext = await getCurrentUser(ctx, args.authContext)
+    if (!userContext) return []
+
+    const unique = Array.from(new Set(args.storageIds))
+    const results: { storageId: Id<'_storage'>; url?: string }[] = []
+    for (const storageId of unique) {
+      try {
+        const url = await ctx.storage.getUrl(storageId)
+        results.push({ storageId, url: url ?? undefined })
+      } catch {
+        results.push({ storageId, url: undefined })
+      }
+    }
+    return results
+  },
+})
+
 /**
  * Mutation to delete a part image
  */
@@ -225,6 +254,18 @@ function generateBlueprintBackgroundKey(
   const random = Math.random().toString(36).substring(2, 8)
   const extension = fileName.split('.').pop() || 'jpg'
   return `blueprints/${orgId}/${blueprintId}/background/${timestamp}-${random}.${extension}`
+}
+
+function generateDrawerBackgroundKey(
+  orgId: Id<'organizations'>,
+  blueprintId: Id<'blueprints'>,
+  drawerId: Id<'drawers'>,
+  fileName: string
+): string {
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(2, 8)
+  const extension = fileName.split('.').pop() || 'jpg'
+  return `blueprints/${orgId}/${blueprintId}/drawers/${drawerId}/${timestamp}-${random}.${extension}`
 }
 
 /**
@@ -343,6 +384,94 @@ export const deleteBlueprintBackgroundImage = mutation({
     })
 
     return true
+  },
+})
+
+export const generateDrawerBackgroundUploadUrl = mutation({
+  args: {
+    authContext: authContextSchema,
+    drawerId: v.id('drawers'),
+    fileName: v.string(),
+    contentType: v.string(),
+  },
+  returns: v.object({
+    uploadUrl: v.string(),
+    storageKey: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+
+    const drawer = await ctx.db.get(args.drawerId)
+    if (!drawer) throw new Error('Drawer not found')
+    const blueprint = await ctx.db.get(drawer.blueprintId)
+    if (!blueprint || blueprint.orgId !== orgId) {
+      throw new Error('Blueprint not found or access denied')
+    }
+
+    const storageKey = generateDrawerBackgroundKey(orgId, blueprint._id, args.drawerId, args.fileName)
+    const uploadUrl = await ctx.storage.generateUploadUrl()
+    return { uploadUrl, storageKey }
+  },
+})
+
+export const confirmDrawerBackgroundUpload = mutation({
+  args: {
+    authContext: authContextSchema,
+    drawerId: v.id('drawers'),
+    storageId: v.id('_storage'),
+    x: v.optional(v.number()),
+    y: v.optional(v.number()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    snapToGrid: v.optional(v.boolean()),
+  },
+  returns: v.id('drawerBackgroundImages'),
+  handler: async (ctx, args) => {
+    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    const { user } = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+
+    const drawer = await ctx.db.get(args.drawerId)
+    if (!drawer) throw new Error('Drawer not found')
+    const blueprint = await ctx.db.get(drawer.blueprintId)
+    if (!blueprint || blueprint.orgId !== orgId) {
+      throw new Error('Blueprint not found or access denied')
+    }
+
+    const now = Date.now()
+    const existing = await ctx.db
+      .query('drawerBackgroundImages')
+      .withIndex('by_drawerId', (q) => q.eq('drawerId', args.drawerId))
+      .collect()
+    const maxZ = existing.reduce((m, i) => Math.max(m, i.zIndex), -1)
+
+    // Respect blueprint lock for editor consistency.
+    if (
+      blueprint.lockedBy &&
+      blueprint.lockTimestamp &&
+      Date.now() - blueprint.lockTimestamp < 5 * 60 * 1000 &&
+      blueprint.lockedBy !== user._id
+    ) {
+      throw new Error('Blueprint is locked by another user')
+    }
+
+    const imageId = await ctx.db.insert('drawerBackgroundImages', {
+      drawerId: args.drawerId,
+      storageId: args.storageId,
+      x: args.x ?? 0,
+      y: args.y ?? 0,
+      width: args.width ?? 200,
+      height: args.height ?? 150,
+      zIndex: maxZ + 1,
+      locked: false,
+      snapToGrid: args.snapToGrid ?? false,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await ctx.db.patch(drawer._id, { updatedAt: now })
+    await ctx.db.patch(blueprint._id, { updatedAt: now })
+    return imageId
   },
 })
 

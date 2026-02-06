@@ -3,7 +3,6 @@ import {
 	Box,
 	ChevronDown,
 	ChevronRight,
-	ExternalLink,
 	Grid3X3,
 	Image as ImageIcon,
 	Minus,
@@ -13,7 +12,7 @@ import {
 	Upload,
 	X,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { EditorOnly, MemberOnly } from "@/components/auth/ProtectedRoute";
 import { CheckInDialog } from "@/components/inventory/CheckInDialog";
 import { CheckOutDialog } from "@/components/inventory/CheckOutDialog";
@@ -22,18 +21,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import {
-	sanitizeFileName,
-	validateImageContentType,
-	validateImageFileSize,
-} from "../../../convex/storage";
 import { useAuth } from "@/hooks/useAuth";
 import {
 	useMutation as useConvexMutation,
 	useQuery as useConvexQuery,
 } from "@/integrations/convex/react-query";
+import {
+	sanitizeFileName,
+	validateImageContentType,
+	validateImageFileSize,
+} from "@/lib/fileValidation";
 import type {
 	Blueprint,
 	CanvasMode,
@@ -42,6 +39,8 @@ import type {
 	DrawerWithCompartments,
 	SelectedElement,
 } from "@/types";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface BlueprintSidebarProps {
 	blueprint: Blueprint;
@@ -79,6 +78,8 @@ export function BlueprintSidebar({
 	onDeleteCompartment,
 }: BlueprintSidebarProps) {
 	const { authContext, getFreshAuthContext } = useAuth();
+	const drawerLabelId = useId();
+	const compartmentLabelId = useId();
 	const selectedCompartment =
 		selectedElement?.type === "compartment" ? selectedElement.data : null;
 	const selectedCompartmentDrawerId =
@@ -509,107 +510,106 @@ export function BlueprintSidebar({
 	// Drawer selected
 	if (selectedElement.type === "drawer") {
 		const drawer = selectedElement.data;
+		const drawerDisplayLabel = drawer.label || `Drawer ${drawer._id.slice(-4)}`;
 		return (
 			<div className="space-y-4">
 				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Box className="w-5 h-5" />
-							Drawer Properties
+					<CardHeader className="pb-3">
+						<CardTitle className="flex items-center justify-between gap-2">
+							<span className="flex items-center gap-2 min-w-0">
+								<Box className="w-5 h-5 flex-shrink-0" />
+								<span className="truncate">{drawerDisplayLabel}</span>
+							</span>
+							<Badge variant="secondary" className="tabular-nums">
+								#{drawer._id.slice(-4)}
+							</Badge>
 						</CardTitle>
 					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="space-y-2">
-							<Label htmlFor="drawer-label">Label</Label>
+					<CardContent className="space-y-3">
+						<div className="space-y-1.5">
+							<Label htmlFor={drawerLabelId} className="text-xs text-gray-500">
+								Label
+							</Label>
 							<Input
-								id="drawer-label"
+								id={drawerLabelId}
 								value={drawer.label || ""}
 								onChange={(e) =>
 									onUpdateDrawer(drawer._id, { label: e.target.value })
 								}
 								disabled={!isLockedByMe}
 								placeholder="Drawer name"
+								className="h-8 text-sm"
 							/>
 						</div>
 
-						<div className="grid grid-cols-2 gap-3">
-							<div className="space-y-2">
-								<Label>X Position</Label>
-								<Input
-									type="number"
-									value={Math.round(drawer.x)}
-									onChange={(e) =>
-										onUpdateDrawer(drawer._id, { x: Number(e.target.value) })
-									}
-									disabled={!isLockedByMe}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label>Y Position</Label>
-								<Input
-									type="number"
-									value={Math.round(drawer.y)}
-									onChange={(e) =>
-										onUpdateDrawer(drawer._id, { y: Number(e.target.value) })
-									}
-									disabled={!isLockedByMe}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label>Width</Label>
-								<Input
-									type="number"
-									value={Math.round(drawer.width)}
-									onChange={(e) =>
-										onUpdateDrawer(drawer._id, {
-											width: Number(e.target.value),
-										})
-									}
-									disabled={!isLockedByMe}
-									min={20}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label>Height</Label>
-								<Input
-									type="number"
-									value={Math.round(drawer.height)}
-									onChange={(e) =>
-										onUpdateDrawer(drawer._id, {
-											height: Number(e.target.value),
-										})
-									}
-									disabled={!isLockedByMe}
-									min={20}
-								/>
-							</div>
-						</div>
-
 						<div className="space-y-2">
-							<Label>Rotation</Label>
-							<div className="flex gap-2">
-								{[0, 90, 180, 270].map((angle) => (
-									<Button
-										key={angle}
-										variant={drawer.rotation === angle ? "default" : "outline"}
-										size="sm"
-										onClick={() =>
-											onUpdateDrawer(drawer._id, { rotation: angle })
+							<p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+								Transform
+							</p>
+							<div className="grid grid-cols-2 gap-2">
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">X</Label>
+									<Input
+										type="number"
+										value={Math.round(drawer.x)}
+										onChange={(e) =>
+											onUpdateDrawer(drawer._id, { x: Number(e.target.value) })
 										}
 										disabled={!isLockedByMe}
-										className="flex-1"
-									>
-										{angle}°
-									</Button>
-								))}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">Y</Label>
+									<Input
+										type="number"
+										value={Math.round(drawer.y)}
+										onChange={(e) =>
+											onUpdateDrawer(drawer._id, { y: Number(e.target.value) })
+										}
+										disabled={!isLockedByMe}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">W</Label>
+									<Input
+										type="number"
+										value={Math.round(drawer.width)}
+										onChange={(e) =>
+											onUpdateDrawer(drawer._id, {
+												width: Number(e.target.value),
+											})
+										}
+										disabled={!isLockedByMe}
+										min={20}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">H</Label>
+									<Input
+										type="number"
+										value={Math.round(drawer.height)}
+										onChange={(e) =>
+											onUpdateDrawer(drawer._id, {
+												height: Number(e.target.value),
+											})
+										}
+										disabled={!isLockedByMe}
+										min={20}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
 							</div>
 						</div>
 
-						<div className="pt-4 space-y-2">
+						<div className="flex gap-2 pt-1">
 							{isLockedByMe && (
 								<Button
 									variant="outline"
-									className="w-full"
+									size="sm"
+									className="flex-1 h-8"
 									onClick={() => {
 										setCreateTargetDrawer(drawer._id);
 										setShowCreateCompartment(true);
@@ -619,15 +619,15 @@ export function BlueprintSidebar({
 									Add Compartment
 								</Button>
 							)}
-
 							<Button
 								variant="destructive"
-								className="w-full"
+								size="sm"
+								className="flex-1 h-8"
 								onClick={() => onDeleteDrawer(drawer._id)}
 								disabled={!isLockedByMe}
 							>
 								<Trash2 className="w-4 h-4 mr-2" />
-								Delete Drawer
+								Delete
 							</Button>
 						</div>
 					</CardContent>
@@ -639,6 +639,8 @@ export function BlueprintSidebar({
 	// Compartment selected - show properties and inventory
 	if (selectedElement.type === "compartment") {
 		const compartment = selectedElement.data;
+		const compartmentDisplayLabel =
+			compartment.label || `Compartment ${compartment._id.slice(-4)}`;
 		const parentDrawer = selectedCompartmentDrawerId
 			? drawers.find((d) => d._id === selectedCompartmentDrawerId)
 			: undefined;
@@ -653,24 +655,34 @@ export function BlueprintSidebar({
 			<div className="space-y-4">
 				{/* Properties Card */}
 				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Grid3X3 className="w-5 h-5" />
-							Compartment Properties
+					<CardHeader className="pb-3">
+						<CardTitle className="flex items-center justify-between gap-2">
+							<span className="flex items-center gap-2 min-w-0">
+								<Grid3X3 className="w-5 h-5 flex-shrink-0" />
+								<span className="truncate">{compartmentDisplayLabel}</span>
+							</span>
+							<Badge variant="secondary" className="tabular-nums">
+								#{compartment._id.slice(-4)}
+							</Badge>
 						</CardTitle>
 					</CardHeader>
-					<CardContent className="space-y-4">
+					<CardContent className="space-y-3">
 						{parentDrawer && (
-							<div className="text-sm text-gray-500">
+							<div className="text-xs text-gray-500">
 								In drawer:{" "}
 								{parentDrawer.label || `Drawer ${parentDrawer._id.slice(-4)}`}
 							</div>
 						)}
 
-						<div className="space-y-2">
-							<Label htmlFor="compartment-label">Label</Label>
+						<div className="space-y-1.5">
+							<Label
+								htmlFor={compartmentLabelId}
+								className="text-xs text-gray-500"
+							>
+								Label
+							</Label>
 							<Input
-								id="compartment-label"
+								id={compartmentLabelId}
 								value={compartment.label || ""}
 								onChange={(e) =>
 									onUpdateCompartment(compartment._id, {
@@ -679,68 +691,80 @@ export function BlueprintSidebar({
 								}
 								disabled={!isLockedByMe}
 								placeholder="Compartment name"
+								className="h-8 text-sm"
 							/>
 						</div>
 
-						<div className="grid grid-cols-2 gap-3">
-							<div className="space-y-2">
-								<Label>X (relative)</Label>
-								<Input
-									type="number"
-									value={Math.round(compartment.x)}
-									onChange={(e) =>
-										onUpdateCompartment(compartment._id, {
-											x: Number(e.target.value),
-										})
-									}
-									disabled={!isLockedByMe}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label>Y (relative)</Label>
-								<Input
-									type="number"
-									value={Math.round(compartment.y)}
-									onChange={(e) =>
-										onUpdateCompartment(compartment._id, {
-											y: Number(e.target.value),
-										})
-									}
-									disabled={!isLockedByMe}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label>Width</Label>
-								<Input
-									type="number"
-									value={Math.round(compartment.width)}
-									onChange={(e) =>
-										onUpdateCompartment(compartment._id, {
-											width: Number(e.target.value),
-										})
-									}
-									disabled={!isLockedByMe}
-									min={15}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label>Height</Label>
-								<Input
-									type="number"
-									value={Math.round(compartment.height)}
-									onChange={(e) =>
-										onUpdateCompartment(compartment._id, {
-											height: Number(e.target.value),
-										})
-									}
-									disabled={!isLockedByMe}
-									min={15}
-								/>
+						<div className="space-y-2">
+							<p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+								Transform
+							</p>
+							<div className="grid grid-cols-2 gap-2">
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">X</Label>
+									<Input
+										type="number"
+										value={Math.round(compartment.x)}
+										onChange={(e) =>
+											onUpdateCompartment(compartment._id, {
+												x: Number(e.target.value),
+											})
+										}
+										disabled={!isLockedByMe}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">Y</Label>
+									<Input
+										type="number"
+										value={Math.round(compartment.y)}
+										onChange={(e) =>
+											onUpdateCompartment(compartment._id, {
+												y: Number(e.target.value),
+											})
+										}
+										disabled={!isLockedByMe}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">W</Label>
+									<Input
+										type="number"
+										value={Math.round(compartment.width)}
+										onChange={(e) =>
+											onUpdateCompartment(compartment._id, {
+												width: Number(e.target.value),
+											})
+										}
+										disabled={!isLockedByMe}
+										min={15}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label className="text-xs text-gray-500">H</Label>
+									<Input
+										type="number"
+										value={Math.round(compartment.height)}
+										onChange={(e) =>
+											onUpdateCompartment(compartment._id, {
+												height: Number(e.target.value),
+											})
+										}
+										disabled={!isLockedByMe}
+										min={15}
+										className="h-8 text-sm tabular-nums"
+									/>
+								</div>
 							</div>
 						</div>
 
 						<div className="space-y-2">
-							<Label>Rotation</Label>
+							<p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+								Rotation
+							</p>
 							<div className="flex gap-2">
 								{[0, 90, 180, 270].map((angle) => (
 									<Button
@@ -753,7 +777,7 @@ export function BlueprintSidebar({
 											onUpdateCompartment(compartment._id, { rotation: angle })
 										}
 										disabled={!isLockedByMe}
-										className="flex-1"
+										className="flex-1 h-8"
 									>
 										{angle}°
 									</Button>
@@ -761,15 +785,16 @@ export function BlueprintSidebar({
 							</div>
 						</div>
 
-						<div className="pt-4">
+						<div className="pt-1">
 							<Button
 								variant="destructive"
-								className="w-full"
+								size="sm"
+								className="w-full h-8"
 								onClick={() => onDeleteCompartment(compartment._id)}
 								disabled={!isLockedByMe}
 							>
 								<Trash2 className="w-4 h-4 mr-2" />
-								Delete Compartment
+								Delete
 							</Button>
 						</div>
 					</CardContent>
@@ -777,20 +802,36 @@ export function BlueprintSidebar({
 
 				{/* Inventory Card */}
 				<Card>
-					<CardHeader className="flex flex-row items-center justify-between">
-						<CardTitle className="flex items-center gap-2">
-							<Package className="w-5 h-5" />
-							Inventory
-							{totalInCompartment > 0 && (
+					<CardHeader className="pb-3">
+						<CardTitle className="flex items-center justify-between gap-2">
+							<span className="flex items-center gap-2">
+								<Package className="w-5 h-5" />
+								Inventory
 								<Badge variant="secondary">{totalInCompartment} units</Badge>
-							)}
+							</span>
+							<MemberOnly>
+								<div className="flex gap-2">
+									<Button
+										size="sm"
+										variant="outline"
+										className="h-8"
+										onClick={() => handleCheckOut(compartment._id)}
+										disabled={totalInCompartment <= 0}
+										title="Check Out"
+									>
+										<Minus className="w-4 h-4" />
+									</Button>
+									<Button
+										size="sm"
+										className="h-8"
+										onClick={() => handleCheckIn(compartment._id)}
+										title="Check In"
+									>
+										<Plus className="w-4 h-4" />
+									</Button>
+								</div>
+							</MemberOnly>
 						</CardTitle>
-						<MemberOnly>
-							<Button size="sm" onClick={() => handleCheckIn(compartment._id)}>
-								<Plus className="w-4 h-4 mr-1" />
-								Check In
-							</Button>
-						</MemberOnly>
 					</CardHeader>
 					<CardContent>
 						{compartmentInventory.length === 0 ? (
@@ -820,7 +861,8 @@ export function BlueprintSidebar({
 											<Package className="w-4 h-4 text-gray-400" />
 											<div>
 												<Link
-													to={`/parts/ as any ${item.partId}` as any}
+													to="/parts/$partId"
+													params={{ partId: item.partId }}
 													className="font-medium text-sm hover:text-cyan-600"
 												>
 													{item.part?.name || "Unknown Part"}
@@ -853,47 +895,6 @@ export function BlueprintSidebar({
 						)}
 					</CardContent>
 				</Card>
-
-				{/* Quick Actions */}
-				{compartmentInventory.length > 0 && (
-					<Card>
-						<CardHeader>
-							<CardTitle className="text-sm">Quick Actions</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-2">
-							<MemberOnly>
-								<Button
-									className="w-full justify-start"
-									size="sm"
-									onClick={() => handleCheckIn(compartment._id)}
-								>
-									<Plus className="w-4 h-4 mr-2" />
-									Check In
-								</Button>
-								<Button
-									className="w-full justify-start"
-									variant="outline"
-									size="sm"
-									onClick={() => handleCheckOut(compartment._id)}
-									disabled={totalInCompartment <= 0}
-								>
-									<Minus className="w-4 h-4 mr-2" />
-									Check Out
-								</Button>
-							</MemberOnly>
-							<Link to={`/parts`}>
-								<Button
-									className="w-full justify-start"
-									variant="ghost"
-									size="sm"
-								>
-									<ExternalLink className="w-4 h-4 mr-2" />
-									View All Parts
-								</Button>
-							</Link>
-						</CardContent>
-					</Card>
-				)}
 
 				{/* Inventory Dialogs */}
 				<CheckInDialog

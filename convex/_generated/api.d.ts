@@ -17,6 +17,7 @@ import type * as blueprints_queries from "../blueprints/queries.js";
 import type * as compartments_mutations from "../compartments/mutations.js";
 import type * as compartments_queries from "../compartments/queries.js";
 import type * as crons from "../crons.js";
+import type * as drawer_background_images_mutations from "../drawer_background_images/mutations.js";
 import type * as drawers_mutations from "../drawers/mutations.js";
 import type * as drawers_queries from "../drawers/queries.js";
 import type * as http from "../http.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   "compartments/mutations": typeof compartments_mutations;
   "compartments/queries": typeof compartments_queries;
   crons: typeof crons;
+  "drawer_background_images/mutations": typeof drawer_background_images_mutations;
   "drawers/mutations": typeof drawers_mutations;
   "drawers/queries": typeof drawers_queries;
   http: typeof http;

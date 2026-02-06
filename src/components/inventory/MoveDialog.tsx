@@ -347,7 +347,7 @@ export function MoveDialog({
 
 // Destination selector component
 interface DestinationSelectorProps {
-	authContext: any;
+	authContext: import("@/types/auth").AuthContext | null;
 	value: string;
 	onChange: (value: string) => void;
 	excludeCompartmentId?: string;
@@ -366,6 +366,7 @@ function DestinationSelector({
 	const blueprintsResult = useQuery(
 		api.blueprints.queries.list as any,
 		authContext ? { authContext } : undefined,
+		{ enabled: !!authContext },
 	);
 	const blueprints = (blueprintsResult as any[]) ?? [];
 
@@ -375,6 +376,7 @@ function DestinationSelector({
 		selectedBlueprintId && authContext
 			? { authContext, blueprintId: selectedBlueprintId as Id<"blueprints"> }
 			: undefined,
+		{ enabled: !!authContext && !!selectedBlueprintId },
 	);
 	const drawers = (drawersResult as any[]) ?? [];
 
@@ -384,6 +386,7 @@ function DestinationSelector({
 		selectedDrawerId && authContext
 			? { authContext, drawerId: selectedDrawerId as Id<"drawers"> }
 			: undefined,
+		{ enabled: !!authContext && !!selectedDrawerId },
 	);
 	const compartments = (compartmentsResult as any[]) ?? [];
 

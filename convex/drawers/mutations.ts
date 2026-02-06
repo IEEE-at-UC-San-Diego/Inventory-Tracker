@@ -1,10 +1,47 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
+import type { MutationCtx } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
 import { requireOrgRole } from '../auth_helpers'
 import { getCurrentOrgId } from '../organization_helpers'
 import { verifyBlueprintLock } from '../blueprints/mutations'
 import { authContextSchema } from '../types/auth'
+
+async function relayoutDrawerGridCompartments(
+  ctx: MutationCtx,
+  drawerId: Id<'drawers'>,
+  rows: number,
+  cols: number
+) {
+  if (rows <= 0 || cols <= 0) return
+  const drawer = await ctx.db.get(drawerId)
+  if (!drawer) return
+  const compartments = await ctx.db
+    .query('compartments')
+    .withIndex('by_drawerId_and_zIndex', (q) => q.eq('drawerId', drawerId))
+    .collect()
+  if (compartments.length === 0) return
+  if (compartments.length !== rows * cols) return
+
+  const cellW = drawer.width / cols
+  const cellH = drawer.height / rows
+  const now = Date.now()
+  for (let i = 0; i < compartments.length; i++) {
+    const r = Math.floor(i / cols)
+    const c = i % cols
+    const x = -drawer.width / 2 + cellW / 2 + c * cellW
+    const y = -drawer.height / 2 + cellH / 2 + r * cellH
+    await ctx.db.patch(compartments[i]._id, {
+      x,
+      y,
+      width: cellW,
+      height: cellH,
+      rotation: 0,
+      zIndex: i,
+      updatedAt: now,
+    })
+  }
+}
 
 /**
  * Create a new drawer in a blueprint
@@ -20,6 +57,8 @@ export const create = mutation({
     height: v.number(),
     rotation: v.optional(v.number()),
     zIndex: v.optional(v.number()),
+    gridRows: v.optional(v.number()),
+    gridCols: v.optional(v.number()),
     label: v.optional(v.string()),
   },
   returns: v.id('drawers'),
@@ -55,8 +94,11 @@ export const create = mutation({
       y: args.y,
       width: args.width,
       height: args.height,
-      rotation: args.rotation ?? 0,
+      // Drawer rotation editing is intentionally disabled in the editor.
+      rotation: 0,
       zIndex,
+      gridRows: args.gridRows,
+      gridCols: args.gridCols,
       label: args.label,
       createdAt: now,
       updatedAt: now,
@@ -84,6 +126,8 @@ export const update = mutation({
     width: v.optional(v.number()),
     height: v.optional(v.number()),
     rotation: v.optional(v.number()),
+    gridRows: v.optional(v.number()),
+    gridCols: v.optional(v.number()),
     label: v.optional(v.string()),
   },
   returns: v.boolean(),
@@ -109,10 +153,26 @@ export const update = mutation({
     if (args.y !== undefined) updates.y = args.y
     if (args.width !== undefined) updates.width = args.width
     if (args.height !== undefined) updates.height = args.height
-    if (args.rotation !== undefined) updates.rotation = args.rotation
+    // Drawer rotation editing is intentionally disabled in the editor.
+    if (args.rotation !== undefined) updates.rotation = 0
+    if (args.gridRows !== undefined) updates.gridRows = Math.max(1, Math.floor(args.gridRows))
+    if (args.gridCols !== undefined) updates.gridCols = Math.max(1, Math.floor(args.gridCols))
     if (args.label !== undefined) updates.label = args.label
 
     await ctx.db.patch(args.drawerId, updates)
+
+    const nextRows = updates.gridRows ?? drawer.gridRows
+    const nextCols = updates.gridCols ?? drawer.gridCols
+    if (
+      nextRows &&
+      nextCols &&
+      (args.width !== undefined ||
+        args.height !== undefined ||
+        args.gridRows !== undefined ||
+        args.gridCols !== undefined)
+    ) {
+      await relayoutDrawerGridCompartments(ctx, args.drawerId, nextRows, nextCols)
+    }
 
     // Update blueprint's updatedAt timestamp
     await ctx.db.patch(drawer.blueprintId, {

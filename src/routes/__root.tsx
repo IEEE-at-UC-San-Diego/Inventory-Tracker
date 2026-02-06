@@ -8,8 +8,10 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import { ToastProvider } from "../components/ui/toast";
+import { Toaster } from "../components/ui/sonner";
 import { AuthProvider, LogtoAuthProvider } from "../hooks/useAuth";
 import ConvexProvider from "../integrations/convex/provider";
 import appCss from "../styles.css?url";
@@ -66,6 +68,12 @@ function NotFound() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
@@ -78,21 +86,24 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 							<ToastProvider>
 								<Header />
 								{children}
-								<TanStackDevtools
-									config={{
-										position: "bottom-right",
-									}}
-									plugins={[
-										{
-											name: "Tanstack Router",
-											render: <TanStackRouterDevtoolsPanel />,
-										},
-										{
-											name: "TanStack Query",
-											render: <ReactQueryDevtoolsPanel />,
-										},
-									]}
-								/>
+								<Toaster />
+								{mounted && import.meta.env.DEV ? (
+									<TanStackDevtools
+										config={{
+											position: "bottom-right",
+										}}
+										plugins={[
+											{
+												name: "Tanstack Router",
+												render: <TanStackRouterDevtoolsPanel />,
+											},
+											{
+												name: "TanStack Query",
+												render: <ReactQueryDevtoolsPanel />,
+											},
+										]}
+									/>
+								) : null}
 							</ToastProvider>
 						</AuthProvider>
 					</ConvexProvider>

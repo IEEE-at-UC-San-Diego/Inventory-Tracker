@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
 	Edit,
 	Folder,
@@ -32,6 +32,7 @@ function BlueprintsPage() {
 
 function BlueprintsContent() {
 	const { authContext, isLoading } = useAuth();
+	const navigate = useNavigate();
 
 	// Fetch blueprints
 	const blueprintsResult = useQuery(
@@ -139,13 +140,28 @@ function BlueprintsContent() {
 					) : (
 						<div className="divide-y divide-gray-200">
 							{sortedBlueprints.map((blueprint) => (
-									<Link
-										key={blueprint._id}
-										to="/blueprints/$blueprintId"
-										params={{ blueprintId: blueprint._id }}
-										search={{ partId: undefined, mode: undefined }}
-										className="block hover:bg-gray-50 transition-colors"
-									>
+								<div
+									key={blueprint._id}
+									role="link"
+									tabIndex={0}
+									className="block hover:bg-gray-50 transition-colors cursor-pointer"
+									onClick={() =>
+										navigate({
+											to: "/blueprints/$blueprintId",
+											params: { blueprintId: blueprint._id },
+											search: { partId: undefined, mode: undefined },
+										})
+									}
+									onKeyDown={(e) => {
+										if (e.key !== "Enter" && e.key !== " ") return;
+										e.preventDefault();
+										navigate({
+											to: "/blueprints/$blueprintId",
+											params: { blueprintId: blueprint._id },
+											search: { partId: undefined, mode: undefined },
+										});
+									}}
+								>
 									<div className="p-4 flex items-center justify-between">
 										<div className="flex items-center gap-4">
 											<div className="p-3 bg-cyan-50 rounded-lg">
@@ -179,13 +195,13 @@ function BlueprintsContent() {
 										<div className="text-right text-sm text-gray-500">
 											<div className="flex items-center gap-3 justify-end">
 												<EditorOnly>
-														<Link
-															to="/blueprints/$blueprintId"
-															params={{ blueprintId: blueprint._id }}
-															search={{ mode: "edit", partId: undefined }}
-															className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-700"
-															onClick={(e) => e.stopPropagation()}
-														>
+													<Link
+														to="/blueprints/$blueprintId"
+														params={{ blueprintId: blueprint._id }}
+														search={{ mode: "edit", partId: undefined }}
+														className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-700"
+														onClick={(e) => e.stopPropagation()}
+													>
 														<Pencil className="w-3 h-3" />
 														<span>Edit</span>
 													</Link>
@@ -197,7 +213,7 @@ function BlueprintsContent() {
 											</div>
 										</div>
 									</div>
-								</Link>
+								</div>
 							))}
 						</div>
 					)}

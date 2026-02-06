@@ -24,6 +24,7 @@ export const list = query({
       lockTimestamp: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
+      backgroundImageId: v.optional(v.id('_storage')),
       isLocked: v.optional(v.boolean()),
       drawerCount: v.number(),
       lockedByUser: v.optional(
@@ -98,6 +99,7 @@ export const get = query({
       lockTimestamp: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
+      backgroundImageId: v.optional(v.id('_storage')),
       drawers: v.array(
         v.object({
           _id: v.id('drawers'),
@@ -109,6 +111,8 @@ export const get = query({
           height: v.number(),
           rotation: v.number(),
           zIndex: v.number(),
+          gridRows: v.optional(v.number()),
+          gridCols: v.optional(v.number()),
           label: v.optional(v.string()),
           createdAt: v.number(),
           updatedAt: v.number(),
@@ -160,6 +164,7 @@ export const getWithHierarchy = query({
       lockTimestamp: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
+      backgroundImageId: v.optional(v.id('_storage')),
       drawers: v.array(
         v.object({
           _id: v.id('drawers'),
@@ -171,9 +176,28 @@ export const getWithHierarchy = query({
           height: v.number(),
           rotation: v.number(),
           zIndex: v.number(),
+          gridRows: v.optional(v.number()),
+          gridCols: v.optional(v.number()),
           label: v.optional(v.string()),
           createdAt: v.number(),
           updatedAt: v.number(),
+          backgroundImages: v.array(
+            v.object({
+              _id: v.id('drawerBackgroundImages'),
+              _creationTime: v.number(),
+              drawerId: v.id('drawers'),
+              storageId: v.id('_storage'),
+              x: v.number(),
+              y: v.number(),
+              width: v.number(),
+              height: v.number(),
+              zIndex: v.number(),
+              locked: v.boolean(),
+              snapToGrid: v.boolean(),
+              createdAt: v.number(),
+              updatedAt: v.number(),
+            })
+          ),
           compartments: v.array(
             v.object({
               _id: v.id('compartments'),
@@ -219,9 +243,14 @@ export const getWithHierarchy = query({
           .query('compartments')
           .withIndex('by_drawerId', (q) => q.eq('drawerId', drawer._id))
           .collect()
+        const backgroundImages = await ctx.db
+          .query('drawerBackgroundImages')
+          .withIndex('by_drawerId_and_zIndex', (q) => q.eq('drawerId', drawer._id))
+          .collect()
 
         return {
           ...drawer,
+          backgroundImages,
           compartments,
         }
       })

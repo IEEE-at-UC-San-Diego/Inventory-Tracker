@@ -1,8 +1,8 @@
 import type { Group as KonvaGroup } from "konva/lib/Group";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useCallback, useRef } from "react";
+import { memo, useCallback, useRef } from "react";
 import { Circle, Group, Rect, Text } from "react-konva";
-import type { Compartment, Drawer } from "@/types";
+import type { Compartment, Drawer, Viewport } from "@/types";
 
 interface CompartmentShapeProps {
 	compartment: Compartment;
@@ -10,13 +10,38 @@ interface CompartmentShapeProps {
 	isSelected: boolean;
 	isLockedByMe: boolean;
 	mode: "view" | "edit";
+	viewport: Viewport;
+	selectEnabled?: boolean;
+	editEnabled?: boolean;
 	highlighted?: boolean;
 	highlightColor?: string;
 	inventoryCount?: number;
-	onSelect: () => void;
-	onDoubleClick?: () => void;
-	onDragEnd: (x: number, y: number) => void;
+	isDragOrigin?: boolean;
+	isDropTarget?: boolean;
+	performanceMode?: boolean;
+	showLabel?: boolean;
+	onSelect: (compartment: Compartment, drawerId: string) => void;
+	onDoubleClick?: (compartment: Compartment, drawer: Drawer) => void;
+	onDragStart?: (next: {
+		compartmentId: string;
+		fromDrawerId: string;
+		worldX: number;
+		worldY: number;
+	}) => void;
+	onDragMove?: (next: {
+		compartmentId: string;
+		fromDrawerId: string;
+		worldX: number;
+		worldY: number;
+	}) => void;
+	onDragEnd: (next: {
+		compartmentId: string;
+		fromDrawerId: string;
+		worldX: number;
+		worldY: number;
+	}) => void;
 	onTransformEnd: (
+		compartmentId: string,
 		x: number,
 		y: number,
 		width: number,
@@ -48,21 +73,35 @@ const COMPARTMENT_COLORS = {
 	},
 };
 
-export function CompartmentShape({
+const GRID_SIZE = 50;
+const snapToGrid = (value: number): number =>
+	Math.round(value / GRID_SIZE) * GRID_SIZE;
+
+export const CompartmentShape = memo(function CompartmentShape({
 	compartment,
 	drawer,
 	isSelected,
 	isLockedByMe,
 	mode,
+	viewport,
+	selectEnabled = true,
+	editEnabled,
 	highlighted = false,
 	highlightColor,
 	inventoryCount = 0,
+	isDragOrigin = false,
+	isDropTarget = false,
+	performanceMode = false,
+	showLabel = true,
 	onSelect,
 	onDoubleClick,
+	onDragStart,
+	onDragMove,
 	onDragEnd,
 	onTransformEnd,
 }: CompartmentShapeProps) {
 	const shapeRef = useRef<KonvaGroup>(null);
+	const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
 	// Determine colors based on state
 	const getColors = () => {
@@ -76,8 +115,15 @@ export function CompartmentShape({
 		return COMPARTMENT_COLORS.default;
 	};
 
-	const colors = getColors();
-	const isEditable = mode === "edit" && isLockedByMe;
+	const baseColors = getColors();
+	const colors = isDropTarget
+		? {
+				...baseColors,
+				stroke: "#7c3aed",
+				strokeWidth: 3,
+			}
+		: baseColors;
+	const isEditable = editEnabled ?? (mode === "edit" && isLockedByMe);
 
 	// Calculate absolute position within the drawer
 	// Compartment coordinates are relative to drawer's center
@@ -85,48 +131,55 @@ export function CompartmentShape({
 	const absoluteY = drawer.y + compartment.y;
 
 	const handleClick = useCallback(
-		(e: KonvaEventObject<MouseEvent>) => {
+		(e: KonvaEventObject<MouseEvent | TouchEvent>) => {
 			e.cancelBubble = true;
-			onSelect();
+			if ("button" in e.evt && e.evt.button !== 0) return;
+			if (!selectEnabled) return;
+			onSelect(compartment, drawer._id);
 		},
-		[onSelect],
+		[compartment, drawer._id, onSelect, selectEnabled],
+	);
+
+	const handleTap = useCallback(
+		(e: KonvaEventObject<TouchEvent>) => {
+			e.cancelBubble = true;
+			if (!selectEnabled) return;
+			onSelect(compartment, drawer._id);
+		},
+		[compartment, drawer._id, onSelect, selectEnabled],
 	);
 
 	const handleDblClick = useCallback(
-		(e: KonvaEventObject<MouseEvent>) => {
+		(e: KonvaEventObject<MouseEvent | TouchEvent>) => {
 			e.cancelBubble = true;
-			onDoubleClick?.();
+			if ("button" in e.evt && e.evt.button !== 0) return;
+			if (!selectEnabled) return;
+			onDoubleClick?.(compartment, drawer);
 		},
-		[onDoubleClick],
+		[compartment, drawer, onDoubleClick, selectEnabled],
 	);
 
 	const handleDragEnd = useCallback(
 		(e: KonvaEventObject<DragEvent>) => {
 			if (!isEditable) return;
 			const node = e.target;
+			const dropX = node.x();
+			const dropY = node.y();
 
-			// Convert absolute position back to drawer-relative
-			const relativeX = node.x() - drawer.x;
-			const relativeY = node.y() - drawer.y;
-
-			// Clamp to drawer bounds
-			const halfDrawerW = drawer.width / 2;
-			const halfDrawerH = drawer.height / 2;
-			const halfCompW = compartment.width / 2;
-			const halfCompH = compartment.height / 2;
-
-			const clampedX = Math.max(
-				-halfDrawerW + halfCompW,
-				Math.min(halfDrawerW - halfCompW, relativeX),
-			);
-			const clampedY = Math.max(
-				-halfDrawerH + halfCompH,
-				Math.min(halfDrawerH - halfCompH, relativeY),
-			);
-
-			onDragEnd(clampedX, clampedY);
+			// Immediately snap back to the last committed position; the real position is driven
+			// by Convex state updates (swap/move). This prevents "free roaming" outside drawers.
+			if (dragStartRef.current) {
+				node.position(dragStartRef.current);
+				node.getLayer()?.batchDraw();
+			}
+			onDragEnd({
+				compartmentId: compartment._id,
+				fromDrawerId: drawer._id,
+				worldX: dropX,
+				worldY: dropY,
+			});
 		},
-		[isEditable, drawer, compartment, onDragEnd],
+		[compartment._id, drawer._id, isEditable, onDragEnd],
 	);
 
 	const handleTransformEnd = useCallback(() => {
@@ -148,10 +201,11 @@ export function CompartmentShape({
 		const clampedHeight = Math.min(newHeight, drawer.height - 10);
 
 		onTransformEnd(
-			compartment.x,
-			compartment.y,
-			clampedWidth,
-			clampedHeight,
+			compartment._id,
+			snapToGrid(compartment.x),
+			snapToGrid(compartment.y),
+			Math.max(GRID_SIZE, snapToGrid(clampedWidth)),
+			Math.max(GRID_SIZE, snapToGrid(clampedHeight)),
 			node.rotation(),
 		);
 	}, [isEditable, compartment, drawer, onTransformEnd]);
@@ -162,8 +216,43 @@ export function CompartmentShape({
 			y={absoluteY}
 			rotation={drawer.rotation + compartment.rotation}
 			draggable={isEditable}
+			dragBoundFunc={(pos) => {
+				// pos is in absolute (stage/screen) coordinates.
+				// Convert to world coordinates, snap, then convert back.
+				const worldX = (pos.x - viewport.x) / viewport.zoom;
+				const worldY = (pos.y - viewport.y) / viewport.zoom;
+				const snappedTopLeftX = snapToGrid(worldX - compartment.width / 2);
+				const snappedTopLeftY = snapToGrid(worldY - compartment.height / 2);
+				const snappedWorldX = snappedTopLeftX + compartment.width / 2;
+				const snappedWorldY = snappedTopLeftY + compartment.height / 2;
+				return {
+					x: snappedWorldX * viewport.zoom + viewport.x,
+					y: snappedWorldY * viewport.zoom + viewport.y,
+				};
+			}}
+			onDragStart={(e) => {
+				dragStartRef.current = { x: e.target.x(), y: e.target.y() };
+				// Ensure the dragged compartment is visually on top while moving.
+				e.target.moveToTop();
+				e.target.getLayer()?.batchDraw();
+				onDragStart?.({
+					compartmentId: compartment._id,
+					fromDrawerId: drawer._id,
+					worldX: e.target.x(),
+					worldY: e.target.y(),
+				});
+			}}
+			onDragMove={(e) => {
+				if (!isEditable) return;
+				onDragMove?.({
+					compartmentId: compartment._id,
+					fromDrawerId: drawer._id,
+					worldX: e.target.x(),
+					worldY: e.target.y(),
+				});
+			}}
 			onClick={handleClick}
-			onTap={handleClick as any}
+			onTap={handleTap}
 			onDblClick={handleDblClick}
 			onDragEnd={handleDragEnd}
 			onTransformEnd={handleTransformEnd}
@@ -180,13 +269,14 @@ export function CompartmentShape({
 				strokeWidth={colors.strokeWidth}
 				cornerRadius={2}
 				shadowColor="black"
-				shadowBlur={isSelected ? 6 : 2}
-				shadowOpacity={0.05}
+				shadowBlur={performanceMode ? 0 : isSelected ? 6 : 2}
+				shadowOpacity={performanceMode ? 0 : 0.05}
 				shadowOffsetY={1}
+				perfectDrawEnabled={false}
 			/>
 
 			{/* Label text - only if compartment is large enough */}
-			{compartment.width > 40 && compartment.height > 30 && (
+			{showLabel && compartment.width > 40 && compartment.height > 30 && (
 				<Text
 					x={-compartment.width / 2 + 4}
 					y={-compartment.height / 2 + 4}
@@ -200,6 +290,8 @@ export function CompartmentShape({
 					align="center"
 					verticalAlign="middle"
 					ellipsis
+					perfectDrawEnabled={false}
+					listening={false}
 				/>
 			)}
 
@@ -210,8 +302,10 @@ export function CompartmentShape({
 						radius={10}
 						fill="#3b82f6"
 						shadowColor="black"
-						shadowBlur={2}
-						shadowOpacity={0.2}
+						shadowBlur={performanceMode ? 0 : 2}
+						shadowOpacity={performanceMode ? 0 : 0.2}
+						perfectDrawEnabled={false}
+						listening={false}
 					/>
 					<Text
 						text={inventoryCount > 99 ? "99+" : String(inventoryCount)}
@@ -225,24 +319,27 @@ export function CompartmentShape({
 						y={-7}
 						align="center"
 						verticalAlign="middle"
+						perfectDrawEnabled={false}
+						listening={false}
 					/>
 				</Group>
 			)}
 
 			{/* Selection indicator (subtle border glow) */}
-			{isSelected && (
+			{(isSelected || isDragOrigin) && (
 				<Rect
 					x={-compartment.width / 2 - 2}
 					y={-compartment.height / 2 - 2}
 					width={compartment.width + 4}
 					height={compartment.height + 4}
-					stroke="#0ea5e9"
+					stroke={isDragOrigin ? "rgba(2,132,199,0.9)" : "#0ea5e9"}
 					strokeWidth={1}
 					dash={[4, 2]}
 					cornerRadius={3}
 					listening={false}
+					perfectDrawEnabled={false}
 				/>
 			)}
 		</Group>
 	);
-}
+});

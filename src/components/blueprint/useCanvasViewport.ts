@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CanvasBounds, CanvasPoint, Drawer, Viewport } from "@/types";
 import {
 	clampZoom,
@@ -58,6 +58,8 @@ export function useCanvasViewport({
 	const [isDragging, setIsDragging] = useState(false);
 	const dragStartRef = useRef<CanvasPoint | null>(null);
 	const viewportStartRef = useRef<Viewport | null>(null);
+	const pendingPanRef = useRef<{ dx: number; dy: number } | null>(null);
+	const panRafRef = useRef<number | null>(null);
 
 	// Reset viewport when container size changes
 	useEffect(() => {
@@ -66,7 +68,18 @@ export function useCanvasViewport({
 		}
 	}, [containerWidth, containerHeight]);
 
-	const bounds = getElementsBounds(drawers, 100);
+	useEffect(() => {
+		return () => {
+			if (panRafRef.current != null) {
+				cancelAnimationFrame(panRafRef.current);
+				panRafRef.current = null;
+			}
+		};
+	}, []);
+
+	const bounds = useMemo(() => {
+		return getElementsBounds(drawers, 100);
+	}, [drawers]);
 
 	const zoom = useCallback(
 		(factor: number, center?: CanvasPoint) => {
@@ -201,11 +214,24 @@ export function useCanvasViewport({
 	);
 
 	const pan = useCallback((deltaX: number, deltaY: number) => {
-		setViewport((prev) => ({
-			...prev,
-			x: prev.x + deltaX,
-			y: prev.y + deltaY,
-		}));
+		// Throttle pan updates to animation frames for smoother canvas interaction.
+		const prev = pendingPanRef.current;
+		pendingPanRef.current = prev
+			? { dx: prev.dx + deltaX, dy: prev.dy + deltaY }
+			: { dx: deltaX, dy: deltaY };
+
+		if (panRafRef.current != null) return;
+		panRafRef.current = requestAnimationFrame(() => {
+			panRafRef.current = null;
+			const pending = pendingPanRef.current;
+			pendingPanRef.current = null;
+			if (!pending) return;
+			setViewport((vp) => ({
+				...vp,
+				x: vp.x + pending.dx,
+				y: vp.y + pending.dy,
+			}));
+		});
 	}, []);
 
 	const panTo = useCallback((x: number, y: number) => {

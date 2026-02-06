@@ -107,8 +107,10 @@ export default defineSchema({
     y: v.number(),
     width: v.number(),
     height: v.number(),
-    rotation: v.number(), // Degrees
+    rotation: v.number(), // Kept for backward compatibility; editor enforces 0
     zIndex: v.number(), // Stacking order
+    gridRows: v.optional(v.number()),
+    gridCols: v.optional(v.number()),
     label: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -129,6 +131,27 @@ export default defineSchema({
     rotation: v.number(),
     zIndex: v.number(),
     label: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_drawerId', ['drawerId'])
+    .index('by_drawerId_and_zIndex', ['drawerId', 'zIndex'])
+    .index('by_updatedAt', ['updatedAt']),
+
+  /**
+   * Drawer background images - multiple images anchored to a single drawer.
+   * Coordinates are drawer-local (centered): x/y are image center offsets from drawer center.
+   */
+  drawerBackgroundImages: defineTable({
+    drawerId: v.id('drawers'),
+    storageId: v.id('_storage'),
+    x: v.number(),
+    y: v.number(),
+    width: v.number(),
+    height: v.number(),
+    zIndex: v.number(),
+    locked: v.boolean(),
+    snapToGrid: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

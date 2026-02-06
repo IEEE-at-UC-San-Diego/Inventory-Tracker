@@ -3,9 +3,10 @@ import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useQuery } from "@/integrations/convex/react-query";
+import type { AuthContext } from "@/types/auth";
 
 interface LocationSelectorProps {
-	authContext: any;
+	authContext: AuthContext | null;
 	value: string;
 	onChange: (value: string) => void;
 	excludeCompartmentId?: string;
@@ -21,15 +22,17 @@ export function LocationSelector({
 	const [selectedDrawerId, setSelectedDrawerId] = useState("");
 
 	// Fetch blueprints
-	const blueprintsResult = useQuery(api.blueprints.queries.list, {
-		authContext,
-	});
+	const blueprintsResult = useQuery(
+		api.blueprints.queries.list,
+		authContext ? { authContext } : undefined,
+		{ enabled: !!authContext },
+	);
 	const blueprints = (blueprintsResult as any[]) ?? [];
 
 	// Fetch drawers for selected blueprint
 	const drawersResult = useQuery(
 		(api as any)["drawers/queries"].listByBlueprint,
-		selectedBlueprintId
+		selectedBlueprintId && authContext
 			? { authContext, blueprintId: selectedBlueprintId as Id<"blueprints"> }
 			: undefined,
 	);
@@ -38,7 +41,7 @@ export function LocationSelector({
 	// Fetch compartments for selected drawer
 	const compartmentsResult = useQuery(
 		(api as any)["compartments/queries"].getByDrawer,
-		selectedDrawerId
+		selectedDrawerId && authContext
 			? { authContext, drawerId: selectedDrawerId as Id<"drawers"> }
 			: undefined,
 	);

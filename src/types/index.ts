@@ -110,7 +110,24 @@ export interface Drawer {
 	height: number;
 	rotation: number;
 	zIndex: number;
+	gridRows?: number;
+	gridCols?: number;
 	label?: string;
+	createdAt: number;
+	updatedAt: number;
+}
+
+export interface DrawerBackgroundImage {
+	_id: string;
+	drawerId: string;
+	storageId: string;
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	zIndex: number;
+	locked: boolean;
+	snapToGrid: boolean;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -319,6 +336,7 @@ export interface LockStatus {
 // Drawer with compartments for hierarchy
 export interface DrawerWithCompartments extends Drawer {
 	compartments: Compartment[];
+	backgroundImages?: DrawerBackgroundImage[];
 }
 
 // Blueprint with full hierarchy

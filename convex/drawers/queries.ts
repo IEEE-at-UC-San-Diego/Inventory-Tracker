@@ -24,9 +24,30 @@ export const listByBlueprint = query({
       height: v.number(),
       rotation: v.number(),
       zIndex: v.number(),
+      gridRows: v.optional(v.number()),
+      gridCols: v.optional(v.number()),
       label: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
+      backgroundImages: v.optional(
+        v.array(
+          v.object({
+            _id: v.id('drawerBackgroundImages'),
+            _creationTime: v.number(),
+            drawerId: v.id('drawers'),
+            storageId: v.id('_storage'),
+            x: v.number(),
+            y: v.number(),
+            width: v.number(),
+            height: v.number(),
+            zIndex: v.number(),
+            locked: v.boolean(),
+            snapToGrid: v.boolean(),
+            createdAt: v.number(),
+            updatedAt: v.number(),
+          })
+        )
+      ),
       compartments: v.optional(
         v.array(
           v.object({
@@ -78,9 +99,14 @@ export const listByBlueprint = query({
           .query('compartments')
           .withIndex('by_drawerId_and_zIndex', (q) => q.eq('drawerId', drawer._id))
           .collect()
+        const backgroundImages = await ctx.db
+          .query('drawerBackgroundImages')
+          .withIndex('by_drawerId_and_zIndex', (q) => q.eq('drawerId', drawer._id))
+          .collect()
 
         return {
           ...drawer,
+          backgroundImages,
           compartments,
         }
       })
@@ -109,9 +135,28 @@ export const get = query({
       height: v.number(),
       rotation: v.number(),
       zIndex: v.number(),
+      gridRows: v.optional(v.number()),
+      gridCols: v.optional(v.number()),
       label: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
+      backgroundImages: v.array(
+        v.object({
+          _id: v.id('drawerBackgroundImages'),
+          _creationTime: v.number(),
+          drawerId: v.id('drawers'),
+          storageId: v.id('_storage'),
+          x: v.number(),
+          y: v.number(),
+          width: v.number(),
+          height: v.number(),
+          zIndex: v.number(),
+          locked: v.boolean(),
+          snapToGrid: v.boolean(),
+          createdAt: v.number(),
+          updatedAt: v.number(),
+        })
+      ),
       compartments: v.array(
         v.object({
           _id: v.id('compartments'),
@@ -153,9 +198,14 @@ export const get = query({
       .query('compartments')
       .withIndex('by_drawerId_and_zIndex', (q) => q.eq('drawerId', args.drawerId))
       .collect()
+    const backgroundImages = await ctx.db
+      .query('drawerBackgroundImages')
+      .withIndex('by_drawerId_and_zIndex', (q) => q.eq('drawerId', args.drawerId))
+      .collect()
 
     return {
       ...drawer,
+      backgroundImages,
       compartments,
     }
   },
