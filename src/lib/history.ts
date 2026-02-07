@@ -394,10 +394,16 @@ export class HistoryEntryBuilder {
 	private selectionBefore: SelectionSnapshot = {
 		selectedDrawerIds: [],
 		selectedCompartmentId: null,
+		viewportZoom: 1,
+		viewportX: 0,
+		viewportY: 0,
 	};
 	private selectionAfter: SelectionSnapshot = {
 		selectedDrawerIds: [],
 		selectedCompartmentId: null,
+		viewportZoom: 1,
+		viewportX: 0,
+		viewportY: 0,
 	};
 
 	setLabel(label: string): this {

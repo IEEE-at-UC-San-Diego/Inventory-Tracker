@@ -114,11 +114,11 @@ export interface HistoryDependencies {
 			gridRows?: number;
 			gridCols?: number;
 			label?: string;
-		}) => Promise<void>;
+		}) => Promise<boolean | void>;
 		deleteDrawer: (args: {
 			authContext: AuthContext;
 			drawerId: Id<"drawers">;
-		}) => Promise<void>;
+		}) => Promise<boolean | void>;
 		createCompartment: (args: {
 			authContext: AuthContext;
 			drawerId: Id<"drawers">;
@@ -141,16 +141,16 @@ export interface HistoryDependencies {
 			rotation?: number;
 			zIndex?: number;
 			label?: string;
-		}) => Promise<void>;
+		}) => Promise<boolean | void>;
 		deleteCompartment: (args: {
 			authContext: AuthContext;
 			compartmentId: Id<"compartments">;
-		}) => Promise<void>;
+		}) => Promise<boolean | void>;
 		updateBlueprint: (args: {
 			authContext: AuthContext;
 			blueprintId: Id<"blueprints">;
 			name: string;
-		}) => Promise<void>;
+		}) => Promise<boolean | void>;
 	};
 	blueprintId: Id<"blueprints">;
 	blueprintName: string;
@@ -165,7 +165,10 @@ export interface HistoryDependencies {
 		selectedDrawerIds: string[];
 	};
 	isLockedByMe: boolean;
-	restoreSelection: (selection: SelectionSnapshot) => void;
+	restoreSelection: (selection: {
+		selectedDrawerIds: string[];
+		selectedCompartmentId: string | null;
+	}) => void;
 	restoreViewport: (viewport: ViewportSnapshot) => void;
 	onError?: (title: string, message: string) => void;
 }

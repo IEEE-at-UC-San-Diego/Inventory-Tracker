@@ -71,18 +71,6 @@ export function ReviewStep({
 								{UNITS.find((u) => u.value === data.unit)?.label || data.unit}
 							</dd>
 						</div>
-						{data.tags.length > 0 && (
-							<div className="sm:col-span-2">
-								<dt className="text-gray-500">Tags</dt>
-								<dd className="flex flex-wrap gap-1 mt-1">
-									{data.tags.map((tag) => (
-										<Badge key={tag} variant="secondary">
-											{tag}
-										</Badge>
-									))}
-								</dd>
-							</div>
-						)}
 						{data.description && (
 							<div className="sm:col-span-2">
 								<dt className="text-gray-500">Description</dt>

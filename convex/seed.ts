@@ -61,7 +61,6 @@ export const seedParts = mutation({
         archived: false,
         orgId: firstOrg._id,
         unit: 'pcs',
-        tags: [partData.category.toLowerCase().replace(/\s+/g, '-')],
         createdAt: now,
         updatedAt: now,
       })
@@ -307,7 +306,6 @@ export const seedAll = mutation({
         archived: false,
         orgId: firstOrg._id,
         unit: 'pcs',
-        tags: [partData.category.toLowerCase().replace(/\s+/g, '-')],
         createdAt: now,
         updatedAt: now,
       })

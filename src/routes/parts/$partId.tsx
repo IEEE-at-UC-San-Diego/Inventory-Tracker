@@ -99,6 +99,16 @@ function PartDetailContent() {
 	const part = partData?.part;
 	const inventory = partData?.inventory ?? [];
 	const totalQuantity = partData?.totalQuantity ?? 0;
+	const uniqueBlueprints = Array.from(
+		inventory
+			.map((item) => item.blueprint)
+			.reduce((map, blueprint) => {
+				if (!blueprint) return map;
+				map.set(blueprint._id, blueprint);
+				return map;
+			}, new Map<string, NonNullable<(typeof inventory)[number]["blueprint"]>>())
+			.values(),
+	);
 
 	// Fetch transactions
 	const transactions = useQuery(
@@ -177,8 +187,18 @@ function PartDetailContent() {
 
 	if (part === undefined) {
 		return (
-			<div className="flex h-screen items-center justify-center">
-				<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600" />
+			<div className="p-6 max-w-6xl mx-auto animate-pulse">
+				<div className="mb-6 h-10 w-1/2 rounded bg-slate-200" />
+				<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+					<div className="space-y-6 lg:col-span-2">
+						<div className="h-56 rounded-lg bg-slate-200" />
+						<div className="h-72 rounded-lg bg-slate-200" />
+					</div>
+					<div className="space-y-6">
+						<div className="h-44 rounded-lg bg-slate-200" />
+						<div className="h-64 rounded-lg bg-slate-200" />
+					</div>
+				</div>
 			</div>
 		);
 	}
@@ -445,26 +465,19 @@ function PartDetailContent() {
 										on blueprints:
 									</p>
 									<div className="flex flex-wrap gap-2">
-										{Array.from(
-											new Set(inventory.map((item) => item.blueprint)),
-										)
-											.filter(Boolean)
-											.map(
-												(blueprint) =>
-													blueprint && (
-														<Link
-															key={blueprint._id}
-															to="/blueprints/$blueprintId"
-															params={{ blueprintId: blueprint._id }}
-															search={{ partId, mode: undefined }}
-														>
-															<Button variant="outline" size="sm">
-																<Grid3X3 className="w-4 h-4 mr-2" />
-																{blueprint.name}
-															</Button>
-														</Link>
-													),
-											)}
+										{uniqueBlueprints.map((blueprint) => (
+											<Link
+												key={blueprint._id}
+												to="/blueprints/$blueprintId"
+												params={{ blueprintId: blueprint._id }}
+												search={{ partId, mode: undefined }}
+											>
+												<Button variant="outline" size="sm">
+													<Grid3X3 className="w-4 h-4 mr-2" />
+													{blueprint.name}
+												</Button>
+											</Link>
+										))}
 									</div>
 								</CardContent>
 							</Card>

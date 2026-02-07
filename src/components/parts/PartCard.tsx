@@ -72,7 +72,7 @@ export function PartCard({
 					</span>
 				</div>
 				<div className="flex items-center gap-2">
-					<Link to="/parts/$partId" params={{ partId: part._id }}>
+					<Link to="/parts/$partId" params={{ partId: part._id }} preload="intent">
 						<Button variant="ghost" size="sm">
 							View
 						</Button>
@@ -85,7 +85,11 @@ export function PartCard({
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
-								<Link to="/parts/$partId" params={{ partId: part._id }}>
+								<Link
+									to="/parts/$partId"
+									params={{ partId: part._id }}
+									preload="intent"
+								>
 									<DropdownMenuItem>
 										<Edit className="w-4 h-4 mr-2" />
 										Edit
@@ -113,91 +117,84 @@ export function PartCard({
 	}
 
 	return (
-		<Card className="group overflow-hidden hover:shadow-md transition-shadow">
-			<div className="relative aspect-video bg-gray-100">
-				<PartImage
-					imageId={part.imageId}
-					name={part.name}
-					size="xl"
-					className="w-full h-full"
-					clickable={true}
-				/>
-				{part.archived && (
-					<div className="absolute top-2 left-2">
-						<Badge variant="secondary">
-							<Archive className="w-3 h-3 mr-1" />
-							Archived
+		<Link
+			to="/parts/$partId"
+			params={{ partId: part._id }}
+			preload="intent"
+			className="block w-full"
+		>
+			<Card className="group overflow-hidden hover:shadow-md transition-shadow cursor-pointer h-full">
+				<div className="relative aspect-video bg-gray-100">
+					<PartImage
+						imageId={part.imageId}
+						name={part.name}
+						size="xl"
+						className="w-full h-full"
+						clickable={false}
+					/>
+					{part.archived && (
+						<div className="absolute top-2 left-2">
+							<Badge variant="secondary">
+								<Archive className="w-3 h-3 mr-1" />
+								Archived
+							</Badge>
+						</div>
+					)}
+				</div>
+				<CardContent className="p-4">
+					<div className="flex items-start justify-between gap-2">
+						<div className="min-w-0 flex-1">
+							<h3 className="font-medium text-gray-900 truncate">
+								{part.name}
+							</h3>
+							<p className="text-sm text-gray-500">{part.sku}</p>
+						</div>
+					</div>
+					<div className="mt-3 flex items-center justify-between">
+						<Badge variant="outline" className="text-xs">
+							{part.category}
 						</Badge>
+						<div className="flex items-center gap-3 text-sm text-gray-500">
+							<span
+								className="flex items-center gap-1"
+								title="Total quantity"
+							>
+								<Package className="w-4 h-4" />
+								{totalQuantity}
+							</span>
+							<span
+								className={`flex items-center gap-1 ${onHighlightParts ? "cursor-pointer hover:text-cyan-600" : ""}`}
+								title="Storage locations"
+								role={onHighlightParts ? "button" : undefined}
+								tabIndex={onHighlightParts ? 0 : undefined}
+								onKeyDown={(e) => {
+									if (onHighlightParts && (e.key === 'Enter' || e.key === ' ')) {
+										e.preventDefault();
+										e.stopPropagation();
+										onHighlightParts(part._id);
+									}
+								}}
+								onClick={(e) => {
+									if (onHighlightParts) {
+										e.preventDefault();
+										e.stopPropagation();
+										onHighlightParts(part._id);
+									}
+								}}
+							>
+								<MapPin className="w-4 h-4" />
+								{locationCount}
+							</span>
+						</div>
 					</div>
-				)}
-				<div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="secondary" size="icon" className="h-8 w-8">
-								<MoreVertical className="w-4 h-4" />
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end">
-							<Link to="/parts/$partId" params={{ partId: part._id }}>
-								<DropdownMenuItem>
-									<Edit className="w-4 h-4 mr-2" />
-									Edit
-								</DropdownMenuItem>
-							</Link>
-							{canEdit && (
-								<>
-									<DropdownMenuItem
-										onClick={() => onArchive?.(part._id, !part.archived)}
-									>
-										<Archive className="w-4 h-4 mr-2" />
-										{part.archived ? "Unarchive" : "Archive"}
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										className="text-red-600"
-										onClick={() => onDelete?.(part)}
-									>
-										<Trash2 className="w-4 h-4 mr-2" />
-										Delete
-									</DropdownMenuItem>
-								</>
-							)}
-						</DropdownMenuContent>
-					</DropdownMenu>
-				</div>
-			</div>
-			<CardContent className="p-4">
-				<div className="flex items-start justify-between gap-2">
-					<div className="min-w-0 flex-1">
-						<h3 className="font-medium text-gray-900 truncate">{part.name}</h3>
-						<p className="text-sm text-gray-500">{part.sku}</p>
-					</div>
-				</div>
-				<div className="mt-3 flex items-center justify-between">
-					<Badge variant="outline" className="text-xs">
-						{part.category}
-					</Badge>
-					<div className="flex items-center gap-3 text-sm text-gray-500">
-						<span className="flex items-center gap-1" title="Total quantity">
-							<Package className="w-4 h-4" />
-							{totalQuantity}
-						</span>
-						<span
-							className={`flex items-center gap-1 ${onHighlightParts ? "cursor-pointer hover:text-cyan-600" : ""}`}
-							title="Storage locations"
-							onClick={() => onHighlightParts?.(part._id)}
-						>
-							<MapPin className="w-4 h-4" />
-							{locationCount}
-						</span>
-					</div>
-				</div>
-				{part.description && (
-					<p className="mt-2 text-sm text-gray-600 line-clamp-2">
-						{part.description}
-					</p>
-				)}
-			</CardContent>
-		</Card>
+					{part.description && (
+						<p className="mt-2 text-sm text-gray-600 line-clamp-2">
+							{part.description}
+						</p>
+					)}
+				</CardContent>
+			</Card>
+		</Link>
 	);
 }
 

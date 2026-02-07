@@ -70,7 +70,6 @@ export interface Part {
 	archived: boolean;
 	orgId: string;
 	unit: string;
-	tags: string[];
 	createdAt: number;
 	updatedAt: number;
 }

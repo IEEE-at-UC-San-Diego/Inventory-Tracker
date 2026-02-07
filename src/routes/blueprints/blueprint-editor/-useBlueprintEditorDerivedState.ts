@@ -61,7 +61,7 @@ interface UseBlueprintEditorDerivedStateParams {
 		drawerId: Id<"drawers">;
 		rows: number;
 		cols: number;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	setHasChanges: (value: boolean) => void;
 	toast: ToastLike;
 }

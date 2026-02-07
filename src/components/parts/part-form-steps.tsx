@@ -7,11 +7,8 @@ import {
 	MapPin,
 	Package,
 	RotateCcw,
-	Tag,
-	X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
-import { Badge } from "../ui/badge";
+import { useCallback } from "react";
 import { Button } from "../ui/button";
 import {
 	Card,
@@ -45,7 +42,6 @@ export interface PartWizardData {
 	category: string;
 	description: string;
 	unit: string;
-	tags: string[];
 	imageId?: string;
 
 	// Step 2: Location
@@ -58,12 +54,6 @@ export interface PartWizardData {
 	// Step 3: Initial Quantity
 	initialQuantity: number;
 	notes?: string;
-}
-
-interface PartFormProps {
-	part?: Part | null;
-	onSubmit: (partId: string) => void;
-	onCancel: () => void;
 }
 
 export const UNITS = [
@@ -129,80 +119,6 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
 					);
 				})}
 			</div>
-		</div>
-	);
-}
-
-// ============================================
-// Tag Input Component
-// ============================================
-
-interface TagInputProps {
-	tags: string[];
-	onTagsChange: (tags: string[]) => void;
-	disabled?: boolean;
-}
-
-export function TagInput({ tags, onTagsChange, disabled }: TagInputProps) {
-	const [inputValue, setInputValue] = useState("");
-
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent<HTMLInputElement>) => {
-			if (e.key === "Enter" && inputValue.trim()) {
-				e.preventDefault();
-				const newTag = inputValue.trim().toLowerCase();
-				if (!tags.includes(newTag)) {
-					onTagsChange([...tags, newTag]);
-				}
-				setInputValue("");
-			} else if (e.key === "Backspace" && !inputValue && tags.length > 0) {
-				onTagsChange(tags.slice(0, -1));
-			}
-		},
-		[inputValue, tags, onTagsChange],
-	);
-
-	const removeTag = useCallback(
-		(tagToRemove: string) => {
-			onTagsChange(tags.filter((tag) => tag !== tagToRemove));
-		},
-		[tags, onTagsChange],
-	);
-
-	return (
-		<div className="space-y-2">
-			<div className="flex flex-wrap gap-2 min-h-[32px] p-2 border rounded-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:border-cyan-500">
-				{tags.map((tag) => (
-					<Badge
-						key={tag}
-						variant="secondary"
-						className="flex items-center gap-1"
-					>
-						{tag}
-						{!disabled && (
-							<button
-								type="button"
-								onClick={() => removeTag(tag)}
-								className="hover:text-red-500"
-							>
-								<X className="w-3 h-3" />
-							</button>
-						)}
-					</Badge>
-				))}
-				<input
-					type="text"
-					value={inputValue}
-					onChange={(e) => setInputValue(e.target.value)}
-					onKeyDown={handleKeyDown}
-					placeholder={tags.length === 0 ? "Add tags (press Enter)" : ""}
-					disabled={disabled}
-					className="flex-1 min-w-[100px] outline-none bg-transparent text-sm"
-				/>
-			</div>
-			<p className="text-xs text-gray-500">
-				Press Enter to add a tag. Tags help categorize and search for parts.
-			</p>
 		</div>
 	);
 }
@@ -325,18 +241,6 @@ export function BasicInfoStep({
 						</SelectContent>
 					</Select>
 					{errors.unit && <p className="text-sm text-red-500">{errors.unit}</p>}
-				</div>
-
-				{/* Tags */}
-				<div className="space-y-2">
-					<Label htmlFor="tags" className="flex items-center gap-2">
-						<Tag className="w-4 h-4" />
-						Tags
-					</Label>
-					<TagInput
-						tags={data.tags}
-						onTagsChange={(tags) => onUpdate({ tags })}
-					/>
 				</div>
 
 				{/* Description */}

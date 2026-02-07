@@ -210,6 +210,7 @@ function BlueprintsContent() {
 													<Link
 														to="/blueprints/$blueprintId"
 														params={{ blueprintId: blueprint._id }}
+														search={{ mode: undefined, partId: undefined }}
 													>
 														<Folder className="h-3.5 w-3.5" />
 														Open

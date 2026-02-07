@@ -16,7 +16,7 @@ interface SwapCompartmentsWithHistoryArgs {
 		authContext: AuthContext;
 		aCompartmentId: Id<"compartments">;
 		bCompartmentId: Id<"compartments">;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	pushHistoryEntry: (entry: {
 		label: string;
 		requiresLock: boolean;
@@ -106,13 +106,13 @@ interface DeleteCompartmentWithHistoryArgs {
 	deleteCompartment: (args: {
 		authContext: AuthContext;
 		compartmentId: Id<"compartments">;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	setGridForDrawer?: (args: {
 		authContext: AuthContext;
 		drawerId: Id<"drawers">;
 		rows: number;
 		cols: number;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	toast: ToastLike;
 	pushHistoryEntry: (entry: {
 		label: string;
@@ -312,7 +312,7 @@ interface UpdateCompartmentWithHistoryArgs {
 		rotation?: number;
 		zIndex?: number;
 		label?: string;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	pushHistoryEntry: (entry: {
 		label: string;
 		requiresLock: boolean;

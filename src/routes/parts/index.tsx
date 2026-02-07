@@ -3,16 +3,18 @@ import {
 	Archive,
 	ArrowRightLeft,
 	Boxes,
+	CheckCircle2,
 	Download,
 	Filter,
 	Layers3,
+	LayoutGrid,
+	List,
 	Minus,
 	Package,
 	Plus,
-	Search,
-	TriangleAlert,
+	AlertTriangle,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
@@ -43,15 +45,7 @@ import {
 	StatCard,
 } from "@/components/ui/card";
 import { AlertDialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -125,9 +119,8 @@ function InventoryWorkspaceContent() {
 	const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 	const [currentPage, setCurrentPage] = useState(1);
 
-	const [inventorySearchQuery, setInventorySearchQuery] = useState("");
-	const [inventoryCategory, setInventoryCategory] = useState("");
-	const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+
+
 
 	const [showCheckIn, setShowCheckIn] = useState(false);
 	const [showCheckOut, setShowCheckOut] = useState(false);
@@ -150,7 +143,13 @@ function InventoryWorkspaceContent() {
 			enabled: !!authContext && !isLoading,
 		},
 	);
-	const parts = partsResult ?? [];
+	const lastPartsRef = useRef<Part[]>([]);
+	useEffect(() => {
+		if (partsResult !== undefined) {
+			lastPartsRef.current = partsResult;
+		}
+	}, [partsResult]);
+	const parts = partsResult ?? lastPartsRef.current;
 
 	const inventoryResult = useQuery(
 		api.inventory.queries.list,
@@ -159,7 +158,13 @@ function InventoryWorkspaceContent() {
 			enabled: !!authContext && !isLoading,
 		},
 	);
-	const inventory = (inventoryResult ?? []) as InventoryListItem[];
+	const lastInventoryRef = useRef<InventoryListItem[]>([]);
+	useEffect(() => {
+		if (inventoryResult !== undefined) {
+			lastInventoryRef.current = inventoryResult as InventoryListItem[];
+		}
+	}, [inventoryResult]);
+	const inventory = (inventoryResult ?? lastInventoryRef.current) as InventoryListItem[];
 
 	const lowStockResult = useQuery(
 		api.inventory.queries.getLowStock,
@@ -168,7 +173,13 @@ function InventoryWorkspaceContent() {
 			enabled: !!authContext && !isLoading,
 		},
 	);
-	const lowStockItems = lowStockResult ?? [];
+	const lastLowStockRef = useRef<typeof lowStockResult>([]);
+	useEffect(() => {
+		if (lowStockResult !== undefined) {
+			lastLowStockRef.current = lowStockResult;
+		}
+	}, [lowStockResult]);
+	const lowStockItems = lowStockResult ?? lastLowStockRef.current ?? [];
 
 	const categories = useMemo(() => {
 		return Array.from(new Set(parts.map((part) => part.category))).sort();
@@ -249,24 +260,15 @@ function InventoryWorkspaceContent() {
 		currentPage * PART_PAGE_SIZE,
 	);
 
-	const filteredInventory = useMemo(() => {
+
+
+	const lowStockFilteredInventory = useMemo(() => {
 		return inventory.filter((item) => {
 			const part = item.part;
 			if (!part) return false;
-
-			const matchesSearch =
-				inventorySearchQuery === "" ||
-				part.name.toLowerCase().includes(inventorySearchQuery.toLowerCase()) ||
-				part.sku.toLowerCase().includes(inventorySearchQuery.toLowerCase());
-
-			const matchesCategory =
-				inventoryCategory === "" || part.category === inventoryCategory;
-
-			const matchesLowStock = !showLowStockOnly || item.quantity < 10;
-
-			return matchesSearch && matchesCategory && matchesLowStock;
+			return item.quantity < 10;
 		});
-	}, [inventory, inventorySearchQuery, inventoryCategory, showLowStockOnly]);
+	}, [inventory]);
 
 	const totalParts = parts.length;
 	const archivedCount = parts.filter((part) => part.archived).length;
@@ -358,67 +360,56 @@ function InventoryWorkspaceContent() {
 		[toast],
 	);
 
-	const handleExportParts = useCallback(() => {
+	const handleExportCsv = useCallback(() => {
 		const headers = [
 			"Name",
 			"SKU",
 			"Category",
 			"Description",
+			"Unit",
+			"Archived",
 			"Total Quantity",
 			"Location Count",
-			"Archived",
+			"Locations",
 			"Created At",
+			"Updated At",
 		];
+
+		const inventoryByPart = new Map<string, InventoryListItem[]>();
+		for (const item of inventory) {
+			const existing = inventoryByPart.get(item.partId) ?? [];
+			existing.push(item);
+			inventoryByPart.set(item.partId, existing);
+		}
 
 		const rows = filteredParts.map((part) => [
 			part.name,
 			part.sku,
 			part.category,
 			part.description || "",
+			part.unit,
+			part.archived ? "Yes" : "No",
 			String(part.totalQuantity ?? 0),
 			String(part.locationCount ?? 0),
-			part.archived ? "Yes" : "No",
+			(inventoryByPart.get(part._id) ?? [])
+				.map(
+					(item) =>
+						`${item.compartment?.label || "Unknown"} (${item.quantity})`,
+				)
+				.join("; "),
 			new Date(part.createdAt).toISOString(),
+			new Date(part.updatedAt).toISOString(),
 		]);
 
 		const csvContent = createCSV(headers, rows);
 		const timestamp = generateTimestamp();
-		downloadCSV(csvContent, `parts_${timestamp}.csv`);
+		downloadCSV(csvContent, `parts_inventory_${timestamp}.csv`);
 
 		toast.success(
-			"Parts Export Complete",
-			`Downloaded ${filteredParts.length} part records`,
+			"Export Complete",
+			`Downloaded ${filteredParts.length} records with inventory details`,
 		);
-	}, [filteredParts, toast]);
-
-	const handleExportInventory = useCallback(() => {
-		const headers = [
-			"Part Name",
-			"Part SKU",
-			"Category",
-			"Quantity",
-			"Location",
-			"Low Stock",
-		];
-
-		const rows = filteredInventory.map((item) => [
-			item.part?.name || "",
-			item.part?.sku || "",
-			item.part?.category || "",
-			String(item.quantity),
-			item.compartment?.label || "Unknown",
-			item.quantity < 10 ? "Yes" : "No",
-		]);
-
-		const csvContent = createCSV(headers, rows);
-		const timestamp = generateTimestamp();
-		downloadCSV(csvContent, `inventory_${timestamp}.csv`);
-
-		toast.success(
-			"Inventory Export Complete",
-			`Downloaded ${filteredInventory.length} inventory records`,
-		);
-	}, [filteredInventory, toast]);
+	}, [filteredParts, inventory, toast]);
 
 	const partFilterChips = useMemo(() => {
 		const chips: Array<{ key: string; label: string; onRemove: () => void }> =
@@ -469,6 +460,7 @@ function InventoryWorkspaceContent() {
 					<Link
 						to="/parts/$partId"
 						params={{ partId: item.partId }}
+						preload="intent"
 						className="block truncate text-sm font-medium text-slate-900 hover:text-cyan-700"
 					>
 						{item.part?.name || "Unknown Part"}
@@ -503,7 +495,7 @@ function InventoryWorkspaceContent() {
 						{item.quantity}
 					</span>
 					{item.quantity < 10 && (
-						<TriangleAlert className="h-3.5 w-3.5 text-rose-500" />
+						<AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
 					)}
 				</div>
 			),
@@ -522,269 +514,242 @@ function InventoryWorkspaceContent() {
 	];
 
 	return (
-		<div className="bg-gradient-to-b from-slate-50/80 to-background">
-			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
-					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-						<div className="space-y-1">
-							<CardTitle className="text-2xl sm:text-3xl">
-								Inventory Workspace
-							</CardTitle>
-							<CardDescription className="text-sm sm:text-base">
-								Manage parts and live stock from one compact page.
-							</CardDescription>
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							<Button variant="outline" size="sm" onClick={handleExportParts}>
-								<Download className="h-4 w-4" />
-								Export Parts
+		<div className="min-h-screen w-full bg-background">
+			<div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+				{/* Header Section */}
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<h1 className="text-3xl font-bold tracking-tight text-foreground">
+							Inventory workspace
+						</h1>
+						<p className="mt-1 text-muted-foreground">
+							Manage your parts catalog and monitor live stock levels.
+						</p>
+					</div>
+					<div className="flex items-center gap-2">
+						<EditorOnly>
+							<Button asChild>
+								<Link to="/parts/new">
+									<Plus className="mr-2 h-4 w-4" />
+									Add Part
+								</Link>
 							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={handleExportInventory}
-							>
-								<Download className="h-4 w-4" />
-								Export Stock
+							<Button variant="outline" onClick={() => setShowCheckIn(true)}>
+								<Plus className="mr-2 h-4 w-4" />
+								Check In
 							</Button>
-							<EditorOnly>
-								<Button asChild size="sm">
-									<Link to="/parts/new">
-										<Plus className="h-4 w-4" />
-										Add Part
-									</Link>
-								</Button>
-								<Button size="sm" onClick={() => setShowCheckIn(true)}>
-									<Plus className="h-4 w-4" />
-									Check In
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setShowCheckOut(true)}
-								>
-									<Minus className="h-4 w-4" />
-									Check Out
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setShowMove(true)}
-								>
-									<ArrowRightLeft className="h-4 w-4" />
-									Move
-								</Button>
-							</EditorOnly>
-						</div>
-					</CardHeader>
-				</Card>
+							<Button variant="outline" onClick={() => setShowCheckOut(true)}>
+								<Minus className="mr-2 h-4 w-4" />
+								Check Out
+							</Button>
+							<Button variant="outline" onClick={() => setShowMove(true)}>
+								<ArrowRightLeft className="mr-2 h-4 w-4" />
+								Move
+							</Button>
+						</EditorOnly>
+					</div>
+				</div>
 
-				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+				{/* Key Metrics Grid */}
+				<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
 					<StatCard
 						title="Parts"
 						value={totalParts}
 						description="Total records"
-						icon={<Package className="h-4 w-4" />}
+						icon={<Package className="h-4 w-4 text-muted-foreground" />}
 					/>
 					<StatCard
 						title="Active"
 						value={activeCount}
 						description="In use"
-						icon={<Filter className="h-4 w-4" />}
+						icon={<Filter className="h-4 w-4 text-muted-foreground" />}
 					/>
 					<StatCard
 						title="Archived"
 						value={archivedCount}
 						description="Hidden"
-						icon={<Archive className="h-4 w-4" />}
+						icon={<Archive className="h-4 w-4 text-muted-foreground" />}
 					/>
 					<StatCard
 						title="Units"
 						value={totalUnits}
 						description="In stock"
-						icon={<Boxes className="h-4 w-4" />}
+						icon={<Boxes className="h-4 w-4 text-muted-foreground" />}
 					/>
 					<StatCard
 						title="Locations"
 						value={locationCount}
 						description="With inventory"
-						icon={<Layers3 className="h-4 w-4" />}
+						icon={<Layers3 className="h-4 w-4 text-muted-foreground" />}
 					/>
 					<StatCard
 						title="Low Stock"
 						value={lowStockCount}
 						description="Below 10 units"
-						icon={<TriangleAlert className="h-4 w-4" />}
-						className={lowStockCount > 0 ? "border-amber-200" : undefined}
+						icon={
+							<AlertTriangle
+								className={`h-4 w-4 ${
+									lowStockCount > 0 ? "text-amber-500" : "text-muted-foreground"
+								}`}
+							/>
+						}
+						className={
+							lowStockCount > 0 ? "border-amber-200 bg-amber-50/10" : undefined
+						}
 					/>
 				</div>
 
-				<div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-					<Card className="xl:col-span-3">
-						<CardHeader className="pb-3">
-							<div className="flex flex-wrap items-center justify-between gap-2">
-								<div>
-									<CardTitle className="text-lg">Parts Catalog</CardTitle>
-									<CardDescription>
-										Showing {paginatedParts.length} of {filteredParts.length}{" "}
-										parts
-									</CardDescription>
-								</div>
-								<Badge variant="outline">
-									{viewMode === "grid" ? "Grid" : "List"} view
-								</Badge>
-							</div>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<PartFilters
-								searchQuery={searchQuery}
-								onSearchChange={(query) => {
-									setSearchQuery(query);
-									setCurrentPage(1);
-								}}
-								selectedCategory={selectedCategory}
-								onCategoryChange={(category) => {
-									setSelectedCategory(category);
-									setCurrentPage(1);
-								}}
-								categories={categories}
-								showArchived={showArchived}
-								onShowArchivedChange={(show) => {
-									setShowArchived(show);
-									setCurrentPage(1);
-								}}
-								viewMode={viewMode}
-								onViewModeChange={setViewMode}
-							/>
+				{/* Main Content Tabs */}
+				<Tabs defaultValue="parts" className="w-full space-y-6">
+					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<TabsList className="grid w-full grid-cols-2 sm:w-[300px]">
+							<TabsTrigger value="parts">Parts Catalog</TabsTrigger>
+							<TabsTrigger value="low-stock">Low Stock</TabsTrigger>
+						</TabsList>
+						<div className="flex items-center gap-2">
+							<Button variant="ghost" size="sm" onClick={handleExportCsv}>
+								<Download className="mr-2 h-4 w-4" />
+								Export CSV
+							</Button>
+						</div>
+					</div>
 
-							<FilterChips
-								filters={[
-									...partFilterChips,
-									{
-										key: "sort",
-										label: `Sort: ${sortField} ${sortOrder === "asc" ? "↑" : "↓"}`,
-										onRemove: () => {
-											setSortField("name");
-											setSortOrder("asc");
-											setCurrentPage(1);
-										},
-									},
-								]}
-							/>
-
-							<PartList
-								parts={paginatedParts}
-								isLoading={isLoading}
-								viewMode={viewMode}
-								sortField={sortField}
-								sortOrder={sortOrder}
-								onSort={handleSort}
-								onArchive={handleArchive}
-								onDelete={setDeletePart}
-								onHighlightParts={handleHighlightOnBlueprint}
-								canEdit={canEdit()}
-								emptyMessage="No parts found. Adjust filters or add a new part."
-							/>
-
-							{filteredParts.length > 0 && (
-								<Pagination
-									currentPage={currentPage}
-									totalPages={totalPartPages}
-									onPageChange={setCurrentPage}
-									pageSize={PART_PAGE_SIZE}
-									totalItems={filteredParts.length}
-								/>
-							)}
-						</CardContent>
-					</Card>
-
-					<Card className="xl:col-span-2">
-						<CardHeader className="pb-3">
-							<CardTitle className="text-lg">Live Stock</CardTitle>
-							<CardDescription>
-								Filter inventory by part, category, and low-stock risk.
-							</CardDescription>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<div className="grid grid-cols-1 gap-2">
-								<div className="relative">
-									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-									<Input
-										placeholder="Search inventory"
-										value={inventorySearchQuery}
-										onChange={(event) =>
-											setInventorySearchQuery(event.target.value)
-										}
-										className="pl-10"
-									/>
-								</div>
-
-								<Select
-									value={inventoryCategory || "all"}
-									onValueChange={(value) =>
-										setInventoryCategory(value === "all" ? "" : value)
-									}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="All Categories" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">All Categories</SelectItem>
-										{categories.map((category) => (
-											<SelectItem key={category} value={category}>
-												{category}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-
-								<div className="flex items-center justify-between rounded-md border px-3 py-2">
+					<TabsContent value="parts" className="space-y-4">
+						<Card>
+							<CardHeader className="pb-4">
+								<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 									<div>
-										<p className="text-sm font-medium">Low stock only</p>
-										<p className="text-xs text-slate-500">Under 10 units</p>
+										<CardTitle>Parts Catalog</CardTitle>
+										<CardDescription>
+											Viewing {paginatedParts.length} of {filteredParts.length}{" "}
+											parts
+										</CardDescription>
 									</div>
-									<Switch
-										checked={showLowStockOnly}
-										onCheckedChange={setShowLowStockOnly}
-									/>
-								</div>
-							</div>
-
-							{lowStockCount > 0 && (
-								<div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
-									<p className="mb-2 text-sm font-semibold text-amber-900">
-										{lowStockCount} low-stock item
-										{lowStockCount === 1 ? "" : "s"}
-									</p>
-									<div className="space-y-1.5">
-										{lowStockItems.slice(0, 4).map((item) => (
-											<div
-												key={item._id}
-												className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5 text-sm"
-											>
-												<span className="truncate">{item.part?.name}</span>
-												<span className="font-semibold text-rose-600">
-													{item.quantity}
-												</span>
-											</div>
-										))}
+									<div className="flex items-center gap-2">
+										<Badge variant="outline" className="h-8 px-3">
+											{viewMode === "grid" ? (
+												<LayoutGrid className="mr-2 h-3.5 w-3.5" />
+											) : (
+												<List className="mr-2 h-3.5 w-3.5" />
+											)}
+											{viewMode === "grid" ? "Grid" : "List"} view
+										</Badge>
 									</div>
 								</div>
-							)}
-
-							<div className="overflow-hidden rounded-lg border">
-								<DataTable
-									columns={inventoryColumns}
-									data={filteredInventory}
-									keyExtractor={(item) => item._id}
-									isLoading={isLoading}
-									emptyMessage="No inventory records match your filters."
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<PartFilters
+									searchQuery={searchQuery}
+									onSearchChange={(query) => {
+										setSearchQuery(query);
+										setCurrentPage(1);
+									}}
+									selectedCategory={selectedCategory}
+									onCategoryChange={(category) => {
+										setSelectedCategory(category);
+										setCurrentPage(1);
+									}}
+									categories={categories}
+									showArchived={showArchived}
+									onShowArchivedChange={(show) => {
+										setShowArchived(show);
+										setCurrentPage(1);
+									}}
+									viewMode={viewMode}
+									onViewModeChange={setViewMode}
 								/>
-							</div>
-						</CardContent>
-					</Card>
-				</div>
 
+								<FilterChips
+									filters={[
+										...partFilterChips,
+										{
+											key: "sort",
+											label: `Sort: ${sortField} ${sortOrder === "asc" ? "↑" : "↓"}`,
+											onRemove: () => {
+												setSortField("name");
+												setSortOrder("asc");
+												setCurrentPage(1);
+											},
+										},
+									]}
+								/>
+
+								<PartList
+									parts={paginatedParts}
+									isLoading={isLoading}
+									viewMode={viewMode}
+									sortField={sortField}
+									sortOrder={sortOrder}
+									onSort={handleSort}
+									onArchive={handleArchive}
+									onDelete={setDeletePart}
+									onHighlightParts={handleHighlightOnBlueprint}
+									canEdit={canEdit()}
+									emptyMessage="No parts found. Adjust filters or add a new part."
+								/>
+
+								{filteredParts.length > 0 && (
+									<Pagination
+										currentPage={currentPage}
+										totalPages={totalPartPages}
+										onPageChange={setCurrentPage}
+										pageSize={PART_PAGE_SIZE}
+										totalItems={filteredParts.length}
+									/>
+								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
+
+
+
+					<TabsContent value="low-stock" className="space-y-4">
+						<Card className="border-amber-200">
+							<CardHeader className="bg-amber-50/40">
+								<div className="flex items-center gap-2">
+									<AlertTriangle className="h-5 w-5 text-amber-600" />
+									<div>
+										<CardTitle className="text-amber-900">
+											Low Stock Alerts
+										</CardTitle>
+										<CardDescription className="text-amber-700/80">
+											Items that have fallen below the minimum threshold (10
+											units).
+										</CardDescription>
+									</div>
+								</div>
+							</CardHeader>
+							<CardContent className="pt-6">
+								{lowStockCount > 0 ? (
+									<div className="rounded-md border border-amber-100">
+										<DataTable
+											columns={inventoryColumns}
+											data={lowStockFilteredInventory}
+											keyExtractor={(item) => item._id}
+											isLoading={isLoading}
+											emptyMessage="No low stock items found."
+										/>
+									</div>
+								) : (
+									<div className="flex flex-col items-center justify-center py-12 text-center">
+										<div className="rounded-full bg-green-100 p-3">
+											<CheckCircle2 className="h-6 w-6 text-green-600" />
+										</div>
+										<h3 className="mt-4 text-lg font-semibold text-slate-900">
+											All Stock Levels Healthy
+										</h3>
+										<p className="mt-2.5 text-sm text-slate-500 max-w-sm">
+											Great job! There are no items currently below the low stock
+											threshold.
+										</p>
+									</div>
+								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
+				</Tabs>
+
+				{/* Dialogs */}
 				<CheckInDialog
 					open={showCheckIn}
 					onOpenChange={setShowCheckIn}
@@ -812,11 +777,12 @@ function InventoryWorkspaceContent() {
 						setShowAdjust(open);
 						if (!open) setAdjustItem(null);
 					}}
-					inventoryId={adjustItem?._id ?? null}
-					preselectedPartId={adjustItem?.partId ?? null}
-					preselectedCompartmentId={adjustItem?.compartmentId ?? null}
+					inventoryId={adjustItem?._id}
+					preselectedPartId={adjustItem?.partId}
+					preselectedCompartmentId={adjustItem?.compartmentId}
 					onSuccess={() => {
 						setAdjustItem(null);
+						// Refetch happens automatically.
 					}}
 				/>
 

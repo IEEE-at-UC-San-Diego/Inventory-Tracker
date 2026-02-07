@@ -16,6 +16,7 @@ import {
 	type DrawerSnapshot,
 	type HistoryChange,
 	type HistoryEntry,
+	type HistoryState,
 	type IdMapping,
 	type LogicalId,
 	type SelectionSnapshot,
@@ -55,7 +56,6 @@ export function useBlueprintHistory(
 		getAuthContext,
 		mutations,
 		blueprintId,
-		blueprintName,
 		drawers,
 		viewport,
 		selection,
@@ -119,6 +119,7 @@ export function useBlueprintHistory(
 	const convertLegacySelection = useCallback(
 		(legacy: LegacySelectionSnapshot): SelectionSnapshot => {
 			const mapping = idMappingRef.current;
+			const currentViewport = viewportRef.current;
 
 			const selectedDrawerIds = legacy.selectedDrawerIds
 				.map((id) => getLogicalId(mapping, id))
@@ -133,6 +134,9 @@ export function useBlueprintHistory(
 			return {
 				selectedDrawerIds,
 				selectedCompartmentId,
+				viewportZoom: currentViewport.zoom,
+				viewportX: currentViewport.x,
+				viewportY: currentViewport.y,
 			};
 		},
 		[],
@@ -178,7 +182,6 @@ export function useBlueprintHistory(
 			selection: SelectionSnapshot;
 		}): void => {
 			const applyViewport = restoreViewportRef.current;
-			const applySelection = restoreSelectionRef.current;
 
 			// Restore viewport FIRST (to establish viewing context)
 			if (applyViewport) {
@@ -186,9 +189,7 @@ export function useBlueprintHistory(
 			}
 
 			// Restore selection AFTER viewport (for proper focus)
-			if (applySelection) {
-				restoreSelectionSnapshot(snapshot.selection);
-			}
+			restoreSelectionSnapshot(snapshot.selection);
 		},
 		[restoreSelectionSnapshot],
 	);
@@ -468,6 +469,10 @@ export function useBlueprintHistory(
 					});
 					return;
 				}
+				case "bulkUpdate": {
+					// Bulk changes are flattened into atomic updates before they reach apply.
+					return;
+				}
 
 				default: {
 					const _exhaustive: never = change.type;
@@ -647,15 +652,22 @@ export function useBlueprintHistory(
 	]);
 
 	const getStateSnapshot = useCallback(
-		(entry: HistoryEntry) => ({
+		(
+			entry: HistoryEntry,
+		): {
+			select: "before" | "after";
+			drawers: Map<LogicalId, DrawerSnapshot>;
+			viewport: ViewportSnapshot;
+			selection: SelectionSnapshot;
+		} => ({
 			select: "after",
-			drawers: new Map(),
+			drawers: new Map<LogicalId, DrawerSnapshot>(),
 			viewport: {
-				zoom: entry.selectionBefore.viewportZoom,
-				x: entry.selectionBefore.viewportX,
-				y: entry.selectionBefore.viewportY,
+				zoom: entry.selectionAfter.viewportZoom,
+				x: entry.selectionAfter.viewportX,
+				y: entry.selectionAfter.viewportY,
 			},
-			selection: entry.selectionBefore,
+			selection: entry.selectionAfter,
 		}),
 		[],
 	);

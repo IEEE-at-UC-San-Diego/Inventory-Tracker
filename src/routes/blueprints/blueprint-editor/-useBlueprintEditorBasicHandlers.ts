@@ -14,6 +14,7 @@ import { createDrawerWithHistory } from "./actions/-drawerActions";
 interface ToastLike {
 	success: (title: string, description?: string) => void;
 	error: (title: string, description?: string) => void;
+	info: (title: string, description?: string) => void;
 }
 
 interface UseBlueprintEditorBasicHandlersParams {
@@ -27,12 +28,12 @@ interface UseBlueprintEditorBasicHandlersParams {
 	updateBlueprint: (args: {
 		authContext: AuthContext;
 		blueprintId: Id<"blueprints">;
-		name?: string;
-	}) => Promise<void>;
+		name: string;
+	}) => Promise<boolean | void>;
 	deleteBlueprint: (args: {
 		authContext: AuthContext;
 		blueprintId: Id<"blueprints">;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	createDrawer: (args: {
 		authContext: AuthContext;
 		blueprintId: Id<"blueprints">;

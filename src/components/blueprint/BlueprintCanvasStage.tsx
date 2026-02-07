@@ -327,7 +327,7 @@ export function BlueprintCanvasStage({
 					{drawersForRender.map((drawer) =>
 						drawer.compartments.map((compartment) => (
 							<CompartmentShape
-								key={compartment._id}
+								key={`${drawer._id}:${compartment._id}`}
 								compartment={compartment}
 								drawer={drawer}
 								isSelected={

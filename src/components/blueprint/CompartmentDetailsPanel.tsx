@@ -75,9 +75,6 @@ export function CompartmentDetailsPanel({
 		(sum, item) => sum + item.quantity,
 		0,
 	);
-	const compartmentDisplayLabel =
-		compartment.label || `Compartment ${compartment._id.slice(-4)}`;
-	const drawerDisplayLabel = drawer.label || `Drawer ${drawer._id.slice(-4)}`;
 
 	// Handle check in
 	const handleCheckIn = useCallback(() => {
@@ -110,6 +107,9 @@ export function CompartmentDetailsPanel({
 	if (!compartment || !drawer) {
 		return null;
 	}
+	const compartmentDisplayLabel =
+		compartment.label || `Compartment ${compartment._id.slice(-4)}`;
+	const drawerDisplayLabel = drawer.label || `Drawer ${drawer._id.slice(-4)}`;
 
 	return (
 		<>

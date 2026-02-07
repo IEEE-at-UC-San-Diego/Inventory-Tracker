@@ -5,6 +5,23 @@ import { getCurrentUser } from '../auth_helpers'
 import { getCurrentOrgId } from '../organization_helpers'
 import { authContextSchema } from '../types/auth'
 
+function serializePart(part: Doc<'parts'>) {
+  return {
+    _id: part._id,
+    _creationTime: part._creationTime,
+    name: part.name,
+    sku: part.sku,
+    category: part.category,
+    description: part.description,
+    imageId: part.imageId,
+    archived: part.archived,
+    orgId: part.orgId,
+    unit: part.unit,
+    createdAt: part.createdAt,
+    updatedAt: part.updatedAt,
+  }
+}
+
 /**
  * Get all parts for the current user's organization
  * Optionally filter by archived status
@@ -26,7 +43,6 @@ export const list = query({
       archived: v.boolean(),
       orgId: v.id('organizations'),
       unit: v.string(),
-      tags: v.array(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -52,7 +68,7 @@ export const list = query({
         .collect()
     }
 
-    return parts
+    return parts.map(serializePart)
   },
 })
 
@@ -77,7 +93,6 @@ export const get = query({
       archived: v.boolean(),
       orgId: v.id('organizations'),
       unit: v.string(),
-      tags: v.array(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     }),
@@ -94,7 +109,7 @@ export const get = query({
       return null
     }
 
-    return part
+    return serializePart(part)
   },
 })
 
@@ -121,7 +136,6 @@ export const search = query({
         archived: v.boolean(),
         orgId: v.id('organizations'),
         unit: v.string(),
-        tags: v.array(v.string()),
         createdAt: v.number(),
         updatedAt: v.number(),
       })
@@ -155,7 +169,7 @@ export const search = query({
         ? String(startIndex + limit)
         : undefined
 
-    return { items, nextCursor }
+    return { items: items.map(serializePart), nextCursor }
   },
 })
 
@@ -179,7 +193,6 @@ export const getByCategory = query({
       archived: v.boolean(),
       orgId: v.id('organizations'),
       unit: v.string(),
-      tags: v.array(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -194,7 +207,7 @@ export const getByCategory = query({
       )
       .collect()
 
-    return parts
+    return parts.map(serializePart)
   },
 })
 
@@ -220,7 +233,6 @@ export const getWithInventory = query({
         archived: v.boolean(),
         orgId: v.id('organizations'),
         unit: v.string(),
-        tags: v.array(v.string()),
         createdAt: v.number(),
         updatedAt: v.number(),
       }),
@@ -323,7 +335,7 @@ export const getWithInventory = query({
     )
 
     return {
-      part,
+      part: serializePart(part),
       inventory: enrichedInventory,
       totalQuantity,
     }

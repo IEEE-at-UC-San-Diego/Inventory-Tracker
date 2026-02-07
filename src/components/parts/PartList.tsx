@@ -1,4 +1,5 @@
-import { Grid2X2, LayoutList, Search, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Archive, Grid2X2, LayoutList, Search, X } from "lucide-react";
 import { useMemo } from "react";
 import type { Part } from "@/types";
 import { Badge } from "../ui/badge";
@@ -93,46 +94,64 @@ export function PartList({
 	if (viewMode === "list") {
 		return (
 			<div className="overflow-hidden rounded-lg border border-slate-200">
-				<div className="grid grid-cols-[auto_1fr_120px_140px_100px] gap-4 border-b border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700">
-					<div className="w-12" />
-					<Button
-						variant="ghost"
-						size="sm"
-						className="justify-start px-0"
+				<div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_120px_120px_100px] items-center gap-4 border-b border-slate-200 bg-slate-50/90 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+					<button
+						type="button"
+						className="text-left"
 						onClick={() => onSort?.("name")}
 					>
-						Name
-						{sortField === "name" && (
-							<span>{sortOrder === "asc" ? "↑" : "↓"}</span>
-						)}
-					</Button>
-					<Button
-						variant="ghost"
-						size="sm"
-						className="justify-start px-0"
+						Name {sortField === "name" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
+					</button>
+					<button
+						type="button"
+						className="text-left"
 						onClick={() => onSort?.("category")}
 					>
-						Category
-						{sortField === "category" && (
-							<span>{sortOrder === "asc" ? "↑" : "↓"}</span>
-						)}
-					</Button>
-					<span className="text-right">Inventory</span>
-					<span className="text-right">Actions</span>
+						Category{" "}
+						{sortField === "category" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
+					</button>
+					<div className="text-right">Stock</div>
+					<div className="text-right">Locations</div>
+					<div className="text-right">Status</div>
 				</div>
 
 				<div className="divide-y divide-slate-100">
-					{parts.map((part) => (
-						<PartCard
+					{parts.map((part) => {
+						const totalQuantity = part.totalQuantity ?? 0;
+						const locationCount = part.locationCount ?? 0;
+						return (
+							<Link
 							key={part._id}
-							part={part}
-							viewMode="list"
-							onArchive={onArchive}
-							onDelete={onDelete}
-							onHighlightParts={onHighlightParts}
-							canEdit={canEdit}
-						/>
-					))}
+							to="/parts/$partId"
+							params={{ partId: part._id }}
+							preload="intent"
+							className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_120px_120px_100px] items-center gap-4 px-4 py-2.5 transition-colors hover:bg-slate-50"
+						>
+							<div className="min-w-0">
+								<p className="truncate text-sm font-medium text-slate-900">
+									{part.name}
+								</p>
+								<p className="truncate text-xs text-slate-500">{part.sku}</p>
+							</div>
+							<div className="truncate text-sm text-slate-700">{part.category}</div>
+							<div className="text-right text-sm font-medium text-slate-900">
+								{totalQuantity}
+							</div>
+							<div className="text-right text-sm text-slate-700">
+								{locationCount}
+							</div>
+							<div className="text-right text-xs font-medium">
+								<span
+									className={
+										part.archived ? "text-slate-500" : "text-emerald-700"
+									}
+								>
+									{part.archived ? "Archived" : "Active"}
+								</span>
+							</div>
+						</Link>
+						);
+					})}
 				</div>
 			</div>
 		);
@@ -303,13 +322,15 @@ export function PartFilters({
 	return (
 		<div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
 			<div className="relative">
-				<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+				<div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+					<Search className="h-4 w-4 text-slate-400" />
+				</div>
 				<Input
 					type="text"
 					placeholder="Search by name, SKU, or description"
 					value={searchQuery}
 					onChange={(event) => onSearchChange(event.target.value)}
-					className="pl-10"
+					className="h-10 pl-10"
 				/>
 			</div>
 
@@ -332,30 +353,32 @@ export function PartFilters({
 				</SelectContent>
 			</Select>
 
-			<div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 lg:min-w-[180px]">
-				<div className="text-sm">
-					<p className="font-medium text-slate-900">Show Archived</p>
-					<p className="text-xs text-slate-500">Include inactive parts</p>
+			<div className="flex h-10 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 lg:min-w-[180px]">
+				<div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+					<Archive className="h-4 w-4 text-slate-500" />
+					<span>Archived</span>
 				</div>
 				<Switch checked={showArchived} onCheckedChange={onShowArchivedChange} />
 			</div>
 
-			<div className="inline-flex items-center rounded-md border border-slate-200 p-1">
+			<div className="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white p-1">
 				<Button
 					variant={viewMode === "grid" ? "default" : "ghost"}
-					size="sm"
+					size="icon"
+					className="h-8 w-8"
 					onClick={() => onViewModeChange("grid")}
+					title="Grid view"
 				>
 					<Grid2X2 className="h-4 w-4" />
-					Grid
 				</Button>
 				<Button
 					variant={viewMode === "list" ? "default" : "ghost"}
-					size="sm"
+					size="icon"
+					className="h-8 w-8"
 					onClick={() => onViewModeChange("list")}
+					title="List view"
 				>
 					<LayoutList className="h-4 w-4" />
-					List
 				</Button>
 			</div>
 		</div>

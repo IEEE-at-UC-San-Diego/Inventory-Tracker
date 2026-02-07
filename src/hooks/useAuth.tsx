@@ -30,7 +30,6 @@ import {
 	hasPermissionForUser,
 	hasRoleForUser,
 	isLogtoRequestErrorLike,
-	normalizeRole,
 } from "./useAuth.helpers";
 export { LogtoAuthProvider, useAuth } from "./useAuthPublic";
 

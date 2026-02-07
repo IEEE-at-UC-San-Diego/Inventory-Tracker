@@ -19,7 +19,6 @@ export const create = mutation({
     description: v.optional(v.string()),
     imageId: v.optional(v.id('_storage')),
     unit: v.string(),
-    tags: v.optional(v.array(v.string())),
   },
   returns: v.id('parts'),
   handler: async (ctx, args): Promise<Id<'parts'>> => {
@@ -58,7 +57,6 @@ export const create = mutation({
       archived: false,
       orgId,
       unit: args.unit,
-      tags: args.tags ?? [],
       createdAt: now,
       updatedAt: now,
     })
@@ -81,7 +79,6 @@ export const update = mutation({
     description: v.optional(v.string()),
     imageId: v.optional(v.id('_storage')),
     unit: v.optional(v.string()),
-    tags: v.optional(v.array(v.string())),
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
@@ -126,7 +123,6 @@ export const update = mutation({
     if (args.description !== undefined) updates.description = args.description
     if (args.imageId !== undefined) updates.imageId = args.imageId
     if (args.unit !== undefined) updates.unit = args.unit
-    if (args.tags !== undefined) updates.tags = args.tags
 
     await ctx.db.patch(args.partId, updates)
     return true

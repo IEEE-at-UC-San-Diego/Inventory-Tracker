@@ -10,8 +10,8 @@ interface SaveBlueprintNameWithHistoryArgs {
 	updateBlueprint: (args: {
 		authContext: AuthContext;
 		blueprintId: Id<"blueprints">;
-		name?: string;
-	}) => Promise<void>;
+		name: string;
+	}) => Promise<boolean | void>;
 	pushHistoryEntry: (entry: {
 		label: string;
 		requiresLock: boolean;
@@ -55,7 +55,7 @@ interface DeleteBlueprintArgs {
 	deleteBlueprint: (args: {
 		authContext: AuthContext;
 		blueprintId: Id<"blueprints">;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 }
 
 export async function deleteBlueprintById({

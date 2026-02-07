@@ -416,11 +416,8 @@ function LocationPickerContent() {
 														isLocked={false}
 														isLockedByMe={true}
 														mode="view"
-														viewport={viewport}
 														highlighted={false}
 														onSelect={() => handleSelectDrawer(drawer)}
-														onDragEnd={() => {}}
-														onTransformEnd={() => {}}
 													/>
 												))}
 

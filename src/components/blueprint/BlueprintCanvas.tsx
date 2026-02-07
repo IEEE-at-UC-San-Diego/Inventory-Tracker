@@ -370,7 +370,11 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 	);
 
 	const sortedDrawers = useMemo(() => {
-		return [...drawers].sort((a, b) => a.zIndex - b.zIndex);
+		const byId = new Map<string, DrawerWithCompartments>();
+		for (const drawer of drawers) {
+			byId.set(drawer._id, drawer);
+		}
+		return [...byId.values()].sort((a, b) => a.zIndex - b.zIndex);
 	}, [drawers]);
 
 	const drawersForRender = useMemo(() => {

@@ -8,8 +8,6 @@ import {
 	MapPin,
 	Hash,
 	FileText,
-	Tag,
-	Boxes,
 	Check,
 	RotateCcw,
 } from "lucide-react";
@@ -32,7 +30,6 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../ui/toast";
 import { PartImageUpload } from "./PartImage";
-import { Badge } from "../ui/badge";
 import {
 	Select,
 	SelectContent,
@@ -47,7 +44,6 @@ import {
 	type PartWizardData,
 	QuantityStep,
 	StepIndicator,
-	TagInput,
 	UNITS,
 	type WizardStep,
 } from "./part-form-steps";
@@ -72,7 +68,6 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 		category: part?.category ?? "",
 		description: part?.description ?? "",
 		unit: part?.unit ?? "pcs",
-		tags: part?.tags ?? [],
 		imageId: part?.imageId,
 		location: undefined,
 		initialQuantity: 0,
@@ -291,7 +286,6 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 					description: wizardData.description || undefined,
 					imageId: imageId as Id<"_storage"> | undefined,
 					unit: wizardData.unit,
-					tags: wizardData.tags,
 				});
 				setSubmitProgress(100);
 				toast.success("Part updated successfully");
@@ -306,7 +300,6 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 					description: wizardData.description || undefined,
 					imageId: imageId as Id<"_storage"> | undefined,
 					unit: wizardData.unit,
-					tags: wizardData.tags,
 				});
 				setSubmitProgress(70);
 
@@ -461,18 +454,6 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 							{errors.unit && (
 								<p className="text-sm text-red-500">{errors.unit}</p>
 							)}
-						</div>
-
-						{/* Tags */}
-						<div className="space-y-2">
-							<Label htmlFor="edit-tags" className="flex items-center gap-2">
-								<Tag className="w-4 h-4" />
-								Tags
-							</Label>
-							<TagInput
-								tags={wizardData.tags}
-								onTagsChange={(tags) => updateWizardData({ tags })}
-							/>
 						</div>
 
 						{/* Description */}

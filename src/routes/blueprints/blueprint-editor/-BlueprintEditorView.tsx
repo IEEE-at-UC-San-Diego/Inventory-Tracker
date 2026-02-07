@@ -55,7 +55,7 @@ export function BlueprintEditorView({
 	showVersionHistory,
 	showActionHistory,
 	pendingDeleteDrawerIds,
-	pendingDeleteCompartmentId,
+	pendingDeleteCompartmentId: _pendingDeleteCompartmentId,
 	lockLoading,
 	canEdit,
 	canUndoNow,

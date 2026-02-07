@@ -41,11 +41,11 @@ export interface DrawerMutationFns {
 		gridRows?: number;
 		gridCols?: number;
 		label?: string;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	deleteDrawer: (args: {
 		authContext: AuthContext;
 		drawerId: Id<"drawers">;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 	createCompartment: (args: {
 		authContext: AuthContext;
 		drawerId: Id<"drawers">;
@@ -65,7 +65,7 @@ export interface DrawerMutationFns {
 		height?: number;
 		rotation?: number;
 		label?: string;
-	}) => Promise<void>;
+	}) => Promise<boolean | void>;
 }
 
 export const DRAWER_GRID_SIZE = 50;
