@@ -1,4 +1,3 @@
-import type { KonvaEventObject, Node as KonvaNode } from "konva/lib/Node";
 import type { Stage as KonvaStage } from "konva/lib/Stage";
 import {
 	forwardRef,
@@ -6,9 +5,8 @@ import {
 	useEffect,
 	useMemo,
 	useRef,
-	useState,
 } from "react";
-import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import type React from "react";
 import type {
 	CanvasMode,
 	Compartment,
@@ -18,8 +16,9 @@ import type {
 	Viewport,
 } from "@/types";
 import type { BlueprintTool } from "./BlueprintControls";
-import { CompartmentShape } from "./CompartmentShape";
-import { DrawerShape } from "./DrawerShape";
+import { BlueprintCanvasStage } from "./BlueprintCanvasStage";
+import { useBlueprintCanvasCompartmentDrag } from "./useBlueprintCanvasCompartmentDrag";
+import { useBlueprintCanvasPointerInteractions } from "./useBlueprintCanvasPointerInteractions";
 import { useCanvasViewport } from "./useCanvasViewport";
 
 interface BlueprintCanvasProps {
@@ -48,7 +47,7 @@ interface BlueprintCanvasProps {
 	onSplitDrawerFromTool?: (split: {
 		drawerId: string;
 		orientation: "vertical" | "horizontal";
-		position: number; // position in drawer local coordinates (x or y)
+		position: number;
 		targetCompartmentId?: string | null;
 	}) => void;
 	onSwapCompartments?: (
@@ -76,12 +75,11 @@ interface BlueprintCanvasProps {
 		  ) => void)
 		| null
 	>;
-	compartmentsWithInventory?: Map<string, number>; // compartmentId -> inventory count
+	compartmentsWithInventory?: Map<string, number>;
 }
 
 const GRID_SIZE = 50;
 const GRID_COLOR = "#e2e8f0";
-const PAN_DRAG_THRESHOLD_PX = 3;
 
 export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 	{
@@ -113,89 +111,17 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 	_ref,
 ) {
 	const stageRef = useRef<KonvaStage>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [isPanning, setIsPanning] = useState(false);
-	const lastPointerPosition = useRef<{ x: number; y: number } | null>(null);
-	const panCandidate = useRef<{ x: number; y: number; button: 0 | 2 } | null>(
-		null,
-	);
-	const clickCandidate = useRef(false);
-	const pendingDragMove = useRef<{
-		compartmentId: string;
-		fromDrawerId: string;
-		worldX: number;
-		worldY: number;
-	} | null>(null);
-	const dragMoveRaf = useRef<number | null>(null);
-
-	const [draftDrawer, setDraftDrawer] = useState<{
-		startX: number;
-		startY: number;
-		endX: number;
-		endY: number;
-	} | null>(null);
-	const [draftSplit, setDraftSplit] = useState<{
-		drawerId: string;
-		orientation: "vertical" | "horizontal";
-		position: number;
-		targetCompartmentId?: string | null;
-	} | null>(null);
-	const [hoverSplit, setHoverSplit] = useState<{
-		drawerId: string;
-		orientation: "vertical" | "horizontal";
-		position: number;
-		targetCompartmentId?: string | null;
-	} | null>(null);
-	const [splitOrientation, setSplitOrientation] = useState<
-		"vertical" | "horizontal"
-	>("vertical");
-
-	const [dragState, setDragState] = useState<{
-		compartmentId: string;
-		fromDrawerId: string;
-	} | null>(null);
-	const [dragHover, setDragHover] = useState<{
-		targetDrawerId: string | null;
-		targetCompartmentId: string | null;
-	} | null>(null);
 
 	const selectedDrawerIdSet = useMemo(() => {
 		return new Set(selectedDrawerIds);
 	}, [selectedDrawerIds]);
 
-	const [selectionBox, setSelectionBox] = useState<{
-		startClientX: number;
-		startClientY: number;
-		startWorldX: number;
-		startWorldY: number;
-		endWorldX: number;
-		endWorldY: number;
-	} | null>(null);
-
-	const movingSelectionRef = useRef<{
-		startWorldX: number;
-		startWorldY: number;
-		drawerIds: string[];
-		startPositions: Record<string, { x: number; y: number }>;
-		lastSnappedDx: number;
-		lastSnappedDy: number;
-	} | null>(null);
-
-	const [drawerPositionOverrides, setDrawerPositionOverrides] = useState<Record<
-		string,
-		{ x: number; y: number }
-	> | null>(null);
-
-	const [invalidDrop, setInvalidDrop] = useState<boolean>(false);
-
-	// Check if any drawer in a multi-move would cause overlap
 	const checkBulkMoveCollision = useCallback(
 		(
 			drawerIds: string[],
 			positionOverrides: Record<string, { x: number; y: number }>,
 			allDrawers: DrawerWithCompartments[],
 		): boolean => {
-			// Check overlaps between selected drawers
 			for (const drawerId of drawerIds) {
 				const newPos = positionOverrides[drawerId];
 				if (!newPos) continue;
@@ -221,7 +147,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 				}
 			}
 
-			// Check overlaps with non-selected drawers
 			const nonSelectedDrawers = allDrawers.filter(
 				(d) => !drawerIds.includes(d._id),
 			);
@@ -265,32 +190,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		drawers,
 	});
 
-	const setHoverSplitIfChanged = useCallback(
-		(
-			next: {
-				drawerId: string;
-				orientation: "vertical" | "horizontal";
-				position: number;
-				targetCompartmentId?: string | null;
-			} | null,
-		) => {
-			setHoverSplit((prev) => {
-				if (
-					prev?.drawerId === next?.drawerId &&
-					prev?.orientation === next?.orientation &&
-					prev?.position === next?.position &&
-					(prev?.targetCompartmentId ?? null) ===
-						(next?.targetCompartmentId ?? null)
-				) {
-					return prev;
-				}
-				return next;
-			});
-		},
-		[],
-	);
-
-	// Expose zoom functions via refs
 	useEffect(() => {
 		if (zoomInRef) zoomInRef.current = zoomIn;
 		if (zoomOutRef) zoomOutRef.current = zoomOut;
@@ -322,61 +221,13 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		zoomToLocationRef,
 	]);
 
-	// Notify parent of viewport changes
 	useEffect(() => {
 		onViewportChange?.(viewport);
 	}, [viewport, onViewportChange]);
 
-	useEffect(() => {
-		return () => {
-			if (dragMoveRaf.current != null) {
-				cancelAnimationFrame(dragMoveRaf.current);
-				dragMoveRaf.current = null;
-			}
-		};
-	}, []);
-
-	// Keyboard shortcuts
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.code === "Escape") {
-				setDraftDrawer(null);
-				setDraftSplit(null);
-				onSelectionChange({ selectedElement: null, selectedDrawerIds: [] });
-			}
-
-			if (
-				tool === "split" &&
-				isLockedByMe &&
-				(e.key === "r" || e.key === "R")
-			) {
-				e.preventDefault();
-				setSplitOrientation((prev) =>
-					prev === "vertical" ? "horizontal" : "vertical",
-				);
-			}
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, [isLockedByMe, onSelectionChange, tool]);
-
 	const snapToGrid = useCallback((value: number): number => {
 		return Math.round(value / GRID_SIZE) * GRID_SIZE;
 	}, []);
-
-	const getWorldPointer = useCallback((): { x: number; y: number } | null => {
-		const stage = stageRef.current;
-		if (!stage) return null;
-		const pointer = stage.getPointerPosition();
-		if (!pointer) return null;
-		return {
-			x: (pointer.x - viewport.x) / viewport.zoom,
-			y: (pointer.y - viewport.y) / viewport.zoom,
-		};
-	}, [viewport.x, viewport.y, viewport.zoom]);
 
 	const drawersByZDesc = useMemo(() => {
 		return [...drawers].sort((a, b) => b.zIndex - a.zIndex);
@@ -384,9 +235,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 
 	const findDrawerAtWorldPoint = useCallback(
 		(point: { x: number; y: number }): DrawerWithCompartments | null => {
-			// Prefer higher zIndex drawers first.
 			for (const drawer of drawersByZDesc) {
-				// Splitting rotated drawers requires more complex math; keep it explicit for now.
 				if (drawer.rotation !== 0) continue;
 				const halfW = drawer.width / 2;
 				const halfH = drawer.height / 2;
@@ -407,7 +256,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			drawer: DrawerWithCompartments,
 			point: { x: number; y: number },
 		): Compartment | null => {
-			// Split/move math assumes drawer rotation = 0.
 			if (drawer.rotation !== 0) return null;
 			for (const compartment of drawer.compartments) {
 				const centerX = drawer.x + compartment.x;
@@ -424,568 +272,57 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		[],
 	);
 
-	const getDrawerNodeFromEvent = useCallback(
-		(e: KonvaEventObject<MouseEvent>) => {
-			const target = e.target as KonvaNode;
-			// Never treat compartment gestures as drawer gestures.
-			const compartmentNode = target.findAncestor(".compartment", true);
-			if (compartmentNode) return null;
-			return target.findAncestor(".drawer", true);
-		},
-		[],
-	);
-
-	const getDrawerIdFromEvent = useCallback(
-		(e: KonvaEventObject<MouseEvent>): string | null => {
-			const drawerNode = getDrawerNodeFromEvent(e);
-			const drawerId = drawerNode?.getAttr("drawerId") as string | undefined;
-			return drawerId ?? null;
-		},
-		[getDrawerNodeFromEvent],
-	);
-
-	// Wheel zoom
-	const handleWheel = useCallback(
-		(e: KonvaEventObject<WheelEvent>) => {
-			e.evt.preventDefault();
-
-			const stage = stageRef.current;
-			if (!stage) return;
-
-			const pointer = stage.getPointerPosition();
-			if (!pointer) return;
-
-			const delta = e.evt.deltaY;
-			const factor = delta > 0 ? 0.9 : 1.1;
-
-			zoom(factor, { x: pointer.x, y: pointer.y });
-		},
-		[zoom],
-	);
-
-	// Mouse events for panning/selection
-	const handleMouseDown = useCallback(
-		(e: KonvaEventObject<MouseEvent>) => {
-			const stage = e.target.getStage();
-			if (!stage) return;
-
-			const isStage = e.target === stage;
-			clickCandidate.current = false;
-
-			// Right-click drag: pan (even when starting on shapes).
-			if (e.evt.button === 2) {
-				panCandidate.current = {
-					x: e.evt.clientX,
-					y: e.evt.clientY,
-					button: 2,
-				};
-				lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
-				return;
-			}
-
-			// Only left-click interacts with tools / selection.
-			if (e.evt.button !== 0) return;
-			const world = getWorldPointer();
-
-			// Drawer tool: click-drag on empty canvas to create a drawer (snapped).
-			if (tool === "drawer" && isLockedByMe && isStage && world) {
-				const startX = snapToGrid(world.x);
-				const startY = snapToGrid(world.y);
-				setDraftDrawer({ startX, startY, endX: startX, endY: startY });
-				return;
-			}
-
-			// Split tool: draw a divider line inside a drawer (snapped).
-			if (tool === "split" && isLockedByMe && world) {
-				const drawer =
-					(hoverSplit
-						? (drawers.find((d) => d._id === hoverSplit.drawerId) ?? null)
-						: selectedElement?.type === "drawer"
-							? (drawers.find((d) => d._id === selectedElement.id) ?? null)
-							: findDrawerAtWorldPoint(world)) ?? null;
-				if (!drawer) return;
-
-				const hoveredComp = findCompartmentAtWorldPoint(drawer, world);
-				if (drawer.compartments.length > 0 && !hoveredComp) {
-					// If the drawer already has compartments, splits must target a compartment.
-					return;
-				}
-
-				// Local point within drawer (drawer-centered coordinates)
-				const halfW = drawer.width / 2;
-				const halfH = drawer.height / 2;
-				const snappedWorldX = snapToGrid(world.x);
-				const snappedWorldY = snapToGrid(world.y);
-				const localX = Math.min(
-					Math.max(snappedWorldX - drawer.x, -halfW),
-					halfW,
-				);
-				const localY = Math.min(
-					Math.max(snappedWorldY - drawer.y, -halfH),
-					halfH,
-				);
-
-				const position =
-					splitOrientation === "vertical"
-						? hoverSplit?.orientation === splitOrientation
-							? hoverSplit.position
-							: localX
-						: hoverSplit?.orientation === splitOrientation
-							? hoverSplit.position
-							: localY;
-
-				setDraftSplit({
-					drawerId: drawer._id,
-					orientation: splitOrientation,
-					position,
-					targetCompartmentId: hoveredComp?._id ?? null,
-				});
-				lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
-				return;
-			}
-
-			// Pan tool: always pan (even when starting on shapes).
-			if (tool === "pan") {
-				panCandidate.current = {
-					x: e.evt.clientX,
-					y: e.evt.clientY,
-					button: 0,
-				};
-				lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
-				return;
-			}
-
-			// Selection + multi-move (select tool).
-			if (tool === "select" && world) {
-				const drawerId = getDrawerIdFromEvent(e);
-
-				// Click-drag on empty canvas: selection box.
-				if (isStage && !drawerId) {
-					setSelectionBox({
-						startClientX: e.evt.clientX,
-						startClientY: e.evt.clientY,
-						startWorldX: world.x,
-						startWorldY: world.y,
-						endWorldX: world.x,
-						endWorldY: world.y,
-					});
-					lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
-					return;
-				}
-
-				// Left-click + drag on a drawer: move selected drawers (edit only).
-				if (drawerId && mode === "edit" && isLockedByMe) {
-					const nextSelectedIds = selectedDrawerIdSet.has(drawerId)
-						? [...selectedDrawerIdSet]
-						: [drawerId];
-
-					const primaryDrawer = drawers.find((d) => d._id === drawerId) ?? null;
-					onSelectionChange({
-						selectedDrawerIds: nextSelectedIds,
-						selectedElement: primaryDrawer
-							? { type: "drawer", id: primaryDrawer._id, data: primaryDrawer }
-							: null,
-					});
-
-					const startPositions: Record<string, { x: number; y: number }> = {};
-					for (const id of nextSelectedIds) {
-						const d = drawers.find((dr) => dr._id === id);
-						if (d) startPositions[id] = { x: d.x, y: d.y };
-					}
-
-					movingSelectionRef.current = {
-						startWorldX: world.x,
-						startWorldY: world.y,
-						drawerIds: nextSelectedIds,
-						startPositions,
-						lastSnappedDx: 0,
-						lastSnappedDy: 0,
-					};
-					lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
-					return;
-				}
-			}
-
-			// Default: left-click on empty canvas deselects.
-			if (isStage) {
-				clickCandidate.current = true;
-				lastPointerPosition.current = { x: e.evt.clientX, y: e.evt.clientY };
-			}
-
-			// Clicking on shapes is handled by their onSelect handlers.
-		},
-		[
-			drawers,
-			getDrawerIdFromEvent,
-			findCompartmentAtWorldPoint,
-			findDrawerAtWorldPoint,
-			getWorldPointer,
-			hoverSplit,
-			isLockedByMe,
-			mode,
-			onSelectionChange,
-			selectedElement,
-			selectedDrawerIdSet,
-			splitOrientation,
-			snapToGrid,
-			tool,
-		],
-	);
-
-	const handleMouseMove = useCallback(
-		(e: KonvaEventObject<MouseEvent>) => {
-			// Selection box drag.
-			if (selectionBox) {
-				const world = getWorldPointer();
-				if (!world) return;
-				setSelectionBox((prev) => {
-					if (!prev) return prev;
-					return { ...prev, endWorldX: world.x, endWorldY: world.y };
-				});
-				return;
-			}
-
-			// Move selected drawers drag.
-			if (movingSelectionRef.current) {
-				const world = getWorldPointer();
-				if (!world) return;
-
-				const rawDx = world.x - movingSelectionRef.current.startWorldX;
-				const rawDy = world.y - movingSelectionRef.current.startWorldY;
-				const snappedDx = snapToGrid(rawDx);
-				const snappedDy = snapToGrid(rawDy);
-
-				if (
-					snappedDx === movingSelectionRef.current.lastSnappedDx &&
-					snappedDy === movingSelectionRef.current.lastSnappedDy
-				) {
-					return;
-				}
-
-				movingSelectionRef.current.lastSnappedDx = snappedDx;
-				movingSelectionRef.current.lastSnappedDy = snappedDy;
-
-				const nextOverrides: Record<string, { x: number; y: number }> = {};
-				for (const drawerId of movingSelectionRef.current.drawerIds) {
-					const start = movingSelectionRef.current.startPositions[drawerId];
-					if (!start) continue;
-					nextOverrides[drawerId] = {
-						x: start.x + snappedDx,
-						y: start.y + snappedDy,
-					};
-				}
-
-				// Check for collisions and update visual feedback
-				const hasCollision = checkBulkMoveCollision(
-					movingSelectionRef.current.drawerIds,
-					nextOverrides,
-					drawers,
-				);
-				setInvalidDrop(hasCollision);
-				setDrawerPositionOverrides(nextOverrides);
-				return;
-			}
-
-			// Hover split preview (no click).
-			if (
-				tool === "split" &&
-				isLockedByMe &&
-				!draftSplit &&
-				!draftDrawer &&
-				!isPanning
-			) {
-				const world = getWorldPointer();
-				if (!world) {
-					setHoverSplitIfChanged(null);
-				} else {
-					const drawer =
-						selectedElement?.type === "drawer"
-							? (drawers.find((d) => d._id === selectedElement.id) ?? null)
-							: findDrawerAtWorldPoint(world);
-
-					if (!drawer) {
-						setHoverSplitIfChanged(null);
-					} else {
-						const hoveredComp = findCompartmentAtWorldPoint(drawer, world);
-						if (drawer.compartments.length > 0 && !hoveredComp) {
-							setHoverSplitIfChanged(null);
-							return;
-						}
-
-						const halfW = drawer.width / 2;
-						const halfH = drawer.height / 2;
-						const snappedWorldX = snapToGrid(world.x);
-						const snappedWorldY = snapToGrid(world.y);
-						const localX = Math.min(
-							Math.max(snappedWorldX - drawer.x, -halfW),
-							halfW,
-						);
-						const localY = Math.min(
-							Math.max(snappedWorldY - drawer.y, -halfH),
-							halfH,
-						);
-
-						setHoverSplitIfChanged({
-							drawerId: drawer._id,
-							orientation: splitOrientation,
-							position: splitOrientation === "vertical" ? localX : localY,
-							targetCompartmentId: hoveredComp?._id ?? null,
-						});
-					}
-				}
-			} else if (hoverSplit) {
-				setHoverSplitIfChanged(null);
-			}
-
-			// Update drawer draft while drawing.
-			if (draftDrawer) {
-				const world = getWorldPointer();
-				if (!world) return;
-				setDraftDrawer((prev) => {
-					if (!prev) return prev;
-					return {
-						...prev,
-						endX: snapToGrid(world.x),
-						endY: snapToGrid(world.y),
-					};
-				});
-				return;
-			}
-
-			// Update split draft while drawing.
-			if (draftSplit && lastPointerPosition.current) {
-				const world = getWorldPointer();
-				if (!world) return;
-				const drawer = drawers.find((d) => d._id === draftSplit.drawerId);
-				if (!drawer) return;
-
-				const halfW = drawer.width / 2;
-				const halfH = drawer.height / 2;
-				const snappedWorldX = snapToGrid(world.x);
-				const snappedWorldY = snapToGrid(world.y);
-				const localX = Math.min(
-					Math.max(snappedWorldX - drawer.x, -halfW),
-					halfW,
-				);
-				const localY = Math.min(
-					Math.max(snappedWorldY - drawer.y, -halfH),
-					halfH,
-				);
-
-				setDraftSplit({
-					drawerId: drawer._id,
-					orientation: draftSplit.orientation,
-					position: draftSplit.orientation === "vertical" ? localX : localY,
-					targetCompartmentId: draftSplit.targetCompartmentId ?? null,
-				});
-				return;
-			}
-
-			// Pan (candidate becomes real pan after threshold).
-			if (!panCandidate.current || !lastPointerPosition.current) return;
-
-			const totalDx = e.evt.clientX - panCandidate.current.x;
-			const totalDy = e.evt.clientY - panCandidate.current.y;
-			const movedEnough =
-				Math.abs(totalDx) > PAN_DRAG_THRESHOLD_PX ||
-				Math.abs(totalDy) > PAN_DRAG_THRESHOLD_PX;
-
-			if (!isPanning && movedEnough) {
-				setIsPanning(true);
-			}
-
-			if (!isPanning && !movedEnough) return;
-
-			const dx = e.evt.clientX - lastPointerPosition.current.x;
-			const dy = e.evt.clientY - lastPointerPosition.current.y;
-
-			pan(dx, dy);
-
-			lastPointerPosition.current = {
-				x: e.evt.clientX,
-				y: e.evt.clientY,
-			};
-		},
-		[
-			selectionBox,
-			draftDrawer,
-			draftSplit,
-			drawers,
-			findCompartmentAtWorldPoint,
-			findDrawerAtWorldPoint,
-			getWorldPointer,
-			hoverSplit,
-			isPanning,
-			isLockedByMe,
-			pan,
-			selectedElement,
-			setHoverSplitIfChanged,
-			splitOrientation,
-			snapToGrid,
-			tool,
-			checkBulkMoveCollision,
-		],
-	);
-
-	const handleMouseUp = useCallback(() => {
-		// Commit selection box.
-		if (selectionBox) {
-			const movedEnough =
-				Math.abs(selectionBox.endWorldX - selectionBox.startWorldX) >
-					GRID_SIZE / 4 ||
-				Math.abs(selectionBox.endWorldY - selectionBox.startWorldY) >
-					GRID_SIZE / 4;
-
-			const x1 = Math.min(selectionBox.startWorldX, selectionBox.endWorldX);
-			const y1 = Math.min(selectionBox.startWorldY, selectionBox.endWorldY);
-			const x2 = Math.max(selectionBox.startWorldX, selectionBox.endWorldX);
-			const y2 = Math.max(selectionBox.startWorldY, selectionBox.endWorldY);
-
-			setSelectionBox(null);
-
-			// Click (no drag): deselect.
-			if (!movedEnough) {
-				onSelectionChange({ selectedElement: null, selectedDrawerIds: [] });
-				panCandidate.current = null;
-				setIsPanning(false);
-				lastPointerPosition.current = null;
-				return;
-			}
-
-			const nextSelected: string[] = [];
-			for (const drawer of drawers) {
-				const halfW = drawer.width / 2;
-				const halfH = drawer.height / 2;
-				const dLeft = drawer.x - halfW;
-				const dRight = drawer.x + halfW;
-				const dTop = drawer.y - halfH;
-				const dBottom = drawer.y + halfH;
-
-				const overlaps =
-					dLeft <= x2 && dRight >= x1 && dTop <= y2 && dBottom >= y1;
-				if (overlaps) nextSelected.push(drawer._id);
-			}
-
-			if (nextSelected.length === 1) {
-				const only = drawers.find((d) => d._id === nextSelected[0]) ?? null;
-				onSelectionChange({
-					selectedDrawerIds: nextSelected,
-					selectedElement: only
-						? { type: "drawer", id: only._id, data: only }
-						: null,
-				});
-			} else {
-				onSelectionChange({
-					selectedElement: null,
-					selectedDrawerIds: nextSelected,
-				});
-			}
-
-			panCandidate.current = null;
-			setIsPanning(false);
-			lastPointerPosition.current = null;
-			return;
-		}
-
-		// Commit multi-drawer move.
-		if (movingSelectionRef.current) {
-			const move = movingSelectionRef.current;
-			const movedEnough =
-				Math.abs(move.lastSnappedDx) > 0 || Math.abs(move.lastSnappedDy) > 0;
-
-			const overrides = drawerPositionOverrides;
-			movingSelectionRef.current = null;
-			setDrawerPositionOverrides(null);
-			setInvalidDrop(false);
-
-			// Only commit move if no collision and actually moved
-			if (
-				movedEnough &&
-				overrides &&
-				onUpdateDrawers &&
-				!checkBulkMoveCollision(move.drawerIds, overrides, drawers)
-			) {
-				const updates = Object.entries(overrides).map(([drawerId, pos]) => ({
-					drawerId,
-					x: pos.x,
-					y: pos.y,
-				}));
-				onUpdateDrawers(updates);
-			}
-			// If collision exists, move is silently rejected - drawers return to original position
-
-			panCandidate.current = null;
-			setIsPanning(false);
-			lastPointerPosition.current = null;
-			return;
-		}
-
-		// Commit drawer.
-		if (draftDrawer && isLockedByMe) {
-			const x1 = Math.min(draftDrawer.startX, draftDrawer.endX);
-			const y1 = Math.min(draftDrawer.startY, draftDrawer.endY);
-			const x2 = Math.max(draftDrawer.startX, draftDrawer.endX);
-			const y2 = Math.max(draftDrawer.startY, draftDrawer.endY);
-			const w = x2 - x1;
-			const h = y2 - y1;
-			const centerX = x1 + w / 2;
-			const centerY = y1 + h / 2;
-
-			setDraftDrawer(null);
-
-			// Avoid accidental tiny drawers.
-			if (w >= GRID_SIZE && h >= GRID_SIZE) {
-				onCreateDrawerFromTool?.({
-					x: centerX,
-					y: centerY,
-					width: w,
-					height: h,
-				});
-			}
-
-			panCandidate.current = null;
-			setIsPanning(false);
-			lastPointerPosition.current = null;
-			return;
-		}
-
-		// Commit split.
-		if (draftSplit && isLockedByMe) {
-			const split = draftSplit;
-			setDraftSplit(null);
-			onSplitDrawerFromTool?.(split);
-
-			panCandidate.current = null;
-			setIsPanning(false);
-			lastPointerPosition.current = null;
-			return;
-		}
-
-		// Pan commit / click-to-deselect.
-		if (clickCandidate.current && !isPanning && tool !== "pan") {
-			onSelectionChange({ selectedElement: null, selectedDrawerIds: [] });
-		}
-		clickCandidate.current = false;
-		panCandidate.current = null;
-		setIsPanning(false);
-		lastPointerPosition.current = null;
-	}, [
-		selectionBox,
+	const {
+		dragState,
+		dragHover,
+		dragOverlays,
+		handleCompartmentDragStart,
+		handleCompartmentDragMove,
+		handleCompartmentDragEnd,
+	} = useBlueprintCanvasCompartmentDrag({
 		drawers,
-		drawerPositionOverrides,
+		snapToGrid,
+		findDrawerAtWorldPoint,
+		findCompartmentAtWorldPoint,
+		onSwapCompartments,
+		onUpdateCompartment,
+	});
+
+	const {
+		isPanning,
 		draftDrawer,
 		draftSplit,
-		isLockedByMe,
-		isPanning,
-		onCreateDrawerFromTool,
-		onSelectionChange,
-		onUpdateDrawers,
-		onSplitDrawerFromTool,
+		hoverSplit,
+		selectionBox,
+		drawerPositionOverrides,
+		invalidDrop,
+		handleWheel,
+		handleMouseDown,
+		handleMouseMove,
+		handleMouseUp,
+	} = useBlueprintCanvasPointerInteractions({
+		stageRef,
+		drawers,
+		viewport,
+		mode,
 		tool,
+		isLockedByMe,
+		selectedElement,
+		selectedDrawerIdSet,
+		dragStateActive: dragState !== null,
+		gridSize: GRID_SIZE,
+		snapToGrid,
+		zoom,
+		pan,
+		findDrawerAtWorldPoint,
+		findCompartmentAtWorldPoint,
 		checkBulkMoveCollision,
-	]);
+		onSelectionChange,
+		onCreateDrawerFromTool,
+		onSplitDrawerFromTool,
+		onUpdateDrawers,
+	});
 
-	// Drawer selection
 	const handleDrawerSelect = useCallback(
 		(drawer: Drawer) => {
 			onSelectionChange({
@@ -996,7 +333,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		[onSelectionChange],
 	);
 
-	// Compartment selection
 	const handleCompartmentSelect = useCallback(
 		(compartment: Compartment, drawerId: string) => {
 			onSelectionChange({
@@ -1012,7 +348,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		[onSelectionChange],
 	);
 
-	// Compartment double-click for details panel
 	const handleCompartmentDoubleClick = useCallback(
 		(compartment: Compartment, drawer: Drawer) => {
 			onCompartmentDoubleClick?.(compartment, drawer);
@@ -1020,211 +355,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		[onCompartmentDoubleClick],
 	);
 
-	const handleCompartmentDragStart = useCallback(
-		(next: {
-			compartmentId: string;
-			fromDrawerId: string;
-			worldX: number;
-			worldY: number;
-		}) => {
-			setDragState({
-				compartmentId: next.compartmentId,
-				fromDrawerId: next.fromDrawerId,
-			});
-			setDragHover({
-				targetDrawerId: next.fromDrawerId,
-				targetCompartmentId: next.compartmentId,
-			});
-		},
-		[],
-	);
-
-	const handleCompartmentDragMove = useCallback(
-		(next: {
-			compartmentId: string;
-			fromDrawerId: string;
-			worldX: number;
-			worldY: number;
-		}) => {
-			if (!dragState || dragState.compartmentId !== next.compartmentId) return;
-
-			// Throttle drag hover computation to animation frames to avoid re-rendering
-			// the entire Konva tree at pointer-move frequency.
-			pendingDragMove.current = next;
-			if (dragMoveRaf.current != null) return;
-			dragMoveRaf.current = requestAnimationFrame(() => {
-				dragMoveRaf.current = null;
-				const pending = pendingDragMove.current;
-				if (!pending) return;
-				const point = { x: pending.worldX, y: pending.worldY };
-				const targetDrawer = findDrawerAtWorldPoint(point);
-				if (!targetDrawer) {
-					setDragHover({ targetDrawerId: null, targetCompartmentId: null });
-					return;
-				}
-				const targetComp = findCompartmentAtWorldPoint(targetDrawer, point);
-				setDragHover({
-					targetDrawerId: targetDrawer._id,
-					targetCompartmentId: targetComp?._id ?? null,
-				});
-			});
-		},
-		[dragState, findCompartmentAtWorldPoint, findDrawerAtWorldPoint],
-	);
-
-	// Compartment drag end
-	const handleCompartmentDragEnd = useCallback(
-		async (next: {
-			compartmentId: string;
-			fromDrawerId: string;
-			worldX: number;
-			worldY: number;
-		}) => {
-			pendingDragMove.current = null;
-			if (dragMoveRaf.current != null) {
-				cancelAnimationFrame(dragMoveRaf.current);
-				dragMoveRaf.current = null;
-			}
-			setDragState(null);
-			setDragHover(null);
-
-			// We only support snapping/swap/move for non-rotated drawers right now.
-			const point = { x: next.worldX, y: next.worldY };
-			const fromDrawer =
-				drawers.find((d) => d._id === next.fromDrawerId) ?? null;
-			if (!fromDrawer || fromDrawer.rotation !== 0) return;
-
-			const movingComp =
-				fromDrawer.compartments.find((c) => c._id === next.compartmentId) ??
-				null;
-			if (!movingComp) return;
-
-			const targetDrawer = findDrawerAtWorldPoint(point);
-			if (!targetDrawer || targetDrawer.rotation !== 0) return;
-
-			const targetComp = findCompartmentAtWorldPoint(targetDrawer, point);
-
-			// If dropping onto another compartment, swap (including sizes; and drawerId if across drawers).
-			if (targetComp && targetComp._id !== movingComp._id) {
-				await onSwapCompartments?.(movingComp._id, targetComp._id);
-				return;
-			}
-
-			// If the target drawer is empty (or we're the only compartment), allow snapping move within bounds.
-			const isTargetEmpty =
-				targetDrawer.compartments.length === 0 ||
-				(targetDrawer._id === fromDrawer._id &&
-					targetDrawer.compartments.length === 1);
-
-			if (!isTargetEmpty) {
-				// Prevent stacking/layers: only allow swaps when other compartments exist.
-				return;
-			}
-
-			const halfW = targetDrawer.width / 2;
-			const halfH = targetDrawer.height / 2;
-			const halfCompW = movingComp.width / 2;
-			const halfCompH = movingComp.height / 2;
-
-			// Snap corners to the grid: snap top-left in world coords, then convert back.
-			const snappedTopLeftWorldX = snapToGrid(point.x - halfCompW);
-			const snappedTopLeftWorldY = snapToGrid(point.y - halfCompH);
-			const snappedCenterWorldX = snappedTopLeftWorldX + halfCompW;
-			const snappedCenterWorldY = snappedTopLeftWorldY + halfCompH;
-
-			const rawRelX = snappedCenterWorldX - targetDrawer.x;
-			const rawRelY = snappedCenterWorldY - targetDrawer.y;
-
-			const clampedRelX = Math.max(
-				-halfW + halfCompW,
-				Math.min(halfW - halfCompW, rawRelX),
-			);
-			const clampedRelY = Math.max(
-				-halfH + halfCompH,
-				Math.min(halfH - halfCompH, rawRelY),
-			);
-
-			const clampedCenterWorldX = targetDrawer.x + clampedRelX;
-			const clampedCenterWorldY = targetDrawer.y + clampedRelY;
-			const finalTopLeftWorldX = snapToGrid(clampedCenterWorldX - halfCompW);
-			const finalTopLeftWorldY = snapToGrid(clampedCenterWorldY - halfCompH);
-			const finalRelX = Math.max(
-				-halfW + halfCompW,
-				Math.min(
-					halfW - halfCompW,
-					finalTopLeftWorldX + halfCompW - targetDrawer.x,
-				),
-			);
-			const finalRelY = Math.max(
-				-halfH + halfCompH,
-				Math.min(
-					halfH - halfCompH,
-					finalTopLeftWorldY + halfCompH - targetDrawer.y,
-				),
-			);
-
-			await onUpdateCompartment(movingComp._id, {
-				drawerId: targetDrawer._id,
-				x: finalRelX,
-				y: finalRelY,
-			});
-		},
-		[
-			drawers,
-			findCompartmentAtWorldPoint,
-			findDrawerAtWorldPoint,
-			onUpdateCompartment,
-			onSwapCompartments,
-			snapToGrid,
-		],
-	);
-
-	const dragOverlays = useMemo(() => {
-		if (!dragState) return null;
-		const fromDrawer =
-			drawers.find((d) => d._id === dragState.fromDrawerId) ?? null;
-		const originComp =
-			fromDrawer?.compartments.find((c) => c._id === dragState.compartmentId) ??
-			null;
-
-		const origin =
-			fromDrawer && originComp
-				? {
-						x: fromDrawer.x + originComp.x - originComp.width / 2,
-						y: fromDrawer.y + originComp.y - originComp.height / 2,
-						width: originComp.width,
-						height: originComp.height,
-					}
-				: null;
-
-		const target =
-			dragHover?.targetDrawerId && dragHover.targetCompartmentId
-				? (() => {
-						const td =
-							drawers.find((d) => d._id === dragHover.targetDrawerId) ?? null;
-						const tc =
-							td?.compartments.find(
-								(c) => c._id === dragHover.targetCompartmentId,
-							) ?? null;
-						if (!td || !tc) return null;
-						return {
-							x: td.x + tc.x - tc.width / 2,
-							y: td.y + tc.y - tc.height / 2,
-							width: tc.width,
-							height: tc.height,
-						};
-					})()
-				: null;
-
-		return { origin, target };
-	}, [
-		dragHover?.targetCompartmentId,
-		dragHover?.targetDrawerId,
-		dragState,
-		drawers,
-	]);
-
-	// Compartment transform end
 	const handleCompartmentTransformEnd = useCallback(
 		(
 			compartmentId: string,
@@ -1239,15 +369,6 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		[onUpdateCompartment],
 	);
 
-	// Get inventory count for a compartment
-	const getCompartmentInventoryCount = useCallback(
-		(compartmentId: string): number => {
-			return compartmentsWithInventory?.get(compartmentId) ?? 0;
-		},
-		[compartmentsWithInventory],
-	);
-
-	// Sort drawers by zIndex
 	const sortedDrawers = useMemo(() => {
 		return [...drawers].sort((a, b) => a.zIndex - b.zIndex);
 	}, [drawers]);
@@ -1259,360 +380,45 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			return override ? { ...drawer, x: override.x, y: override.y } : drawer;
 		});
 	}, [drawerPositionOverrides, sortedDrawers]);
-	const performanceMode = isPanning || dragState !== null;
-	const showLabels = !isPanning && viewport.zoom >= 0.5;
-
-	const highlightedCompartmentIdSet = useMemo(() => {
-		return new Set(highlightedCompartmentIds ?? []);
-	}, [highlightedCompartmentIds]);
-
-	const highlightedDrawerIdSet = useMemo(() => {
-		if (highlightedCompartmentIdSet.size === 0) return new Set<string>();
-		const result = new Set<string>();
-		for (const drawer of drawersForRender) {
-			if (
-				drawer.compartments.some((c) => highlightedCompartmentIdSet.has(c._id))
-			) {
-				result.add(drawer._id);
-			}
-		}
-		return result;
-	}, [drawersForRender, highlightedCompartmentIdSet]);
-
-	// Generate grid lines
-	const gridLines = useMemo(() => {
-		// Draw grid lines in *world* coordinates then transform to screen.
-		// This avoids % behavior on negative viewport offsets (which can visually de-sync
-		// the grid from snapping).
-		const lines = [];
-		const zoom = viewport.zoom;
-		const stageW = width + 2;
-		const stageH = height + 2;
-
-		// Keep grid rendering cheap when zoomed far out by coarsening the rendered grid.
-		// Snapping still happens at GRID_SIZE; this only changes the visible grid density.
-		const minGridPx = 24;
-		const densityFactor = Math.max(
-			1,
-			Math.ceil(minGridPx / (GRID_SIZE * zoom)),
-		);
-		const gridStepWorld = GRID_SIZE * densityFactor;
-
-		const worldLeft = -viewport.x / zoom;
-		const worldTop = -viewport.y / zoom;
-		const worldRight = (stageW - viewport.x) / zoom;
-		const worldBottom = (stageH - viewport.y) / zoom;
-
-		const firstWorldX = Math.floor(worldLeft / gridStepWorld) * gridStepWorld;
-		const firstWorldY = Math.floor(worldTop / gridStepWorld) * gridStepWorld;
-
-		let i = 0;
-		for (
-			let worldX = firstWorldX;
-			worldX <= worldRight;
-			worldX += gridStepWorld
-		) {
-			const x = worldX * zoom + viewport.x;
-			lines.push(
-				<Line
-					key={`v-${i++}`}
-					points={[x, 0, x, stageH]}
-					stroke={GRID_COLOR}
-					strokeWidth={1}
-					listening={false}
-				/>,
-			);
-		}
-
-		for (
-			let worldY = firstWorldY;
-			worldY <= worldBottom;
-			worldY += gridStepWorld
-		) {
-			const y = worldY * zoom + viewport.y;
-			lines.push(
-				<Line
-					key={`h-${i++}`}
-					points={[0, y, stageW, y]}
-					stroke={GRID_COLOR}
-					strokeWidth={1}
-					listening={false}
-				/>,
-			);
-		}
-
-		return lines;
-	}, [viewport, width, height]);
 
 	return (
-		<div
-			ref={containerRef}
-			className="relative w-full h-full overflow-hidden bg-slate-50 cursor-crosshair"
-			style={{
-				cursor: tool === "pan" || isPanning ? "grab" : "default",
-			}}
-		>
-			<Stage
-				ref={stageRef}
-				// Slightly overscan to avoid 1px right/bottom gaps from subpixel layout rounding.
-				width={width + 2}
-				height={height + 2}
-				onWheel={handleWheel}
-				onContextMenu={(e) => e.evt.preventDefault()}
-				onMouseDown={handleMouseDown}
-				onMouseMove={handleMouseMove}
-				onMouseUp={handleMouseUp}
-				onMouseLeave={handleMouseUp}
-				draggable={false}
-			>
-				{/* Grid Layer */}
-				<Layer listening={false}>{gridLines}</Layer>
-
-				{/* Blueprint Content Layer */}
-				<Layer
-					x={viewport.x}
-					y={viewport.y}
-					scaleX={viewport.zoom}
-					scaleY={viewport.zoom}
-				>
-					{/* Selection box (world coords) */}
-					{selectionBox && (
-						<Rect
-							x={Math.min(selectionBox.startWorldX, selectionBox.endWorldX)}
-							y={Math.min(selectionBox.startWorldY, selectionBox.endWorldY)}
-							width={Math.abs(
-								selectionBox.endWorldX - selectionBox.startWorldX,
-							)}
-							height={Math.abs(
-								selectionBox.endWorldY - selectionBox.startWorldY,
-							)}
-							fill="rgba(2,132,199,0.08)"
-							stroke="rgba(2,132,199,0.9)"
-							strokeWidth={2}
-							dash={[8, 6]}
-							listening={false}
-						/>
-					)}
-
-					{/* Drawers */}
-					{drawersForRender.map((drawer) => (
-						<DrawerShape
-							key={drawer._id}
-							drawer={drawer}
-							isSelected={selectedDrawerIdSet.has(drawer._id)}
-							isLocked={isLocked}
-							isLockedByMe={isLockedByMe}
-							mode={mode}
-							selectEnabled={tool !== "pan"}
-							editEnabled={mode === "edit" && isLockedByMe && tool === "select"}
-							performanceMode={performanceMode}
-							showLabel={showLabels}
-							highlighted={highlightedDrawerIdSet.has(drawer._id)}
-							invalidDrop={invalidDrop && selectedDrawerIdSet.has(drawer._id)}
-							onSelect={handleDrawerSelect}
-						/>
-					))}
-
-					{/* Compartments */}
-					{drawersForRender.map((drawer) =>
-						drawer.compartments.map((compartment) => (
-							<CompartmentShape
-								key={compartment._id}
-								compartment={compartment}
-								drawer={drawer}
-								isSelected={
-									selectedElement?.type === "compartment" &&
-									selectedElement.id === compartment._id
-								}
-								isLockedByMe={isLockedByMe}
-								mode={mode}
-								viewport={viewport}
-								selectEnabled={tool !== "pan"}
-								editEnabled={
-									mode === "edit" && isLockedByMe && tool === "select"
-								}
-								performanceMode={performanceMode}
-								showLabel={showLabels}
-								highlighted={highlightedCompartmentIdSet.has(compartment._id)}
-								isDragOrigin={dragState?.compartmentId === compartment._id}
-								isDropTarget={
-									dragHover?.targetCompartmentId === compartment._id
-								}
-								inventoryCount={getCompartmentInventoryCount(compartment._id)}
-								onSelect={handleCompartmentSelect}
-								onDoubleClick={handleCompartmentDoubleClick}
-								onDragStart={handleCompartmentDragStart}
-								onDragMove={handleCompartmentDragMove}
-								onDragEnd={handleCompartmentDragEnd}
-								onTransformEnd={handleCompartmentTransformEnd}
-							/>
-						)),
-					)}
-
-					{/* Drag overlays */}
-					{dragOverlays?.origin && (
-						<Rect
-							x={dragOverlays.origin.x}
-							y={dragOverlays.origin.y}
-							width={dragOverlays.origin.width}
-							height={dragOverlays.origin.height}
-							stroke="rgba(2,132,199,0.55)"
-							strokeWidth={2}
-							dash={[6, 4]}
-							listening={false}
-						/>
-					)}
-					{dragOverlays?.target && (
-						<Rect
-							x={dragOverlays.target.x}
-							y={dragOverlays.target.y}
-							width={dragOverlays.target.width}
-							height={dragOverlays.target.height}
-							stroke="rgba(124,58,237,0.8)"
-							strokeWidth={3}
-							dash={[10, 6]}
-							listening={false}
-						/>
-					)}
-
-					{/* Draft drawer preview (world coords) */}
-					{draftDrawer && (
-						<Rect
-							x={Math.min(draftDrawer.startX, draftDrawer.endX)}
-							y={Math.min(draftDrawer.startY, draftDrawer.endY)}
-							width={Math.abs(draftDrawer.endX - draftDrawer.startX)}
-							height={Math.abs(draftDrawer.endY - draftDrawer.startY)}
-							fill="rgba(6,182,212,0.12)"
-							stroke="rgba(6,182,212,0.9)"
-							strokeWidth={2}
-							dash={[8, 6]}
-							listening={false}
-						/>
-					)}
-
-					{/* Hover split preview (world coords) */}
-					{!draftSplit &&
-						tool === "split" &&
-						isLockedByMe &&
-						hoverSplit &&
-						(() => {
-							const drawer = drawers.find((d) => d._id === hoverSplit.drawerId);
-							if (!drawer) return null;
-							const comp =
-								hoverSplit.targetCompartmentId && drawer.compartments.length > 0
-									? (drawer.compartments.find(
-											(c) => c._id === hoverSplit.targetCompartmentId,
-										) ?? null)
-									: null;
-
-							const drawerTop = drawer.y - drawer.height / 2;
-							const drawerBottom = drawer.y + drawer.height / 2;
-							const drawerLeft = drawer.x - drawer.width / 2;
-							const drawerRight = drawer.x + drawer.width / 2;
-
-							const regionTop = comp
-								? drawer.y + comp.y - comp.height / 2
-								: drawerTop;
-							const regionBottom = comp
-								? drawer.y + comp.y + comp.height / 2
-								: drawerBottom;
-							const regionLeft = comp
-								? drawer.x + comp.x - comp.width / 2
-								: drawerLeft;
-							const regionRight = comp
-								? drawer.x + comp.x + comp.width / 2
-								: drawerRight;
-
-							if (hoverSplit.orientation === "vertical") {
-								const x = drawer.x + hoverSplit.position;
-								return (
-									<Line
-										points={[x, regionTop, x, regionBottom]}
-										stroke="rgba(99,102,241,0.55)"
-										strokeWidth={2}
-										dash={[8, 6]}
-										listening={false}
-									/>
-								);
-							}
-
-							const y = drawer.y + hoverSplit.position;
-							return (
-								<Line
-									points={[regionLeft, y, regionRight, y]}
-									stroke="rgba(99,102,241,0.55)"
-									strokeWidth={2}
-									dash={[8, 6]}
-									listening={false}
-								/>
-							);
-						})()}
-
-					{/* Draft split preview (world coords) */}
-					{draftSplit &&
-						(() => {
-							const drawer = drawers.find((d) => d._id === draftSplit.drawerId);
-							if (!drawer) return null;
-							const comp =
-								draftSplit.targetCompartmentId && drawer.compartments.length > 0
-									? (drawer.compartments.find(
-											(c) => c._id === draftSplit.targetCompartmentId,
-										) ?? null)
-									: null;
-
-							const drawerTop = drawer.y - drawer.height / 2;
-							const drawerBottom = drawer.y + drawer.height / 2;
-							const drawerLeft = drawer.x - drawer.width / 2;
-							const drawerRight = drawer.x + drawer.width / 2;
-
-							const regionTop = comp
-								? drawer.y + comp.y - comp.height / 2
-								: drawerTop;
-							const regionBottom = comp
-								? drawer.y + comp.y + comp.height / 2
-								: drawerBottom;
-							const regionLeft = comp
-								? drawer.x + comp.x - comp.width / 2
-								: drawerLeft;
-							const regionRight = comp
-								? drawer.x + comp.x + comp.width / 2
-								: drawerRight;
-
-							if (draftSplit.orientation === "vertical") {
-								const x = drawer.x + draftSplit.position;
-								return (
-									<Line
-										points={[x, regionTop, x, regionBottom]}
-										stroke="rgba(99,102,241,0.95)"
-										strokeWidth={3}
-										dash={[10, 6]}
-										listening={false}
-									/>
-								);
-							}
-							const y = drawer.y + draftSplit.position;
-							return (
-								<Line
-									points={[regionLeft, y, regionRight, y]}
-									stroke="rgba(99,102,241,0.95)"
-									strokeWidth={3}
-									dash={[10, 6]}
-									listening={false}
-								/>
-							);
-						})()}
-				</Layer>
-
-				{/* UI Overlay Layer */}
-				<Layer listening={false}>
-					{/* Origin marker */}
-					<Group x={viewport.x} y={viewport.y}>
-						<Line points={[-10, 0, 10, 0]} stroke="#ef4444" strokeWidth={2} />
-						<Line points={[0, -10, 0, 10]} stroke="#ef4444" strokeWidth={2} />
-						<Text x={12} y={-15} text="(0,0)" fontSize={10} fill="#ef4444" />
-					</Group>
-				</Layer>
-			</Stage>
-		</div>
+		<BlueprintCanvasStage
+			stageRef={stageRef}
+			width={width}
+			height={height}
+			drawers={drawers}
+			drawersForRender={drawersForRender}
+			viewport={viewport}
+			mode={mode}
+			tool={tool}
+			isLocked={isLocked}
+			isLockedByMe={isLockedByMe}
+			isPanning={isPanning}
+			gridSize={GRID_SIZE}
+			gridColor={GRID_COLOR}
+			selectedElement={selectedElement}
+			selectedDrawerIdSet={selectedDrawerIdSet}
+			highlightedCompartmentIds={highlightedCompartmentIds}
+			invalidDrop={invalidDrop}
+			selectionBox={selectionBox}
+			draftDrawer={draftDrawer}
+			hoverSplit={hoverSplit}
+			draftSplit={draftSplit}
+			dragState={dragState}
+			dragHover={dragHover}
+			dragOverlays={dragOverlays}
+			compartmentsWithInventory={compartmentsWithInventory}
+			handleWheel={handleWheel}
+			handleMouseDown={handleMouseDown}
+			handleMouseMove={handleMouseMove}
+			handleMouseUp={handleMouseUp}
+			handleDrawerSelect={handleDrawerSelect}
+			handleCompartmentSelect={handleCompartmentSelect}
+			handleCompartmentDoubleClick={handleCompartmentDoubleClick}
+			handleCompartmentDragStart={handleCompartmentDragStart}
+			handleCompartmentDragMove={handleCompartmentDragMove}
+			handleCompartmentDragEnd={handleCompartmentDragEnd}
+			handleCompartmentTransformEnd={handleCompartmentTransformEnd}
+		/>
 	);
 });

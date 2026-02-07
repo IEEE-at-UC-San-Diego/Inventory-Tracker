@@ -4,6 +4,12 @@ import { internal } from './_generated/api'
 import { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx, MutationCtx } from './_generated/server'
 import { AuthContext, AuthValidationOptions } from './types/auth'
+import {
+  normalizeRole,
+  ROLE_HIERARCHY,
+  type UserRole,
+} from './auth_role_utils'
+export type { UserRole } from './auth_role_utils'
 
 /**
  * Auth helper functions for user synchronization and authorization
@@ -19,37 +25,6 @@ import { AuthContext, AuthValidationOptions } from './types/auth'
  * - This is ONLY used when called from Logto webhooks (logtoWebhook endpoint in auth.ts)
  * - Convex auth is NOT used for general client authentication in the new architecture
  */
-
-const ROLE_VALUES = ['Administrator', 'Executive Officers', 'General Officers', 'Member'] as const
-export type UserRole = (typeof ROLE_VALUES)[number]
-
-/**
- * Role hierarchy for permission checking
- * Higher number = more permissions
- */
-const ROLE_HIERARCHY: Record<UserRole, number> = {
-  Member: 1,
-  'General Officers': 2,
-  'Executive Officers': 3,
-  Administrator: 4,
-}
-
-const LEGACY_ROLE_MAP: Record<string, UserRole> = {
-  Admin: 'Administrator',
-  Editor: 'Executive Officers',
-  Member: 'General Officers',
-  Viewer: 'Member',
-}
-
-function normalizeRole(role?: string | null): UserRole {
-  if (role && ROLE_VALUES.includes(role as UserRole)) {
-    return role as UserRole
-  }
-  if (role && LEGACY_ROLE_MAP[role]) {
-    return LEGACY_ROLE_MAP[role]
-  }
-  return 'Member'
-}
 
 /**
  * Validates an auth context passed from the frontend

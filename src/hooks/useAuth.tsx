@@ -1,14 +1,12 @@
-import { LogtoProvider, useLogto } from "@logto/react";
+import { useLogto } from "@logto/react";
 import {
 	useCallback,
-	useContext,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
 } from "react";
 import type { User, UserRole } from "@/types";
-import { hasMinimumRole } from "@/types";
 import type { AuthContext as AuthContextType } from "@/types/auth";
 import {
 	AUTH_UPDATED_EVENT,
@@ -22,17 +20,20 @@ import {
 	getTokenExpiresAt,
 	type LogtoTokenClaims,
 	type LogtoUserInfo,
-	logtoAuthConfig,
 	setAuthContext,
 	setConvexUser,
 	setTokenExpiresAt,
 	verifyLogtoToken,
 } from "../lib/auth";
+import {
+	clearLogtoStorage,
+	hasPermissionForUser,
+	hasRoleForUser,
+	isLogtoRequestErrorLike,
+	normalizeRole,
+} from "./useAuth.helpers";
+export { LogtoAuthProvider, useAuth } from "./useAuthPublic";
 
-/**
- * Logto Auth Provider
- * Wraps the LogtoProvider and provides our own AuthContext
- */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [logtoUser, setLogtoUser] = useState<LogtoUserInfo | null>(null);
@@ -48,25 +49,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	// Define the API resource identifier (must match LogtoAuthProvider config)
 	const apiResource =
 		import.meta.env.VITE_LOGTO_API_RESOURCE || "urn:inventory-tracker:api";
-
-	// Role mapping for legacy role names during transition
-	const normalizeRole = useCallback(
-		(role: string | null | undefined): UserRole => {
-			if (!role) return "Member";
-
-			// Map legacy roles to new roles
-			const roleMap: Record<string, UserRole> = {
-				Admin: "Administrator",
-				Editor: "Executive Officers",
-				Viewer: "Member",
-				// Note: Member is already a valid new role, no mapping needed
-			};
-
-			// Return mapped role or original if it's already a new role
-			return roleMap[role] || (role as UserRole);
-		},
-		[],
-	);
 
 	const {
 		isAuthenticated: logtoAuthenticated,
@@ -97,31 +79,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		signOut,
 	};
 
-	const isLogtoRequestErrorLike = useCallback((err: unknown): boolean => {
-		if (!err || typeof err !== "object") return false;
-
-		const record = err as Record<string, unknown>;
-		const name = typeof record.name === "string" ? record.name : undefined;
-		const code = typeof record.code === "string" ? record.code : undefined;
-		const error = typeof record.error === "string" ? record.error : undefined;
-
-		return (
-			name === "LogtoRequestError" ||
-			code?.startsWith("oidc.") === true ||
-			error === "invalid_grant"
-		);
-	}, []);
-
-	const clearLogtoStorage = useCallback(() => {
-		if (typeof window === "undefined") return;
-
-		Object.keys(localStorage).forEach((key) => {
-			if (key.startsWith("logto:")) {
-				localStorage.removeItem(key);
-			}
-		});
-	}, []);
-
 	const forceLogoutDueToInvalidContext = useCallback(
 		async (message: string) => {
 			console.log("[useAuth]", message);
@@ -138,10 +95,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		[],
 	);
 
-	/**
-	 * Verify and refresh auth context if stale
-	 * Returns fresh auth context from the API
-	 */
 	const verifyAndRefreshAuthContext = useCallback(
 		async (
 			accessToken: string,
@@ -223,9 +176,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		[],
 	);
 
-	/**
-	 * Get current auth context, refreshing if stale
-	 */
 	const getFreshAuthContext =
 		useCallback(async (): Promise<AuthContextType | null> => {
 			// If not authenticated, no auth context
@@ -490,19 +440,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		verifyAndRefreshAuthContext,
 	]);
 
-	/**
-	 * Reset auth failed flag when Logto auth state changes to authenticated
-	 * This allows retry after successful re-login
-	 */
 	useEffect(() => {
 		if (logtoAuthenticated && hasAuthFailed) {
 			setHasAuthFailed(false);
 		}
 	}, [logtoAuthenticated, hasAuthFailed]);
 
-	/**
-	 * Check token expiration and auto sign-out if expired
-	 */
 	useEffect(() => {
 		// Only check if authenticated and not loading
 		if (!logtoAuthenticated || logtoLoading) {
@@ -543,11 +486,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		return () => clearInterval(intervalId);
 	}, [logtoAuthenticated, logtoLoading, forceLogoutDueToInvalidContext]);
 
-	/**
-	 * Listen for auth context update events and re-read localStorage
-	 * This fixes the race condition where callback writes to localStorage
-	 * but AuthProvider doesn't re-read it due to hasInitializedRef guard
-	 */
 	useEffect(() => {
 		const handleAuthUpdated = () => {
 			console.log(
@@ -588,51 +526,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		};
 	}, []);
 
-	/**
-	 * Check if user has at least the specified role
-	 */
 	const hasRole = useCallback(
-		(role: UserRole): boolean => {
-			if (!user) {
-				return false;
-			}
-			const normalizedUserRole = normalizeRole(user.role);
-			console.log("[useAuth] hasRole:", {
-				userRole: user.role,
-				normalizedUserRole,
-				requiredRole: role,
-			});
-			return hasMinimumRole(normalizedUserRole, role);
-		},
-		[user, normalizeRole],
-	);
-
-	/**
-	 * Check if user has the specified permission (scope)
-	 */
-	const hasPermission = useCallback(
-		(permission: string): boolean => {
-			if (!user || !user.scopes) {
-				console.log(
-					"[useAuth] hasPermission: no scopes available, returning false",
-				);
-				return false;
-			}
-
-			const hasScope = user.scopes.includes(permission);
-			console.log("[useAuth] hasPermission:", {
-				permission,
-				hasScope,
-				availableScopes: user.scopes,
-			});
-			return hasScope;
-		},
+		(role: UserRole): boolean => hasRoleForUser(user, role),
 		[user],
 	);
 
-	/**
-	 * Sign out from both Logto and our app
-	 */
+	const hasPermission = useCallback(
+		(permission: string): boolean => hasPermissionForUser(user, permission),
+		[user],
+	);
+
 	const signOutWithCleanup = useCallback(async () => {
 		try {
 			// Clear all local/session storage for this origin on sign out.
@@ -666,9 +569,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [signOut]);
 
-	/**
-	 * Force refresh auth context by clearing cache and re-verifying token
-	 */
 	const forceRefreshAuthContext = useCallback(async (): Promise<void> => {
 		console.log("[useAuth] Forcing auth context refresh...");
 
@@ -778,55 +678,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			{children}
 		</AuthReactContext.Provider>
 	);
-}
-
-/**
- * Logto-only Provider Wrapper
- * This should be used at the root of the app
- */
-export function LogtoAuthProvider({ children }: { children: React.ReactNode }) {
-	// Use consistent redirect URI from env var to avoid invalid_grant errors during token refresh
-	// The redirect_uri must match exactly between sign-in and refresh token requests
-	const callbackUrl = `${import.meta.env.VITE_SITE_URL || "http://localhost:3000"}/callback`;
-
-	// Define the API resource identifier for JWT access tokens
-	// This must match a resource configured in your Logto Console
-	const apiResource =
-		import.meta.env.VITE_LOGTO_API_RESOURCE || "urn:inventory-tracker:api";
-
-	// DEBUG: Log the redirect URI being sent (only once on mount)
-	useEffect(() => {
-		console.log("[LogtoAuth] Redirect URI:", callbackUrl);
-		console.log("[LogtoAuth] VITE_SITE_URL:", import.meta.env.VITE_SITE_URL);
-		console.log("[LogtoAuth] API Resource:", apiResource);
-	}, []);
-
-	const config = {
-		...logtoAuthConfig,
-		redirectUri: callbackUrl,
-		scopes: import.meta.env.VITE_LOGTO_SCOPES?.split(",") || [
-			"openid",
-			"profile",
-			"email",
-			"offline_access",
-		],
-		resources: [apiResource], // Configure API resource for JWT access tokens
-	};
-
-	return <LogtoProvider config={config}>{children}</LogtoProvider>;
-}
-
-/**
- * Hook to access auth context
- */
-export function useAuth(): AuthContextValue {
-	const context = useContext(AuthReactContext);
-
-	if (context === undefined) {
-		throw new Error("useAuth must be used within an AuthProvider");
-	}
-
-	return context;
 }
 
 // Re-export types
