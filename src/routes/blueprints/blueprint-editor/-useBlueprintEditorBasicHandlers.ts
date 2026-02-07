@@ -1,5 +1,7 @@
-import { useCallback } from "react";
 import type { NavigateFn } from "@tanstack/react-router";
+import { useCallback } from "react";
+import type { BlueprintTool } from "@/components/blueprint/BlueprintControls";
+import type { HistoryStep } from "@/hooks/useBlueprintHistory.types";
 import type { Drawer, DrawerWithCompartments } from "@/types";
 import type { AuthContext } from "@/types/auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -8,7 +10,6 @@ import {
 	saveBlueprintNameWithHistory,
 } from "./actions/-blueprintActions";
 import { createDrawerWithHistory } from "./actions/-drawerActions";
-import type { HistoryStep } from "@/hooks/useBlueprintHistory.types";
 
 interface ToastLike {
 	success: (title: string, description?: string) => void;
@@ -51,6 +52,7 @@ interface UseBlueprintEditorBasicHandlersParams {
 	toast: ToastLike;
 	navigate: NavigateFn;
 	setIsEditingName: (editing: boolean) => void;
+	setTool: (tool: BlueprintTool) => void;
 }
 
 interface UseBlueprintEditorBasicHandlersReturn {
@@ -72,6 +74,7 @@ export function useBlueprintEditorBasicHandlers({
 	toast,
 	navigate,
 	setIsEditingName,
+	setTool,
 }: UseBlueprintEditorBasicHandlersParams): UseBlueprintEditorBasicHandlersReturn {
 	const handleSaveName = useCallback(async () => {
 		try {
@@ -122,7 +125,7 @@ export function useBlueprintEditorBasicHandlers({
 
 	const handleCreateDrawer = useCallback(
 		async (drawerData: Partial<Drawer>) => {
-			await createDrawerWithHistory({
+			const created = await createDrawerWithHistory({
 				drawerData,
 				drawers,
 				blueprintId: blueprintId as Id<"blueprints">,
@@ -131,6 +134,9 @@ export function useBlueprintEditorBasicHandlers({
 				pushHistoryEntry,
 				toast,
 			});
+			if (created) {
+				setTool("select");
+			}
 		},
 		[
 			blueprintId,
@@ -138,6 +144,7 @@ export function useBlueprintEditorBasicHandlers({
 			drawers,
 			getRequiredAuthContext,
 			pushHistoryEntry,
+			setTool,
 			toast,
 		],
 	);

@@ -1,10 +1,5 @@
 import type { KonvaEventObject, Node as KonvaNode } from "konva/lib/Node";
-import {
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
 	DraftDrawer,
 	DraftSplit,
@@ -68,23 +63,20 @@ export function useBlueprintCanvasPointerInteractions({
 	> | null>(null);
 	const [invalidDrop, setInvalidDrop] = useState<boolean>(false);
 
-	const setHoverSplitIfChanged = useCallback(
-		(next: DraftSplit | null) => {
-			setHoverSplit((prev) => {
-				if (
-					prev?.drawerId === next?.drawerId &&
-					prev?.orientation === next?.orientation &&
-					prev?.position === next?.position &&
-					(prev?.targetCompartmentId ?? null) ===
-						(next?.targetCompartmentId ?? null)
-				) {
-					return prev;
-				}
-				return next;
-			});
-		},
-		[],
-	);
+	const setHoverSplitIfChanged = useCallback((next: DraftSplit | null) => {
+		setHoverSplit((prev) => {
+			if (
+				prev?.drawerId === next?.drawerId &&
+				prev?.orientation === next?.orientation &&
+				prev?.position === next?.position &&
+				(prev?.targetCompartmentId ?? null) ===
+					(next?.targetCompartmentId ?? null)
+			) {
+				return prev;
+			}
+			return next;
+		});
+	}, []);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -122,6 +114,15 @@ export function useBlueprintCanvasPointerInteractions({
 			y: (pointer.y - viewport.y) / viewport.zoom,
 		};
 	}, [stageRef, viewport.x, viewport.y, viewport.zoom]);
+
+	const snapCenterToGridEdges = useCallback(
+		(center: number, size: number): number => {
+			const half = size / 2;
+			const snappedTopLeft = snapToGrid(center - half);
+			return snappedTopLeft + half;
+		},
+		[snapToGrid],
+	);
 
 	const getDrawerNodeFromEvent = useCallback(
 		(e: KonvaEventObject<MouseEvent>) => {
@@ -349,10 +350,14 @@ export function useBlueprintCanvasPointerInteractions({
 				const nextOverrides: Record<string, { x: number; y: number }> = {};
 				for (const drawerId of movingSelectionRef.current.drawerIds) {
 					const start = movingSelectionRef.current.startPositions[drawerId];
+					const drawer = drawers.find((d) => d._id === drawerId);
 					if (!start) continue;
+					if (!drawer) continue;
+					const rawX = start.x + snappedDx;
+					const rawY = start.y + snappedDy;
 					nextOverrides[drawerId] = {
-						x: start.x + snappedDx,
-						y: start.y + snappedDy,
+						x: snapCenterToGridEdges(rawX, drawer.width),
+						y: snapCenterToGridEdges(rawY, drawer.height),
 					};
 				}
 
@@ -499,6 +504,7 @@ export function useBlueprintCanvasPointerInteractions({
 			selectedElement,
 			selectionBox,
 			setHoverSplitIfChanged,
+			snapCenterToGridEdges,
 			snapToGrid,
 			splitOrientation,
 			tool,

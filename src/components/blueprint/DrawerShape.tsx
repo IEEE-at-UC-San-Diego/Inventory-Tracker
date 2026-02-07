@@ -186,7 +186,7 @@ export const DrawerShape = memo(function DrawerShape({
 
 			{/* Drag affordance shown for selected drawers in edit mode */}
 			{isSelected && isEditable && (
-				<Group listening={false}>
+				<Group>
 					<Rect
 						x={-40}
 						y={-drawer.height / 2 - 24}

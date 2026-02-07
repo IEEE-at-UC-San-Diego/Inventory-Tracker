@@ -1,5 +1,5 @@
-import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBlueprintLock } from "@/components/blueprint";
 import type { BlueprintTool } from "@/components/blueprint/BlueprintControls";
@@ -19,6 +19,10 @@ import type {
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { BlueprintEditorView } from "./-BlueprintEditorView";
+import { buildHistoryMutations } from "./-historyMutations";
+import { useBlueprintEditorBasicHandlers } from "./-useBlueprintEditorBasicHandlers";
+import { useBlueprintEditorDerivedState } from "./-useBlueprintEditorDerivedState";
+import { useBlueprintEditorShortcuts } from "./-useBlueprintEditorShortcuts";
 import {
 	deleteCompartmentWithHistory,
 	swapCompartmentsWithHistory,
@@ -26,14 +30,10 @@ import {
 } from "./actions/-compartmentActions";
 import {
 	deleteDrawersWithHistory,
-	updateDrawerWithHistory,
 	updateDrawersBulkWithHistory,
+	updateDrawerWithHistory,
 } from "./actions/-drawerActions";
 import { splitDrawerWithHistory } from "./actions/-drawerSplitActions";
-import { buildHistoryMutations } from "./-historyMutations";
-import { useBlueprintEditorBasicHandlers } from "./-useBlueprintEditorBasicHandlers";
-import { useBlueprintEditorDerivedState } from "./-useBlueprintEditorDerivedState";
-import { useBlueprintEditorShortcuts } from "./-useBlueprintEditorShortcuts";
 
 export function BlueprintEditorContent() {
 	const { blueprintId } = useParams({ from: "/blueprints/$blueprintId" });
@@ -101,7 +101,9 @@ export function BlueprintEditorContent() {
 	const createCompartment = useMutation(api.compartments.mutations.create);
 	const updateCompartment = useMutation(api.compartments.mutations.update);
 	const swapCompartments = useMutation(api.compartments.mutations.swap);
-	const setGridForDrawer = useMutation(api.compartments.mutations.setGridForDrawer);
+	const setGridForDrawer = useMutation(
+		api.compartments.mutations.setGridForDrawer,
+	);
 	const deleteCompartment = useMutation(
 		api.compartments.mutations.deleteCompartment,
 	);
@@ -243,6 +245,10 @@ export function BlueprintEditorContent() {
 		},
 	});
 
+	useEffect(() => {
+		setMode(isLockedByMe ? "edit" : "view");
+	}, [isLockedByMe]);
+
 	const {
 		historyState,
 		canUndo: canUndoNow,
@@ -329,6 +335,7 @@ export function BlueprintEditorContent() {
 			toast,
 			navigate,
 			setIsEditingName,
+			setTool,
 		});
 
 	const handleDeleteDrawers = useCallback(
@@ -347,13 +354,7 @@ export function BlueprintEditorContent() {
 				toast,
 			});
 		},
-		[
-			deleteDrawer,
-			drawers,
-			getRequiredAuthContext,
-			pushHistoryEntry,
-			toast,
-		],
+		[deleteDrawer, drawers, getRequiredAuthContext, pushHistoryEntry, toast],
 	);
 
 	const handleSwapCompartments = useCallback(
@@ -368,12 +369,7 @@ export function BlueprintEditorContent() {
 			});
 			if (ok) setHasChanges(true);
 		},
-		[
-			drawers,
-			getRequiredAuthContext,
-			pushHistoryEntry,
-			swapCompartments,
-		],
+		[drawers, getRequiredAuthContext, pushHistoryEntry, swapCompartments],
 	);
 
 	const handleDeleteCompartment = useCallback(
@@ -411,7 +407,7 @@ export function BlueprintEditorContent() {
 			position: number;
 			targetCompartmentId?: string | null;
 		}) => {
-			await splitDrawerWithHistory({
+			const didSplit = await splitDrawerWithHistory({
 				split,
 				drawers,
 				compartmentsWithInventory,
@@ -423,6 +419,9 @@ export function BlueprintEditorContent() {
 				setHasChanges,
 				toast,
 			});
+			if (didSplit) {
+				setTool("select");
+			}
 		},
 		[
 			compartmentsWithInventory,
@@ -486,12 +485,7 @@ export function BlueprintEditorContent() {
 			});
 			setHasChanges(true);
 		},
-		[
-			drawers,
-			getRequiredAuthContext,
-			pushHistoryEntry,
-			updateCompartment,
-		],
+		[drawers, getRequiredAuthContext, pushHistoryEntry, updateCompartment],
 	);
 
 	const handleUpdateDrawersBulkWithHistory = useCallback(
@@ -547,7 +541,9 @@ export function BlueprintEditorContent() {
 		return (
 			<div className="flex h-screen items-center justify-center">
 				<div className="text-center">
-					<h1 className="text-2xl font-bold text-gray-900">Blueprint not found</h1>
+					<h1 className="text-2xl font-bold text-gray-900">
+						Blueprint not found
+					</h1>
 					<p className="text-gray-600 mt-2">
 						The blueprint you're looking for doesn't exist or has been deleted.
 					</p>

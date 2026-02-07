@@ -1,7 +1,7 @@
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Stage as KonvaStage } from "konva/lib/Stage";
-import { useMemo } from "react";
 import type React from "react";
+import { useMemo } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type {
 	CanvasMode,
@@ -112,7 +112,9 @@ function renderSplitLine(
 	const drawerRight = drawer.x + drawer.width / 2;
 
 	const regionTop = comp ? drawer.y + comp.y - comp.height / 2 : drawerTop;
-	const regionBottom = comp ? drawer.y + comp.y + comp.height / 2 : drawerBottom;
+	const regionBottom = comp
+		? drawer.y + comp.y + comp.height / 2
+		: drawerBottom;
 	const regionLeft = comp ? drawer.x + comp.x - comp.width / 2 : drawerLeft;
 	const regionRight = comp ? drawer.x + comp.x + comp.width / 2 : drawerRight;
 
@@ -304,7 +306,11 @@ export function BlueprintCanvasStage({
 						<DrawerShape
 							key={drawer._id}
 							drawer={drawer}
-							isSelected={selectedDrawerIdSet.has(drawer._id)}
+							isSelected={
+								selectedDrawerIdSet.has(drawer._id) ||
+								(selectedElement?.type === "compartment" &&
+									selectedElement.drawerId === drawer._id)
+							}
 							isLocked={isLocked}
 							isLockedByMe={isLockedByMe}
 							mode={mode}
@@ -339,7 +345,9 @@ export function BlueprintCanvasStage({
 								showLabel={showLabels}
 								highlighted={highlightedCompartmentIdSet.has(compartment._id)}
 								isDragOrigin={dragState?.compartmentId === compartment._id}
-								isDropTarget={dragHover?.targetCompartmentId === compartment._id}
+								isDropTarget={
+									dragHover?.targetCompartmentId === compartment._id
+								}
 								inventoryCount={
 									compartmentsWithInventory?.get(compartment._id) ?? 0
 								}
@@ -392,29 +400,34 @@ export function BlueprintCanvasStage({
 						/>
 					)}
 
-					{!draftSplit && tool === "split" && isLockedByMe && hoverSplit && (() => {
-						const drawer = drawers.find((d) => d._id === hoverSplit.drawerId);
-						if (!drawer) return null;
-						return renderSplitLine(
-							hoverSplit,
-							drawer,
-							"rgba(99,102,241,0.55)",
-							2,
-							[8, 6],
-						);
-					})()}
+					{!draftSplit &&
+						tool === "split" &&
+						isLockedByMe &&
+						hoverSplit &&
+						(() => {
+							const drawer = drawers.find((d) => d._id === hoverSplit.drawerId);
+							if (!drawer) return null;
+							return renderSplitLine(
+								hoverSplit,
+								drawer,
+								"rgba(99,102,241,0.55)",
+								2,
+								[8, 6],
+							);
+						})()}
 
-					{draftSplit && (() => {
-						const drawer = drawers.find((d) => d._id === draftSplit.drawerId);
-						if (!drawer) return null;
-						return renderSplitLine(
-							draftSplit,
-							drawer,
-							"rgba(99,102,241,0.95)",
-							3,
-							[10, 6],
-						);
-					})()}
+					{draftSplit &&
+						(() => {
+							const drawer = drawers.find((d) => d._id === draftSplit.drawerId);
+							if (!drawer) return null;
+							return renderSplitLine(
+								draftSplit,
+								drawer,
+								"rgba(99,102,241,0.95)",
+								3,
+								[10, 6],
+							);
+						})()}
 				</Layer>
 
 				<Layer listening={false}>

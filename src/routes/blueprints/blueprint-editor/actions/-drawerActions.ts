@@ -108,10 +108,10 @@ export async function createDrawerWithHistory({
 		const rotation = drawerData.rotation ?? 0;
 		const label = drawerData.label;
 
-		const x = snapToGrid(rawX);
-		const y = snapToGrid(rawY);
 		const width = Math.max(DRAWER_GRID_SIZE, snapToGrid(rawWidth));
 		const height = Math.max(DRAWER_GRID_SIZE, snapToGrid(rawHeight));
+		const x = snapCenterToGridEdges(rawX, width);
+		const y = snapCenterToGridEdges(rawY, height);
 
 		const overlapsExisting = drawers.some((other) => {
 			const overlapX = Math.abs(x - other.x) < width / 2 + other.width / 2;
@@ -292,8 +292,14 @@ export async function updateDrawerWithHistory({
 			const scaleX = newW / drawer.width;
 			const scaleY = newH / drawer.height;
 			for (const comp of drawer.compartments) {
-				const scaledW = Math.max(DRAWER_GRID_SIZE, snapToGrid(comp.width * scaleX));
-				const scaledH = Math.max(DRAWER_GRID_SIZE, snapToGrid(comp.height * scaleY));
+				const scaledW = Math.max(
+					DRAWER_GRID_SIZE,
+					snapToGrid(comp.width * scaleX),
+				);
+				const scaledH = Math.max(
+					DRAWER_GRID_SIZE,
+					snapToGrid(comp.height * scaleY),
+				);
 				const scaledX = comp.x * scaleX;
 				const scaledY = comp.y * scaleY;
 
@@ -389,7 +395,9 @@ export async function updateDrawersBulkWithHistory({
 }: UpdateDrawersBulkWithHistoryArgs): Promise<boolean> {
 	if (updates.length === 0) return false;
 
-	const nextById = new Map(updates.map((u) => [u.drawerId, { x: u.x, y: u.y }]));
+	const nextById = new Map(
+		updates.map((u) => [u.drawerId, { x: u.x, y: u.y }]),
+	);
 
 	for (let i = 0; i < drawers.length; i++) {
 		const a = drawers[i];
