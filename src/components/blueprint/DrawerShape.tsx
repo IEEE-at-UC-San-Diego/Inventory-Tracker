@@ -1,6 +1,6 @@
 import type { Group as KonvaGroup } from "konva/lib/Group";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Group, Rect, Text } from "react-konva";
 import type { Drawer } from "@/types";
 
@@ -64,6 +64,18 @@ export const DrawerShape = memo(function DrawerShape({
 	onSelect,
 }: DrawerShapeProps) {
 	const shapeRef = useRef<KonvaGroup>(null);
+	const [isPulseOn, setIsPulseOn] = useState(false);
+
+	useEffect(() => {
+		if (!highlighted) {
+			setIsPulseOn(false);
+			return;
+		}
+		const intervalId = window.setInterval(() => {
+			setIsPulseOn((prev) => !prev);
+		}, 650);
+		return () => window.clearInterval(intervalId);
+	}, [highlighted]);
 
 	// Determine colors based on state
 	const getColors = () => {
@@ -79,6 +91,11 @@ export const DrawerShape = memo(function DrawerShape({
 	};
 
 	const colors = getColors();
+	const highlightedStrokeWidth = highlighted
+		? isPulseOn
+			? 5
+			: 3
+		: colors.strokeWidth;
 	const isEditable = editEnabled ?? (mode === "edit" && isLockedByMe);
 
 	const handleClick = useCallback(
@@ -119,14 +136,30 @@ export const DrawerShape = memo(function DrawerShape({
 				height={drawer.height}
 				fill={colors.fill}
 				stroke={colors.stroke}
-				strokeWidth={colors.strokeWidth}
+				strokeWidth={highlightedStrokeWidth}
 				cornerRadius={4}
 				shadowColor="black"
-				shadowBlur={performanceMode ? 0 : isSelected ? 10 : 5}
-				shadowOpacity={performanceMode ? 0 : 0.1}
+				shadowBlur={
+					performanceMode ? 0 : highlighted ? 14 : isSelected ? 10 : 5
+				}
+				shadowOpacity={performanceMode ? 0 : highlighted ? 0.18 : 0.1}
 				shadowOffsetY={2}
 				perfectDrawEnabled={false}
 			/>
+			{highlighted && (
+				<Rect
+					x={-drawer.width / 2 - 3}
+					y={-drawer.height / 2 - 3}
+					width={drawer.width + 6}
+					height={drawer.height + 6}
+					stroke={highlightColor || "#16a34a"}
+					strokeWidth={2}
+					cornerRadius={6}
+					opacity={isPulseOn ? 0.85 : 0.4}
+					listening={false}
+					perfectDrawEnabled={false}
+				/>
+			)}
 
 			{/* Label background */}
 			{showLabel && (

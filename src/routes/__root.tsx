@@ -5,6 +5,7 @@ import {
 	createRootRouteWithContext,
 	HeadContent,
 	Link,
+	Navigate,
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
@@ -42,8 +43,39 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		],
 	}),
 	notFoundComponent: NotFound,
+	errorComponent: RootError,
 	shellComponent: RootDocument,
 });
+
+function RootError({ error }: { error: unknown }) {
+	const message =
+		error instanceof Error
+			? error.message
+			: typeof error === "string"
+				? error
+				: "Unexpected error";
+
+	if (message.toLowerCase().includes("auth context expired")) {
+		return <Navigate to="/login" replace />;
+	}
+
+	return (
+		<div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+			<div className="max-w-lg w-full text-center p-8 bg-white rounded-lg shadow">
+				<h1 className="text-2xl font-bold text-gray-900 mb-2">
+					Something went wrong
+				</h1>
+				<p className="text-gray-600 mb-6">{message}</p>
+				<Link
+					to="/home"
+					className="inline-block px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+				>
+					Go to Dashboard
+				</Link>
+			</div>
+		</div>
+	);
+}
 
 function NotFound() {
 	return (

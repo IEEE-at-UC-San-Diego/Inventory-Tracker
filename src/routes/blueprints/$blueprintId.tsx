@@ -8,6 +8,11 @@ export const Route = createFileRoute("/blueprints/$blueprintId")({
 	component: BlueprintEditorPage,
 	validateSearch: (search: Record<string, unknown>) => ({
 		partId: typeof search.partId === "string" ? search.partId : undefined,
+		drawerId: typeof search.drawerId === "string" ? search.drawerId : undefined,
+		compartmentId:
+			typeof search.compartmentId === "string"
+				? search.compartmentId
+				: undefined,
 		mode:
 			search.mode === "edit" || search.mode === "view"
 				? search.mode

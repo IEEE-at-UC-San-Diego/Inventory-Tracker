@@ -26,9 +26,6 @@ interface UseBlueprintEditorDerivedStateParams {
 		  }
 		| null
 		| undefined;
-	blueprint: {
-		drawers: DrawerWithCompartments[];
-	} | null;
 	drawers: DrawerWithCompartments[];
 	selectedElement: SelectedElement;
 	selectedDrawerIds: string[];
@@ -47,9 +44,6 @@ interface UseBlueprintEditorDerivedStateParams {
 		width: number;
 		height: number;
 	}>;
-	zoomToLocationRef: React.MutableRefObject<
-		((x: number, y: number, w?: number, h?: number) => void) | null
-	>;
 	setHighlightedCompartmentIds: (ids: string[]) => void;
 	inventoryData?: Array<{
 		compartmentId: string;
@@ -61,7 +55,7 @@ interface UseBlueprintEditorDerivedStateParams {
 		drawerId: Id<"drawers">;
 		rows: number;
 		cols: number;
-	}) => Promise<boolean | void>;
+	}) => Promise<boolean | undefined>;
 	setHasChanges: (value: boolean) => void;
 	toast: ToastLike;
 }
@@ -92,7 +86,6 @@ interface UseBlueprintEditorDerivedStateReturn {
 
 export function useBlueprintEditorDerivedState({
 	blueprintData,
-	blueprint,
 	drawers,
 	selectedElement,
 	selectedDrawerIds,
@@ -104,7 +97,6 @@ export function useBlueprintEditorDerivedState({
 	isLockedByMe,
 	highlightPartId,
 	partCompartmentsQuery,
-	zoomToLocationRef,
 	setHighlightedCompartmentIds,
 	inventoryData,
 	getRequiredAuthContext,
@@ -328,31 +320,9 @@ export function useBlueprintEditorDerivedState({
 			const compartments = partCompartmentsQuery;
 			if (compartments.length > 0) {
 				setHighlightedCompartmentIds(compartments.map((c) => c._id));
-				const firstCompartment = compartments[0];
-				const drawer = blueprint?.drawers.find(
-					(d) => d._id === firstCompartment.drawerId,
-				);
-				if (drawer && zoomToLocationRef.current) {
-					const compartmentX = drawer.x + firstCompartment.x;
-					const compartmentY = drawer.y + firstCompartment.y;
-					setTimeout(() => {
-						zoomToLocationRef.current?.(
-							compartmentX,
-							compartmentY,
-							firstCompartment.width,
-							firstCompartment.height,
-						);
-					}, 100);
-				}
 			}
 		}
-	}, [
-		blueprint,
-		highlightPartId,
-		partCompartmentsQuery,
-		setHighlightedCompartmentIds,
-		zoomToLocationRef,
-	]);
+	}, [highlightPartId, partCompartmentsQuery, setHighlightedCompartmentIds]);
 
 	return {
 		canvasSize,

@@ -1,6 +1,6 @@
 import type { Group as KonvaGroup } from "konva/lib/Group";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Circle, Group, Rect, Text } from "react-konva";
 import type { Compartment, Drawer, Viewport } from "@/types";
 
@@ -102,6 +102,18 @@ export const CompartmentShape = memo(function CompartmentShape({
 }: CompartmentShapeProps) {
 	const shapeRef = useRef<KonvaGroup>(null);
 	const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+	const [isPulseOn, setIsPulseOn] = useState(false);
+
+	useEffect(() => {
+		if (!highlighted) {
+			setIsPulseOn(false);
+			return;
+		}
+		const intervalId = window.setInterval(() => {
+			setIsPulseOn((prev) => !prev);
+		}, 550);
+		return () => window.clearInterval(intervalId);
+	}, [highlighted]);
 
 	// Determine colors based on state
 	const getColors = () => {
@@ -123,6 +135,8 @@ export const CompartmentShape = memo(function CompartmentShape({
 				strokeWidth: 3,
 			}
 		: baseColors;
+	const highlightedStrokeWidth =
+		highlighted && !isDropTarget ? (isPulseOn ? 4 : 2.5) : colors.strokeWidth;
 	const isEditable = editEnabled ?? (mode === "edit" && isLockedByMe);
 
 	// Calculate absolute position within the drawer
@@ -269,11 +283,11 @@ export const CompartmentShape = memo(function CompartmentShape({
 				height={compartment.height}
 				fill={colors.fill}
 				stroke={colors.stroke}
-				strokeWidth={colors.strokeWidth}
+				strokeWidth={highlightedStrokeWidth}
 				cornerRadius={2}
 				shadowColor="black"
-				shadowBlur={performanceMode ? 0 : isSelected ? 6 : 2}
-				shadowOpacity={performanceMode ? 0 : 0.05}
+				shadowBlur={performanceMode ? 0 : highlighted ? 8 : isSelected ? 6 : 2}
+				shadowOpacity={performanceMode ? 0 : highlighted ? 0.12 : 0.05}
 				shadowOffsetY={1}
 				perfectDrawEnabled={false}
 			/>
@@ -339,6 +353,20 @@ export const CompartmentShape = memo(function CompartmentShape({
 					strokeWidth={2}
 					dash={[4, 2]}
 					cornerRadius={3}
+					listening={false}
+					perfectDrawEnabled={false}
+				/>
+			)}
+			{highlighted && !isSelected && (
+				<Rect
+					x={-compartment.width / 2 - 3}
+					y={-compartment.height / 2 - 3}
+					width={compartment.width + 6}
+					height={compartment.height + 6}
+					stroke={highlightColor || "#16a34a"}
+					strokeWidth={2}
+					cornerRadius={4}
+					opacity={isPulseOn ? 0.95 : 0.45}
 					listening={false}
 					perfectDrawEnabled={false}
 				/>

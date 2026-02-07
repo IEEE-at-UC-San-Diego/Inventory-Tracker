@@ -1,11 +1,5 @@
 import { useLogto } from "@logto/react";
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User, UserRole } from "@/types";
 import type { AuthContext as AuthContextType } from "@/types/auth";
 import {
@@ -31,6 +25,7 @@ import {
 	hasRoleForUser,
 	isLogtoRequestErrorLike,
 } from "./useAuth.helpers";
+
 export { LogtoAuthProvider, useAuth } from "./useAuthPublic";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -60,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	const hasInitializedRef = useRef(false);
 	const hasHydratedFromLogtoRef = useRef(false);
-	const hydrateInFlightRef = useRef<Promise<void> | null>(null);
 	// Avoid stampeding refresh calls when multiple components ask for a "fresh" auth context.
 	const refreshInFlightRef = useRef<Promise<AuthContextType | null> | null>(
 		null,
@@ -78,11 +72,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		signOut,
 	};
 
+	const clearAllBrowserStorage = useCallback(() => {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		try {
+			window.localStorage.clear();
+		} catch {
+			// Ignore storage errors
+		}
+
+		try {
+			window.sessionStorage.clear();
+		} catch {
+			// Ignore storage errors
+		}
+	}, []);
+
 	const forceLogoutDueToInvalidContext = useCallback(
 		async (message: string) => {
 			console.log("[useAuth]", message);
 			setHasAuthFailed(true);
 			setError("Session expired. Please sign in again.");
+			clearAllBrowserStorage();
 			clearConvexUser();
 			clearAuthContext();
 			clearTokenExpiresAt();
@@ -91,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			setAuthContextState(null);
 			await logtoFunctionsRef.current.signOut();
 		},
-		[],
+		[clearAllBrowserStorage],
 	);
 
 	const verifyAndRefreshAuthContext = useCallback(
@@ -228,8 +241,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			logtoUser,
 			verifyAndRefreshAuthContext,
 			authContext,
-			clearLogtoStorage,
-			isLogtoRequestErrorLike,
 			forceLogoutDueToInvalidContext,
 		]);
 
@@ -284,10 +295,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 
 		if (hasHydratedFromLogtoRef.current) {
-			return;
-		}
-
-		if (hydrateInFlightRef.current) {
 			return;
 		}
 
@@ -418,13 +425,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 		};
 
-		const promise = hydrateFromLogto();
-		hydrateInFlightRef.current = promise;
-		void promise.finally(() => {
-			if (hydrateInFlightRef.current === promise) {
-				hydrateInFlightRef.current = null;
-			}
-		});
+		void hydrateFromLogto();
 
 		return () => {
 			cancelled = true;
@@ -434,8 +435,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		logtoLoading,
 		hasAuthFailed,
 		forceLogoutDueToInvalidContext,
-		clearLogtoStorage,
-		isLogtoRequestErrorLike,
 		verifyAndRefreshAuthContext,
 	]);
 
@@ -539,18 +538,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		try {
 			// Clear all local/session storage for this origin on sign out.
 			// This ensures we don't keep stale Logto tokens or any cached app state.
-			if (typeof window !== "undefined") {
-				try {
-					window.localStorage.clear();
-				} catch {
-					// Ignore storage errors
-				}
-				try {
-					window.sessionStorage.clear();
-				} catch {
-					// Ignore storage errors
-				}
-			}
+			clearAllBrowserStorage();
 
 			// Also clear via helpers (in case storage.clear() is blocked).
 			clearConvexUser();
@@ -566,7 +554,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Sign out failed");
 		}
-	}, [signOut]);
+	}, [signOut, clearAllBrowserStorage]);
 
 	const forceRefreshAuthContext = useCallback(async (): Promise<void> => {
 		console.log("[useAuth] Forcing auth context refresh...");
@@ -623,8 +611,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		logtoAuthenticated,
 		logtoLoading,
 		logtoUser,
-		clearLogtoStorage,
-		isLogtoRequestErrorLike,
 		forceLogoutDueToInvalidContext,
 	]);
 
@@ -633,8 +619,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		// Don't block the whole app on Logto's loading flag; our internal `isLoading`
 		// already models "we're actively hydrating/refreshing auth". If Logto gets
 		// stuck in a loading state, we still want to show the login screen instead
-		// of an infinite spinner.
-		const combinedLoading = isLoading;
+		// of an infinite spinner. Also, once app auth state is ready, keep auth
+		// refreshes in the background instead of blocking navigation with a spinner.
+		const combinedLoading = isLoading && !appIsAuthenticated;
 
 		return {
 			user,

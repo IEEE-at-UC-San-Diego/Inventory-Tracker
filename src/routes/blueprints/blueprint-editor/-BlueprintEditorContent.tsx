@@ -278,6 +278,8 @@ export function BlueprintEditorContent() {
 	const zoomToLocationRef = useRef<
 		((x: number, y: number, w?: number, h?: number) => void) | null
 	>(null);
+	const hasAppliedInitialViewRef = useRef(false);
+	const lastBlueprintIdRef = useRef<string | null>(null);
 
 	const {
 		canvasSize,
@@ -300,7 +302,6 @@ export function BlueprintEditorContent() {
 		compartmentsWithInventory,
 	} = useBlueprintEditorDerivedState({
 		blueprintData,
-		blueprint,
 		drawers,
 		selectedElement,
 		selectedDrawerIds,
@@ -312,7 +313,6 @@ export function BlueprintEditorContent() {
 		isLockedByMe,
 		highlightPartId: search.partId,
 		partCompartmentsQuery,
-		zoomToLocationRef,
 		setHighlightedCompartmentIds,
 		inventoryData,
 		getRequiredAuthContext,
@@ -320,6 +320,76 @@ export function BlueprintEditorContent() {
 		setHasChanges,
 		toast,
 	});
+
+	useEffect(() => {
+		if (lastBlueprintIdRef.current !== blueprintId) {
+			lastBlueprintIdRef.current = blueprintId;
+			hasAppliedInitialViewRef.current = false;
+		}
+		if (hasAppliedInitialViewRef.current) return;
+		if (!blueprint) return;
+		if (!zoomToFitRef.current || !zoomToLocationRef.current) return;
+
+		if (search.compartmentId) {
+			for (const drawer of drawers) {
+				const compartment = drawer.compartments.find(
+					(item) => item._id === search.compartmentId,
+				);
+				if (!compartment) continue;
+				zoomToLocationRef.current(
+					drawer.x + compartment.x,
+					drawer.y + compartment.y,
+					compartment.width,
+					compartment.height,
+				);
+				hasAppliedInitialViewRef.current = true;
+				return;
+			}
+		}
+
+		if (search.drawerId) {
+			const drawer = drawers.find((item) => item._id === search.drawerId);
+			if (drawer) {
+				zoomToLocationRef.current(
+					drawer.x,
+					drawer.y,
+					drawer.width,
+					drawer.height,
+				);
+				hasAppliedInitialViewRef.current = true;
+				return;
+			}
+		}
+
+		if (search.partId) {
+			if (partCompartmentsQuery === undefined) return;
+			const firstCompartment = partCompartmentsQuery[0];
+			if (firstCompartment) {
+				const drawer = drawers.find((d) => d._id === firstCompartment.drawerId);
+				if (drawer) {
+					zoomToLocationRef.current(
+						drawer.x + firstCompartment.x,
+						drawer.y + firstCompartment.y,
+						firstCompartment.width,
+						firstCompartment.height,
+					);
+					hasAppliedInitialViewRef.current = true;
+					return;
+				}
+			}
+		}
+
+		zoomToFitRef.current();
+		hasAppliedInitialViewRef.current = true;
+	}, [
+		blueprint,
+		blueprintId,
+		drawers,
+		partCompartmentsQuery,
+		search.compartmentId,
+		search.drawerId,
+		search.partId,
+	]);
 
 	const { handleSaveName, handleDelete, handleCreateDrawer } =
 		useBlueprintEditorBasicHandlers({

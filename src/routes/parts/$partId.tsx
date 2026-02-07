@@ -5,7 +5,6 @@ import {
 	ArrowRightLeft,
 	Edit,
 	Grid3X3,
-	History,
 	MapPin,
 	Minus,
 	Package,
@@ -13,7 +12,7 @@ import {
 	Settings,
 	Trash2,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	AdminOnly,
 	EditorOnly,
@@ -25,8 +24,13 @@ import {
 	CheckOutDialog,
 	MoveDialog,
 } from "@/components/inventory";
+import {
+	CanvasView,
+	type DrawerWithCompartments,
+} from "@/components/parts/location-picker-2d-canvas";
 import { PartForm } from "@/components/parts/PartForm";
 import { PartImage } from "@/components/parts/PartImage";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -34,18 +38,48 @@ import {
 	CardDescription,
 	CardHeader,
 	CardTitle,
-	StatCard,
 } from "@/components/ui/card";
 import { AlertDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQuery } from "@/integrations/convex/react-query";
+import type { Compartment, Drawer } from "@/types";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/parts/$partId")({
 	component: PartDetailPage,
 });
+
+function useElementSize<T extends HTMLElement>() {
+	const ref = useRef<T | null>(null);
+	const [size, setSize] = useState({ width: 0, height: 0 });
+
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+
+		const measure = () => {
+			const rect = element.getBoundingClientRect();
+			setSize({
+				width: Math.max(0, Math.floor(rect.width)),
+				height: Math.max(0, Math.floor(rect.height)),
+			});
+		};
+
+		measure();
+		const resizeObserver = new ResizeObserver(measure);
+		resizeObserver.observe(element);
+		window.addEventListener("resize", measure);
+
+		return () => {
+			resizeObserver.disconnect();
+			window.removeEventListener("resize", measure);
+		};
+	}, []);
+
+	return { ref, size };
+}
 
 function PartDetailPage() {
 	return (
@@ -60,7 +94,6 @@ function PartDetailContent() {
 	const { toast } = useToast();
 	const { authContext, getFreshAuthContext } = useAuth();
 
-	// Helper to get fresh auth context for mutations
 	const getAuthContextForMutation = useCallback(
 		async (context: typeof authContext) => {
 			const fresh = await getFreshAuthContext();
@@ -68,6 +101,7 @@ function PartDetailContent() {
 		},
 		[getFreshAuthContext],
 	);
+
 	const getRequiredAuthContext = useCallback(async () => {
 		const context = await getAuthContextForMutation(authContext);
 		if (!context) {
@@ -76,15 +110,17 @@ function PartDetailContent() {
 		return context;
 	}, [authContext, getAuthContextForMutation]);
 
-	// Dialog states
 	const [isEditing, setIsEditing] = useState(false);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 	const [showCheckIn, setShowCheckIn] = useState(false);
 	const [showCheckOut, setShowCheckOut] = useState(false);
 	const [showMove, setShowMove] = useState(false);
 	const [showAdjust, setShowAdjust] = useState(false);
+	const [selectedInventoryId, setSelectedInventoryId] = useState<string>();
 
-	// Fetch part data with inventory
+	const { ref: previewRef, size: previewSize } =
+		useElementSize<HTMLDivElement>();
+
 	const partData = useQuery(
 		api.parts.queries.getWithInventory,
 		authContext
@@ -99,31 +135,46 @@ function PartDetailContent() {
 	const part = partData?.part;
 	const inventory = partData?.inventory ?? [];
 	const totalQuantity = partData?.totalQuantity ?? 0;
-	const uniqueBlueprints = Array.from(
-		inventory
-			.map((item) => item.blueprint)
-			.reduce((map, blueprint) => {
-				if (!blueprint) return map;
-				map.set(blueprint._id, blueprint);
-				return map;
-			}, new Map<string, NonNullable<(typeof inventory)[number]["blueprint"]>>())
-			.values(),
+
+	useEffect(() => {
+		if (inventory.length === 0) {
+			setSelectedInventoryId(undefined);
+			return;
+		}
+
+		if (
+			!selectedInventoryId ||
+			!inventory.some((item) => item._id === selectedInventoryId)
+		) {
+			setSelectedInventoryId(inventory[0]._id);
+		}
+	}, [inventory, selectedInventoryId]);
+
+	const selectedInventoryItem = useMemo(
+		() =>
+			inventory.find((item) => item._id === selectedInventoryId) ??
+			inventory[0],
+		[inventory, selectedInventoryId],
 	);
 
-	// Fetch transactions
-	const transactions = useQuery(
-		api.transactions.queries.getByPart,
-		authContext
+	const selectedBlueprintId = selectedInventoryItem?.blueprint?._id;
+
+	const selectedBlueprintDrawers = useQuery(
+		api.drawers.queries.listByBlueprint,
+		authContext && selectedBlueprintId
 			? {
 					authContext,
-					partId: partId as Id<"parts">,
-					limit: 10,
+					blueprintId: selectedBlueprintId as Id<"blueprints">,
+					includeCompartments: true,
 				}
 			: undefined,
-		{ enabled: !!authContext },
-	);
+		{
+			enabled: !!authContext && !!selectedBlueprintId,
+		},
+	) as DrawerWithCompartments[] | undefined;
 
-	// Mutations
+	const drawers = selectedBlueprintDrawers ?? [];
+
 	const archivePart = useMutation(api.parts.mutations.archive);
 	const unarchivePart = useMutation(api.parts.mutations.unarchive);
 	const deletePart = useMutation(api.parts.mutations.remove);
@@ -151,22 +202,13 @@ function PartDetailContent() {
 				error instanceof Error ? error.message : "An error occurred",
 			);
 		}
-	}, [
-		part,
-		partId,
-		archivePart,
-		unarchivePart,
-		toast,
-		authContext,
-		getAuthContextForMutation,
-	]);
+	}, [part, getRequiredAuthContext, unarchivePart, partId, toast, archivePart]);
 
 	const handleDelete = useCallback(async () => {
 		try {
 			const context = await getRequiredAuthContext();
 			await deletePart({ authContext: context, partId: partId as Id<"parts"> });
 			toast.success("Part deleted successfully");
-			// Navigate back to parts list
 			window.location.href = "/parts";
 		} catch (error) {
 			toast.error(
@@ -175,29 +217,25 @@ function PartDetailContent() {
 			);
 			setShowDeleteDialog(false);
 		}
-	}, [partId, deletePart, toast, authContext, getAuthContextForMutation]);
+	}, [getRequiredAuthContext, deletePart, partId, toast]);
 
 	const handleEditSuccess = useCallback(() => {
 		setIsEditing(false);
 	}, []);
 
-	const handleCheckOutClick = useCallback(() => {
-		setShowCheckOut(true);
-	}, []);
+	const handlePreviewDrawerClick = useCallback((_drawer: Drawer) => {}, []);
+	const handlePreviewCompartmentClick = useCallback(
+		(_compartment: Compartment, _drawer: Drawer) => {},
+		[],
+	);
 
 	if (part === undefined) {
 		return (
-			<div className="p-6 max-w-6xl mx-auto animate-pulse">
+			<div className="mx-auto max-w-7xl animate-pulse p-6">
 				<div className="mb-6 h-10 w-1/2 rounded bg-slate-200" />
-				<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-					<div className="space-y-6 lg:col-span-2">
-						<div className="h-56 rounded-lg bg-slate-200" />
-						<div className="h-72 rounded-lg bg-slate-200" />
-					</div>
-					<div className="space-y-6">
-						<div className="h-44 rounded-lg bg-slate-200" />
-						<div className="h-64 rounded-lg bg-slate-200" />
-					</div>
+				<div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+					<div className="h-[520px] rounded-lg bg-slate-200" />
+					<div className="h-[520px] rounded-lg bg-slate-200" />
 				</div>
 			</div>
 		);
@@ -208,14 +246,14 @@ function PartDetailContent() {
 			<div className="flex h-screen items-center justify-center">
 				<div className="text-center">
 					<h1 className="text-2xl font-bold text-gray-900">Part not found</h1>
-					<p className="text-gray-600 mt-2">
+					<p className="mt-2 text-gray-600">
 						The part you're looking for doesn't exist or has been deleted.
 					</p>
 					<Link
 						to="/parts"
 						className="mt-4 inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-700"
 					>
-						<ArrowLeft className="w-4 h-4" />
+						<ArrowLeft className="h-4 w-4" />
 						Back to parts
 					</Link>
 				</div>
@@ -224,50 +262,69 @@ function PartDetailContent() {
 	}
 
 	return (
-		<div className="p-6 max-w-6xl mx-auto">
-			{/* Header */}
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-				<div className="flex items-center gap-4">
-					<Link
-						to="/parts"
-						className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-					>
-						<ArrowLeft className="w-5 h-5" />
-					</Link>
-					<div>
-						<div className="flex items-center gap-3">
-							<h1 className="text-3xl font-bold text-gray-900">{part.name}</h1>
-							{part.archived && (
-								<span className="px-2 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
-									Archived
-								</span>
-							)}
+		<div className="mx-auto max-w-7xl p-6">
+			<div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+				<div className="flex items-start gap-3">
+					<Button variant="ghost" size="icon-sm" asChild>
+						<Link to="/parts">
+							<ArrowLeft className="h-4 w-4" />
+						</Link>
+					</Button>
+					<div className="space-y-2">
+						<div className="flex flex-wrap items-center gap-2">
+							<h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+								{part.name}
+							</h1>
+							<Badge variant={part.archived ? "secondary" : "default"}>
+								{part.archived ? "Archived" : "Active"}
+							</Badge>
 						</div>
-						<p className="text-gray-600 mt-1">SKU: {part.sku}</p>
+						<p className="text-sm text-muted-foreground">SKU: {part.sku}</p>
 					</div>
 				</div>
 
 				<EditorOnly>
-					<div className="flex items-center gap-2">
+					<div className="flex flex-wrap items-center gap-2">
 						{isEditing ? (
 							<Button variant="outline" onClick={() => setIsEditing(false)}>
 								Cancel
 							</Button>
 						) : (
 							<>
+								<Button size="sm" onClick={() => setShowCheckIn(true)}>
+									<Plus className="h-4 w-4" />
+									Check In
+								</Button>
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => setShowCheckOut(true)}
+								>
+									<Minus className="h-4 w-4" />
+									Check Out
+								</Button>
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => setShowMove(true)}
+								>
+									<ArrowRightLeft className="h-4 w-4" />
+									Move
+								</Button>
 								<Button variant="outline" onClick={() => setIsEditing(true)}>
-									<Edit className="w-4 h-4 mr-2" />
+									<Edit className="h-4 w-4" />
 									Edit
 								</Button>
 								<Button variant="outline" onClick={handleArchive}>
-									<Archive className="w-4 h-4 mr-2" />
+									<Archive className="h-4 w-4" />
 									{part.archived ? "Unarchive" : "Archive"}
 								</Button>
 								<Button
 									variant="destructive"
+									size="icon-sm"
 									onClick={() => setShowDeleteDialog(true)}
 								>
-									<Trash2 className="w-4 h-4" />
+									<Trash2 className="h-4 w-4" />
 								</Button>
 							</>
 						)}
@@ -275,7 +332,6 @@ function PartDetailContent() {
 				</EditorOnly>
 			</div>
 
-			{/* Edit Mode */}
 			{isEditing ? (
 				<PartForm
 					part={part}
@@ -283,299 +339,204 @@ function PartDetailContent() {
 					onCancel={() => setIsEditing(false)}
 				/>
 			) : (
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-					{/* Main content */}
-					<div className="lg:col-span-2 space-y-6">
-						{/* Details */}
+				<div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+					<div className="space-y-6">
 						<Card>
-							<CardHeader>
-								<CardTitle>Part Details</CardTitle>
+							<CardHeader className="pb-4">
+								<CardTitle className="text-lg">Part Overview</CardTitle>
+								<CardDescription>
+									Core details and logistics summary.
+								</CardDescription>
 							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="grid grid-cols-2 gap-4">
-									<div>
-										<p className="text-sm text-gray-500">Name</p>
-										<p className="font-medium">{part.name}</p>
+							<CardContent className="space-y-5">
+								<div className="grid grid-cols-3 gap-3">
+									<div className="rounded-md border bg-slate-50 px-3 py-2">
+										<p className="text-xs text-muted-foreground">In Stock</p>
+										<p className="text-lg font-semibold text-slate-900">
+											{totalQuantity}
+										</p>
 									</div>
-									<div>
-										<p className="text-sm text-gray-500">SKU</p>
-										<p className="font-medium">{part.sku}</p>
+									<div className="rounded-md border bg-slate-50 px-3 py-2">
+										<p className="text-xs text-muted-foreground">Locations</p>
+										<p className="text-lg font-semibold text-slate-900">
+											{inventory.length}
+										</p>
+									</div>
+									<div className="rounded-md border bg-slate-50 px-3 py-2">
+										<p className="text-xs text-muted-foreground">Category</p>
+										<p className="truncate text-sm font-medium text-slate-900">
+											{part.category}
+										</p>
 									</div>
 								</div>
-								<div>
-									<p className="text-sm text-gray-500">Category</p>
-									<span className="inline-block mt-1 px-2 py-1 bg-cyan-100 text-cyan-800 text-sm rounded">
-										{part.category}
-									</span>
-								</div>
-								{part.description && (
-									<div>
-										<p className="text-sm text-gray-500">Description</p>
-										<p className="mt-1">{part.description}</p>
+
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+									<div className="space-y-3">
+										<div className="space-y-1">
+											<p className="text-xs uppercase tracking-wide text-muted-foreground">
+												Part name
+											</p>
+											<p className="font-medium text-slate-900">{part.name}</p>
+										</div>
+										<div className="space-y-1">
+											<p className="text-xs uppercase tracking-wide text-muted-foreground">
+												SKU
+											</p>
+											<p className="font-medium text-slate-900">{part.sku}</p>
+										</div>
+										{part.description && (
+											<div className="space-y-1">
+												<p className="text-xs uppercase tracking-wide text-muted-foreground">
+													Description
+												</p>
+												<p className="text-sm leading-relaxed text-slate-700">
+													{part.description}
+												</p>
+											</div>
+										)}
 									</div>
-								)}
+
+									<PartImage
+										imageId={part.imageId}
+										name={part.name}
+										size="lg"
+										className="h-28 w-28 sm:h-32 sm:w-32"
+									/>
+								</div>
 							</CardContent>
 						</Card>
 
-						{/* Storage Locations */}
 						<Card>
-							<CardHeader className="flex flex-row items-center justify-between">
+							<CardHeader className="flex flex-row items-center justify-between gap-3">
 								<div>
-									<CardTitle>Storage Locations</CardTitle>
+									<CardTitle className="text-lg">Storage Logistics</CardTitle>
 									<CardDescription>
-										Where this part is stored in your inventory
+										Select a location to focus it on the blueprint.
 									</CardDescription>
 								</div>
-								<EditorOnly>
-									<div className="flex items-center gap-2">
-										<Button size="sm" onClick={() => setShowCheckIn(true)}>
-											<Plus className="w-4 h-4 mr-2" />
-											Check In
-										</Button>
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={() => setShowMove(true)}
-										>
-											<ArrowRightLeft className="w-4 h-4 mr-2" />
-											Move
-										</Button>
-									</div>
-								</EditorOnly>
+								<AdminOnly>
+									<Button
+										size="sm"
+										variant="outline"
+										onClick={() => setShowAdjust(true)}
+									>
+										<Settings className="h-4 w-4" />
+										Adjust
+									</Button>
+								</AdminOnly>
 							</CardHeader>
 							<CardContent>
-								{inventory.length > 0 ? (
-									<div className="space-y-2">
-										{inventory.map((item) => (
-											<div
-												key={item._id}
-												className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-											>
-												<div className="flex items-center gap-3">
-													<MapPin className="w-5 h-5 text-cyan-600" />
-													<div>
-														<p className="font-medium">
-															{item.compartment?.label || "Unknown Compartment"}
-														</p>
-														<p className="text-sm text-gray-500">
-															{item.drawer?.label || "Unknown Drawer"} →{" "}
-															{item.blueprint?.name || "Unknown Blueprint"}
-														</p>
-													</div>
-												</div>
-												<div className="flex items-center gap-3">
-													<span className="font-medium">
-														{item.quantity} units
-													</span>
-													<EditorOnly>
-														<Button
-															size="sm"
-															variant="outline"
-															onClick={handleCheckOutClick}
-														>
-															<Minus className="w-4 h-4" />
-														</Button>
-													</EditorOnly>
-												</div>
-											</div>
-										))}
+								{inventory.length === 0 ? (
+									<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+										<Package className="mx-auto mb-2 h-10 w-10 text-slate-300" />
+										No inventory locations yet.
 									</div>
 								) : (
-									<div className="text-center py-8 text-gray-500">
-										<Package className="w-12 h-12 mx-auto mb-2" />
-										<p>No inventory for this part yet</p>
-										<EditorOnly>
-											<Button
-												className="mt-4"
-												onClick={() => setShowCheckIn(true)}
-											>
-												<Plus className="w-4 h-4 mr-2" />
-												Check In Inventory
-											</Button>
-										</EditorOnly>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-
-						{/* Transaction History */}
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<History className="w-5 h-5" />
-									Recent Activity
-								</CardTitle>
-							</CardHeader>
-							<CardContent>
-								{transactions && transactions.length > 0 ? (
 									<div className="space-y-2">
-										{transactions.map((transaction) => (
-											<div
-												key={transaction._id}
-												className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-											>
-												<History className="w-5 h-5 text-gray-400" />
-												<div className="flex-1">
-													<p className="text-sm">
-														<span className="font-medium">
-															{transaction.actionType}
-														</span>{" "}
-														{Math.abs(transaction.quantityDelta)} units
-														{transaction.user?.name &&
-															` by ${transaction.user.name}`}
-													</p>
-													<p className="text-xs text-gray-500">
-														{new Date(transaction.timestamp).toLocaleString()}
-													</p>
-												</div>
-												<span
-													className={`font-medium ${
-														transaction.quantityDelta > 0
-															? "text-green-600"
-															: "text-red-600"
+										{inventory.map((item) => {
+											const isSelected =
+												selectedInventoryItem?._id === item._id;
+											return (
+												<button
+													type="button"
+													key={item._id}
+													onClick={() => setSelectedInventoryId(item._id)}
+													className={`w-full rounded-md border p-3 text-left transition ${
+														isSelected
+															? "border-cyan-300 bg-cyan-50"
+															: "border-border bg-background hover:border-slate-300 hover:bg-slate-50"
 													}`}
 												>
-													{transaction.quantityDelta > 0 ? "+" : ""}
-													{transaction.quantityDelta}
-												</span>
-											</div>
-										))}
-									</div>
-								) : (
-									<div className="text-center py-8 text-gray-500">
-										<History className="w-12 h-12 mx-auto mb-2" />
-										<p>No activity recorded</p>
+													<div className="flex items-start justify-between gap-3">
+														<div className="flex min-w-0 items-start gap-2">
+															<MapPin className="mt-0.5 h-4 w-4 shrink-0 text-cyan-600" />
+															<div className="min-w-0">
+																<p className="truncate font-medium text-slate-900">
+																	{item.compartment?.label ||
+																		"Unknown Compartment"}
+																</p>
+																<p className="truncate text-xs text-muted-foreground">
+																	{item.blueprint?.name || "Unknown Blueprint"}{" "}
+																	• {item.drawer?.label || "Unknown Drawer"}
+																</p>
+															</div>
+														</div>
+														<Badge variant="outline">
+															{item.quantity} units
+														</Badge>
+													</div>
+												</button>
+											);
+										})}
 									</div>
 								)}
 							</CardContent>
 						</Card>
-
-						{/* Find on Blueprint */}
-						{inventory.length > 0 && (
-							<Card>
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2">
-										<Grid3X3 className="w-5 h-5" />
-										Blueprint Locations
-									</CardTitle>
-								</CardHeader>
-								<CardContent>
-									<p className="text-sm text-gray-600 mb-4">
-										This part is stored in {inventory.length} location(s). View
-										on blueprints:
-									</p>
-									<div className="flex flex-wrap gap-2">
-										{uniqueBlueprints.map((blueprint) => (
-											<Link
-												key={blueprint._id}
-												to="/blueprints/$blueprintId"
-												params={{ blueprintId: blueprint._id }}
-												search={{ partId, mode: undefined }}
-											>
-												<Button variant="outline" size="sm">
-													<Grid3X3 className="w-4 h-4 mr-2" />
-													{blueprint.name}
-												</Button>
-											</Link>
-										))}
-									</div>
-								</CardContent>
-							</Card>
-						)}
 					</div>
 
-					{/* Sidebar */}
 					<div className="space-y-6">
-						{/* Overview Stats */}
-						<Card>
-							<CardHeader>
-								<CardTitle>Overview</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<StatCard
-									title="Total Quantity"
-									value={totalQuantity}
-									description="Units in stock"
-									icon={<Package className="w-4 h-4" />}
-								/>
-								<div className="flex items-center justify-between py-2 border-t">
-									<span className="text-gray-600">Locations</span>
-									<span className="font-medium">{inventory.length}</span>
+						<Card className="overflow-hidden">
+							<CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
+								<div>
+									<CardTitle className="text-lg">Location Blueprint</CardTitle>
+									<CardDescription>
+										{selectedInventoryItem
+											? `${selectedInventoryItem.blueprint?.name || "Unknown Blueprint"} • ${selectedInventoryItem.drawer?.label || "Unknown Drawer"} • ${selectedInventoryItem.compartment?.label || "Unknown Compartment"}`
+											: "No location selected"}
+									</CardDescription>
 								</div>
-								<div className="flex items-center justify-between py-2 border-t">
-									<span className="text-gray-600">Status</span>
-									<span
-										className={`font-medium ${part.archived ? "text-gray-500" : "text-green-600"}`}
-									>
-										{part.archived ? "Archived" : "Active"}
-									</span>
+								<div className="flex items-center gap-2">
+									{selectedInventoryItem?.blueprint?._id && (
+										<Button size="sm" variant="outline" asChild>
+											<Link
+												to="/blueprints/$blueprintId"
+												params={{
+													blueprintId: selectedInventoryItem.blueprint._id,
+												}}
+												search={{
+													partId,
+													drawerId: selectedInventoryItem.drawer?._id,
+													compartmentId: selectedInventoryItem.compartment?._id,
+													mode: undefined,
+												}}
+											>
+												<Grid3X3 className="h-4 w-4" />
+												Open
+											</Link>
+										</Button>
+									)}
 								</div>
-							</CardContent>
-						</Card>
-
-						{/* Part Image */}
-						<Card>
-							<CardHeader>
-								<CardTitle>Image</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<PartImage
-									imageId={part.imageId}
-									name={part.name}
-									size="xl"
-									className="w-full"
-								/>
+								{selectedInventoryItem && drawers.length > 0 ? (
+									<div
+										ref={previewRef}
+										className="h-[430px] overflow-hidden rounded-md border bg-slate-50"
+									>
+										<CanvasView
+											width={Math.max(previewSize.width, 320)}
+											height={430}
+											drawers={drawers}
+											selectedDrawerId={selectedInventoryItem.drawer?._id}
+											selectedCompartmentId={
+												selectedInventoryItem.compartment?._id
+											}
+											onDrawerClick={handlePreviewDrawerClick}
+											onCompartmentClick={handlePreviewCompartmentClick}
+										/>
+									</div>
+								) : (
+									<div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
+										<MapPin className="mx-auto mb-2 h-10 w-10 text-slate-300" />
+										Select a storage location to preview it on the blueprint.
+									</div>
+								)}
 							</CardContent>
 						</Card>
-
-						{/* Quick Actions */}
-						<EditorOnly>
-							<Card>
-								<CardHeader>
-									<CardTitle>Quick Actions</CardTitle>
-								</CardHeader>
-								<CardContent className="space-y-2">
-									<Button
-										className="w-full justify-start"
-										onClick={() => setShowCheckIn(true)}
-									>
-										<Plus className="w-4 h-4 mr-2" />
-										Check In
-									</Button>
-									<Button
-										className="w-full justify-start"
-										variant="outline"
-										onClick={() => setShowCheckOut(true)}
-									>
-										<Minus className="w-4 h-4 mr-2" />
-										Check Out
-									</Button>
-									<Button
-										className="w-full justify-start"
-										variant="outline"
-										onClick={() => setShowMove(true)}
-									>
-										<ArrowRightLeft className="w-4 h-4 mr-2" />
-										Move
-									</Button>
-									<AdminOnly>
-										<Button
-											className="w-full justify-start"
-											variant="outline"
-											onClick={() => setShowAdjust(true)}
-										>
-											<Settings className="w-4 h-4 mr-2" />
-											Adjust (Admin)
-										</Button>
-									</AdminOnly>
-								</CardContent>
-							</Card>
-						</EditorOnly>
 					</div>
 				</div>
 			)}
 
-			{/* Inventory Operation Dialogs */}
 			<CheckInDialog
 				open={showCheckIn}
 				onOpenChange={setShowCheckIn}
@@ -612,7 +573,6 @@ function PartDetailContent() {
 				}}
 			/>
 
-			{/* Delete Confirmation */}
 			<AlertDialog
 				open={showDeleteDialog}
 				onOpenChange={setShowDeleteDialog}

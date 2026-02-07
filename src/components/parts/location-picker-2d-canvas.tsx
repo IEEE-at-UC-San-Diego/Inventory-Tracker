@@ -156,11 +156,24 @@ function SimpleCompartmentShape({
 	disabled = false,
 	onClick,
 }: SimpleCompartmentShapeProps) {
+	const [isPulseOn, setIsPulseOn] = useState(false);
+
+	useEffect(() => {
+		if (!isSelected || disabled) {
+			setIsPulseOn(false);
+			return;
+		}
+		const intervalId = window.setInterval(() => {
+			setIsPulseOn((prev) => !prev);
+		}, 550);
+		return () => window.clearInterval(intervalId);
+	}, [disabled, isSelected]);
+
 	const absoluteX = drawer.x + compartment.x;
 	const absoluteY = drawer.y + compartment.y;
-	const fill = disabled ? "#f1f5f9" : isSelected ? "#e0f2fe" : "#f8fafc";
-	const stroke = disabled ? "#cbd5e1" : isSelected ? "#0ea5e9" : "#94a3b8";
-	const strokeWidth = isSelected ? 2 : 1;
+	const fill = disabled ? "#f1f5f9" : isSelected ? "#fef9c3" : "#f8fafc";
+	const stroke = disabled ? "#cbd5e1" : isSelected ? "#eab308" : "#94a3b8";
+	const strokeWidth = isSelected ? (isPulseOn ? 4 : 2.5) : 1;
 
 	const handleClick = useCallback(
 		(e: KonvaEventObject<MouseEvent>) => {
@@ -218,10 +231,11 @@ function SimpleCompartmentShape({
 					y={-compartment.height / 2 - 2}
 					width={compartment.width + 4}
 					height={compartment.height + 4}
-					stroke="#0ea5e9"
-					strokeWidth={1}
+					stroke="#f59e0b"
+					strokeWidth={2}
 					dash={[4, 2]}
 					cornerRadius={3}
+					opacity={isPulseOn ? 1 : 0.5}
 					listening={false}
 				/>
 			)}
@@ -264,6 +278,20 @@ export function CanvasView({
 		() => new Set(disabledCompartmentIds ?? []),
 		[disabledCompartmentIds],
 	);
+	const selectedDrawer = useMemo(
+		() => drawers.find((drawer) => drawer._id === selectedDrawerId),
+		[drawers, selectedDrawerId],
+	);
+	const selectedCompartment = useMemo(() => {
+		if (!selectedCompartmentId) return undefined;
+		for (const drawer of drawers) {
+			const compartment = drawer.compartments?.find(
+				(item) => item._id === selectedCompartmentId,
+			);
+			if (compartment) return { compartment, drawer };
+		}
+		return undefined;
+	}, [drawers, selectedCompartmentId]);
 
 	useEffect(() => {
 		if (width > 0 && height > 0) {
@@ -301,6 +329,53 @@ export function CanvasView({
 			zoom: clampedZoom,
 		});
 	}, [drawers, width, height]);
+
+	useEffect(() => {
+		if (drawers.length === 0) return;
+		if (selectedCompartment) {
+			const { compartment, drawer } = selectedCompartment;
+			const targetX = drawer.x + compartment.x;
+			const targetY = drawer.y + compartment.y;
+			const padding = 80;
+			const availableWidth = Math.max(1, width - padding * 2);
+			const availableHeight = Math.max(1, height - padding * 2);
+			const nextZoom = Math.max(
+				0.1,
+				Math.min(
+					availableWidth / compartment.width,
+					availableHeight / compartment.height,
+					2.25,
+				),
+			);
+
+			setViewport({
+				x: width / 2 - targetX * nextZoom,
+				y: height / 2 - targetY * nextZoom,
+				zoom: nextZoom,
+			});
+			return;
+		}
+
+		if (selectedDrawer) {
+			const padding = 80;
+			const availableWidth = Math.max(1, width - padding * 2);
+			const availableHeight = Math.max(1, height - padding * 2);
+			const nextZoom = Math.max(
+				0.1,
+				Math.min(
+					availableWidth / selectedDrawer.width,
+					availableHeight / selectedDrawer.height,
+					1.5,
+				),
+			);
+
+			setViewport({
+				x: width / 2 - selectedDrawer.x * nextZoom,
+				y: height / 2 - selectedDrawer.y * nextZoom,
+				zoom: nextZoom,
+			});
+		}
+	}, [drawers, height, selectedCompartment, selectedDrawer, width]);
 
 	const handleWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
 		e.evt.preventDefault();

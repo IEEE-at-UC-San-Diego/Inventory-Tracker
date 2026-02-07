@@ -158,6 +158,14 @@ function CallbackPage() {
 						setTimeout(() => navigate({ to: "/login" }), 3000);
 					}
 				}
+
+				// Callback finished but user is still unauthenticated.
+				// Without this branch, the page can remain on an infinite spinner.
+				if (!isLoading && !logtoAuthenticated) {
+					setStatus("error");
+					setErrorMessage("Sign-in was not completed. Please try again.");
+					setTimeout(() => navigate({ to: "/login" }), 3000);
+				}
 			} catch (err) {
 				setStatus("error");
 				setErrorMessage(
@@ -178,6 +186,22 @@ function CallbackPage() {
 		getIdTokenClaims,
 		fetchUserInfo,
 	]);
+
+	useEffect(() => {
+		if (status !== "processing") {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setStatus("error");
+			setErrorMessage("Authentication timed out. Please sign in again.");
+			navigate({ to: "/login" });
+		}, 20_000);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [status, navigate]);
 
 	return (
 		<div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

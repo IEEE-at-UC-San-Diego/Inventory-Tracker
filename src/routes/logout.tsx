@@ -17,16 +17,17 @@ function LogoutPage() {
 			try {
 				// Clear local storage
 				if (typeof window !== "undefined") {
-					localStorage.removeItem("inventory_tracker_convex_user");
-					localStorage.removeItem("inventory_tracker_auth_context");
-					localStorage.removeItem("inventory_tracker_token_expires_at");
+					try {
+						localStorage.clear();
+					} catch {
+						// Ignore storage errors
+					}
 
-					// Also clear any Logto-specific keys
-					Object.keys(localStorage).forEach((key) => {
-						if (key.startsWith("logto:")) {
-							localStorage.removeItem(key);
-						}
-					});
+					try {
+						sessionStorage.clear();
+					} catch {
+						// Ignore storage errors
+					}
 				}
 
 				// Sign out from Logto and redirect to login page
