@@ -94,7 +94,7 @@ async function verifyPartAccess(
 /**
  * Check in inventory to a compartment
  * Adds quantity to existing inventory or creates new inventory record
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const checkIn = mutation({
   args: {
@@ -112,8 +112,8 @@ export const checkIn = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Validate quantity
     if (args.quantity <= 0) {
@@ -175,7 +175,7 @@ export const checkIn = mutation({
 /**
  * Check out inventory from a compartment
  * Removes quantity from inventory
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const checkOut = mutation({
   args: {
@@ -193,8 +193,8 @@ export const checkOut = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Validate quantity
     if (args.quantity <= 0) {
@@ -250,7 +250,7 @@ export const checkOut = mutation({
 /**
  * Move inventory between compartments
  * Reduces quantity in source, adds to destination
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const move = mutation({
   args: {
@@ -271,8 +271,8 @@ export const move = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Validate quantity
     if (args.quantity <= 0) {
@@ -366,7 +366,7 @@ export const move = mutation({
 
 /**
  * Adjust inventory quantity (manual correction)
- * Admin only operation
+ * General Officers or higher operation
  * Records the difference as the delta
  */
 export const adjust = mutation({
@@ -386,8 +386,8 @@ export const adjust = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Admin role only
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify part and compartment belong to this org
     await verifyPartAccess(ctx, args.partId, orgId)
@@ -448,7 +448,7 @@ export const adjust = mutation({
 
 /**
  * Set exact inventory quantity (alias for adjust)
- * Admin only operation
+ * General Officers or higher operation
  */
 export const setQuantity = mutation({
   args: {
@@ -466,7 +466,7 @@ export const setQuantity = mutation({
   }),
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {

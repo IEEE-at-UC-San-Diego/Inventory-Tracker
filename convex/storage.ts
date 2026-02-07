@@ -34,8 +34,8 @@ export const generateUploadUrl = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Executive Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or Administrator role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Generate a generic upload URL (valid for 1 hour)
     const uploadUrl = await ctx.storage.generateUploadUrl()
@@ -62,8 +62,8 @@ export const generatePartImageUploadUrl = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Executive Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or Administrator role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify part belongs to this org
     const part = await ctx.db.get(args.partId)
@@ -96,8 +96,8 @@ export const confirmPartImageUpload = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Executive Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or Administrator role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify part belongs to this org
     const part = await ctx.db.get(args.partId)
@@ -190,8 +190,8 @@ export const deletePartImage = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Executive Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or Administrator role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify part belongs to this org
     const part = await ctx.db.get(args.partId)
@@ -286,8 +286,8 @@ export const generateBlueprintBackgroundUploadUrl = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Executive Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or Administrator role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify blueprint belongs to this org
     const blueprint = await ctx.db.get(args.blueprintId)
@@ -319,8 +319,8 @@ export const confirmBlueprintBackgroundUpload = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify blueprint belongs to this org
     const blueprint = await ctx.db.get(args.blueprintId)
@@ -359,8 +359,8 @@ export const deleteBlueprintBackgroundImage = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify blueprint belongs to this org
     const blueprint = await ctx.db.get(args.blueprintId)
@@ -400,7 +400,7 @@ export const generateDrawerBackgroundUploadUrl = mutation({
   }),
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) throw new Error('Drawer not found')
@@ -429,7 +429,7 @@ export const confirmDrawerBackgroundUpload = mutation({
   returns: v.id('drawerBackgroundImages'),
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const { user } = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    const { user } = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) throw new Error('Drawer not found')

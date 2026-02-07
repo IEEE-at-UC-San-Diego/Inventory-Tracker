@@ -7,13 +7,12 @@ import {
 	Map as MapIcon,
 	MapPin,
 	Package,
-	Settings,
-	Users,
 	X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useRole } from "../hooks/useRole";
 import { cn } from "../lib/utils";
+import type { UserRole } from "../types";
 
 interface SidebarProps {
 	isOpen: boolean;
@@ -24,7 +23,7 @@ interface NavItem {
 	to: string;
 	label: string;
 	icon: React.ReactNode;
-	requiredRole?: "Member" | "Executive Officers" | "Administrator";
+	requiredRole?: UserRole;
 	badge?: React.ReactNode;
 }
 
@@ -67,19 +66,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 			to: "/transactions",
 			label: "Transactions",
 			icon: <History size={20} />,
-			requiredRole: "Member",
-		},
-		{
-			to: "/admin/users",
-			label: "Users",
-			icon: <Users size={20} />,
-			requiredRole: "Administrator",
-		},
-		{
-			to: "/settings",
-			label: "Settings",
-			icon: <Settings size={20} />,
-			requiredRole: "Administrator",
+			requiredRole: "General Officers",
 		},
 	];
 

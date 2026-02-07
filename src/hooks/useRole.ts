@@ -28,10 +28,10 @@ export function useRole() {
 	}, [hasRole]);
 
 	/**
-	 * Check if user is at least an Executive Officer
+	 * Check if user is at least a General Officer
 	 */
 	const isEditor = useCallback((): boolean => {
-		return hasRole("Executive Officers");
+		return hasRole("General Officers");
 	}, [hasRole]);
 
 	/**
@@ -58,10 +58,10 @@ export function useRole() {
 	}, [hasRole]);
 
 	/**
-	 * Check if user can edit content (Executive Officers or higher)
+	 * Check if user can edit content (General Officers or higher)
 	 */
 	const canEdit = useCallback((): boolean => {
-		return hasRole("Executive Officers");
+		return hasRole("General Officers");
 	}, [hasRole]);
 
 	/**

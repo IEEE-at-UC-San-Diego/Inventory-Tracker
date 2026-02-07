@@ -29,7 +29,7 @@ export const create = mutation({
       ctx,
       args.authContext,
       orgId,
-      'Executive Officers'
+      'General Officers'
     )
 
     const drawer = await ctx.db.get(args.drawerId)
@@ -87,7 +87,7 @@ export const update = mutation({
       ctx,
       args.authContext,
       orgId,
-      'Executive Officers'
+      'General Officers'
     )
 
     const image = await ctx.db.get(args.imageId)
@@ -134,7 +134,7 @@ export const deleteImage = mutation({
       ctx,
       args.authContext,
       orgId,
-      'Executive Officers'
+      'General Officers'
     )
 
     const image = await ctx.db.get(args.imageId)

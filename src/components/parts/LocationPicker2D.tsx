@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-	ChevronRight,
 	ChevronLeft,
+	ChevronRight,
 	Home,
 	Layers,
 	MapPin,
 	Package,
 	X,
 } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@/integrations/convex/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import type { Blueprint, Compartment, Drawer } from "@/types";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import {
 	BlueprintGridCard,
 	CanvasView,
@@ -23,12 +22,13 @@ import {
 } from "./location-picker-2d-canvas";
 
 interface LocationPicker2DProps {
-	orgId: string;
+	orgId?: string;
 	selectedLocation: {
 		blueprintId?: string;
 		drawerId?: string;
 		compartmentId?: string;
 	};
+	disabledCompartmentIds?: string[];
 	onLocationChange: (location: {
 		blueprintId?: string;
 		drawerId?: string;
@@ -40,6 +40,7 @@ interface LocationPicker2DProps {
 export function LocationPicker2D({
 	orgId: _orgId,
 	selectedLocation,
+	disabledCompartmentIds,
 	onLocationChange,
 	allowSkip = false,
 }: LocationPicker2DProps) {
@@ -65,17 +66,35 @@ export function LocationPicker2D({
 	useEffect(() => {
 		if (!canvasContainerRef.current) return;
 
+		const measure = () => {
+			const el = canvasContainerRef.current;
+			if (!el) return;
+			const rect = el.getBoundingClientRect();
+			setCanvasSize({
+				width: Math.max(0, Math.floor(rect.width)),
+				height: Math.max(0, Math.floor(rect.height)),
+			});
+		};
+
+		measure();
+		const rafId = window.requestAnimationFrame(measure);
+
 		const resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				setCanvasSize({
-					width: entry.contentRect.width,
-					height: entry.contentRect.height,
+					width: Math.max(0, Math.floor(entry.contentRect.width)),
+					height: Math.max(0, Math.floor(entry.contentRect.height)),
 				});
 			}
 		});
 
 		resizeObserver.observe(canvasContainerRef.current);
-		return () => resizeObserver.disconnect();
+		window.addEventListener("resize", measure);
+		return () => {
+			window.cancelAnimationFrame(rafId);
+			window.removeEventListener("resize", measure);
+			resizeObserver.disconnect();
+		};
 	}, []);
 
 	const blueprintsQuery = useQuery(
@@ -102,6 +121,14 @@ export function LocationPicker2D({
 
 	const blueprints = blueprintsQuery ?? [];
 	const drawers = (drawersQuery ?? []) as DrawerWithCompartments[];
+
+	useEffect(() => {
+		if (viewLevel !== "blueprints") return;
+		if (localSelection.blueprintId) return;
+		if (blueprints.length !== 1) return;
+		setLocalSelection({ blueprintId: blueprints[0]._id });
+		setViewLevel("drawers");
+	}, [blueprints, localSelection.blueprintId, viewLevel]);
 
 	const selectedBlueprint = useMemo(
 		() =>
@@ -140,6 +167,7 @@ export function LocationPicker2D({
 
 	const handleCompartmentSelect = useCallback(
 		(compartment: Compartment, _drawer: Drawer) => {
+			if (disabledCompartmentIds?.includes(compartment._id)) return;
 			const newLocation = {
 				blueprintId: localSelection.blueprintId,
 				drawerId: localSelection.drawerId,
@@ -148,7 +176,12 @@ export function LocationPicker2D({
 			setLocalSelection(newLocation);
 			onLocationChange(newLocation);
 		},
-		[localSelection.blueprintId, localSelection.drawerId, onLocationChange],
+		[
+			disabledCompartmentIds,
+			localSelection.blueprintId,
+			localSelection.drawerId,
+			onLocationChange,
+		],
 	);
 
 	const handleBackToBlueprints = useCallback(() => {
@@ -350,13 +383,18 @@ export function LocationPicker2D({
 						</div>
 
 						<div ref={canvasContainerRef} className="h-[400px] bg-slate-50">
-							{canvasSize.width > 0 && canvasSize.height > 0 && (
+							{drawers.length === 0 ? (
+								<div className="h-full flex items-center justify-center text-sm text-slate-600">
+									No drawers found in this blueprint.
+								</div>
+							) : (
 								<CanvasView
-									width={canvasSize.width}
-									height={canvasSize.height}
+									width={Math.max(canvasSize.width, 640)}
+									height={Math.max(canvasSize.height, 400)}
 									drawers={drawers}
 									selectedDrawerId={localSelection.drawerId}
 									selectedCompartmentId={localSelection.compartmentId}
+									disabledCompartmentIds={disabledCompartmentIds}
 									onDrawerClick={handleDrawerSelect}
 									onCompartmentClick={handleCompartmentSelect}
 								/>

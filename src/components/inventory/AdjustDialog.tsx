@@ -1,10 +1,10 @@
 import { AlertTriangle, Loader2, Package, Settings } from "lucide-react";
-import { useCallback, useState } from "react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { useCallback, useId, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { useMutation, useQuery } from "@/integrations/convex/react-query";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import {
 	Dialog,
@@ -38,8 +38,11 @@ export function AdjustDialog({
 }: AdjustDialogProps) {
 	const { authContext, getFreshAuthContext } = useAuth();
 	const { toast } = useToast();
-	const { canManage } = useRole();
+	const { hasRole } = useRole();
+	const canAdjustInventory = hasRole("General Officers");
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const newQuantityInputId = useId();
+	const reasonInputId = useId();
 
 	// Form state
 	const [selectedPartId, _setSelectedPartId] = useState<string>(
@@ -80,7 +83,7 @@ export function AdjustDialog({
 			: undefined,
 	);
 
-	// Adjust mutation (Admin only)
+	// Adjust mutation (General Officers or higher)
 	const adjust = useMutation(api.inventory.mutations.adjust);
 
 	// Handle submit
@@ -88,8 +91,8 @@ export function AdjustDialog({
 		async (e: React.FormEvent) => {
 			e.preventDefault();
 
-			if (!canManage()) {
-				toast.error("Only administrators can adjust inventory");
+			if (!canAdjustInventory) {
+				toast.error("Only General Officers or higher can adjust inventory");
 				return;
 			}
 
@@ -160,7 +163,7 @@ export function AdjustDialog({
 			newQuantity,
 			currentQuantity,
 			notes,
-			canManage,
+			canAdjustInventory,
 			adjust,
 			onOpenChange,
 			onSuccess,
@@ -185,17 +188,18 @@ export function AdjustDialog({
 		[onOpenChange, currentQuantity],
 	);
 
-	if (!canManage()) {
+	if (!canAdjustInventory) {
 		return (
 			<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent className="max-w-md">
 					<div className="flex flex-col items-center py-6 text-center">
 						<AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
 						<h3 className="text-lg font-semibold text-gray-900">
-							Admin Access Required
+							Insufficient Access
 						</h3>
 						<p className="text-sm text-gray-500 mt-2">
-							Only administrators can perform manual inventory adjustments.
+							Only General Officers or higher can perform manual inventory
+							adjustments.
 						</p>
 						<Button className="mt-4" onClick={() => onOpenChange(false)}>
 							Close
@@ -216,7 +220,7 @@ export function AdjustDialog({
 							Adjust Inventory
 						</DialogTitle>
 						<DialogDescription>
-							Manually adjust inventory quantity (Admin only)
+							Manually adjust inventory quantity (General Officers or higher)
 						</DialogDescription>
 					</DialogHeader>
 
@@ -225,7 +229,9 @@ export function AdjustDialog({
 						<div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
 							<AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
 							<div>
-								<p className="font-medium text-amber-800">Admin Operation</p>
+								<p className="font-medium text-amber-800">
+									Restricted Operation
+								</p>
 								<p className="text-sm text-amber-700">
 									This creates an adjustment transaction. A reason is required
 									for audit purposes.
@@ -259,9 +265,9 @@ export function AdjustDialog({
 
 						{/* New Quantity */}
 						<div className="space-y-2">
-							<Label htmlFor="newQuantity">New Quantity</Label>
+							<Label htmlFor={newQuantityInputId}>New Quantity</Label>
 							<Input
-								id="newQuantity"
+								id={newQuantityInputId}
 								type="number"
 								min={0}
 								value={newQuantity}
@@ -285,11 +291,11 @@ export function AdjustDialog({
 
 						{/* Reason / Notes */}
 						<div className="space-y-2">
-							<Label htmlFor="reason">
+							<Label htmlFor={reasonInputId}>
 								Reason <span className="text-red-500">*</span>
 							</Label>
 							<Textarea
-								id="reason"
+								id={reasonInputId}
 								value={notes}
 								onChange={(e) => setNotes(e.target.value)}
 								placeholder="Explain why this adjustment is necessary (e.g., 'Physical count correction', 'Damaged items', etc.)"

@@ -5,11 +5,12 @@ import {
 	MapPin,
 	Package,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { useCallback, useId, useMemo, useState } from "react";
+import { LocationPicker2D } from "@/components/parts/LocationPicker2D";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQuery } from "@/integrations/convex/react-query";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import {
 	Dialog,
@@ -47,6 +48,8 @@ export function MoveDialog({
 	const { authContext, getFreshAuthContext } = useAuth();
 	const { toast } = useToast();
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const quantityInputId = useId();
+	const notesInputId = useId();
 
 	// Form state
 	const [selectedPartId, _setSelectedPartId] = useState<string>(
@@ -54,6 +57,11 @@ export function MoveDialog({
 	);
 	const [sourceCompartmentId, setSourceCompartmentId] = useState("");
 	const [destCompartmentId, setDestCompartmentId] = useState("");
+	const [destLocation, setDestLocation] = useState<{
+		blueprintId?: string;
+		drawerId?: string;
+		compartmentId?: string;
+	}>({});
 	const [quantity, setQuantity] = useState(1);
 	const [notes, setNotes] = useState("");
 
@@ -93,7 +101,6 @@ export function MoveDialog({
 			? { authContext, partId: selectedPartId as Id<"parts"> }
 			: undefined,
 	);
-
 	// Move mutation
 	const move = useMutation(api.inventory.mutations.move);
 
@@ -156,6 +163,7 @@ export function MoveDialog({
 				// Reset form
 				setSourceCompartmentId("");
 				setDestCompartmentId("");
+				setDestLocation({});
 				setQuantity(1);
 				setNotes("");
 
@@ -191,7 +199,7 @@ export function MoveDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-lg">
+			<DialogContent className="max-w-4xl">
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
@@ -229,6 +237,8 @@ export function MoveDialog({
 											onClick={() => {
 												setSourceCompartmentId(location.compartmentId);
 												setQuantity(Math.min(quantity, location.quantity));
+												setDestCompartmentId("");
+												setDestLocation({});
 											}}
 											className={`w-full p-3 rounded-lg border text-left transition-colors ${
 												sourceCompartmentId === location.compartmentId
@@ -261,11 +271,15 @@ export function MoveDialog({
 									<ArrowRight className="w-4 h-4" />
 									To Location
 								</Label>
-								<DestinationSelector
-									authContext={authContext}
-									value={destCompartmentId}
-									onChange={setDestCompartmentId}
-									excludeCompartmentId={sourceCompartmentId}
+								<LocationPicker2D
+									orgId={authContext?.orgId}
+									selectedLocation={destLocation}
+									onLocationChange={(location) => {
+										setDestLocation(location);
+										setDestCompartmentId(location.compartmentId ?? "");
+									}}
+									disabledCompartmentIds={[sourceCompartmentId]}
+									allowSkip={false}
 								/>
 							</div>
 						)}
@@ -273,9 +287,11 @@ export function MoveDialog({
 						{/* Quantity */}
 						{selectedSource && destCompartmentId && (
 							<div className="space-y-2">
-								<Label htmlFor="quantity">Quantity (max: {maxQuantity})</Label>
+								<Label htmlFor={quantityInputId}>
+									Quantity (max: {maxQuantity})
+								</Label>
 								<Input
-									id="quantity"
+									id={quantityInputId}
 									type="number"
 									min={1}
 									max={maxQuantity}
@@ -294,9 +310,9 @@ export function MoveDialog({
 						{/* Notes */}
 						{destCompartmentId && (
 							<div className="space-y-2">
-								<Label htmlFor="notes">Notes (optional)</Label>
+								<Label htmlFor={notesInputId}>Notes (optional)</Label>
 								<Textarea
-									id="notes"
+									id={notesInputId}
 									value={notes}
 									onChange={(e) => setNotes(e.target.value)}
 									placeholder="Add any additional information..."
@@ -342,113 +358,5 @@ export function MoveDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-// Destination selector component
-interface DestinationSelectorProps {
-	authContext: import("@/types/auth").AuthContext | null;
-	value: string;
-	onChange: (value: string) => void;
-	excludeCompartmentId?: string;
-}
-
-function DestinationSelector({
-	authContext,
-	value,
-	onChange,
-	excludeCompartmentId,
-}: DestinationSelectorProps) {
-	const [selectedBlueprintId, setSelectedBlueprintId] = useState("");
-	const [selectedDrawerId, setSelectedDrawerId] = useState("");
-
-	// Fetch blueprints
-	const blueprintsResult = useQuery(
-		api.blueprints.queries.list as any,
-		authContext ? { authContext } : undefined,
-		{ enabled: !!authContext },
-	);
-	const blueprints = (blueprintsResult as any[]) ?? [];
-
-	// Fetch drawers for selected blueprint
-	const drawersResult = useQuery(
-		(api as any)["drawers/queries"].listByBlueprint,
-		selectedBlueprintId && authContext
-			? { authContext, blueprintId: selectedBlueprintId as Id<"blueprints"> }
-			: undefined,
-		{ enabled: !!authContext && !!selectedBlueprintId },
-	);
-	const drawers = (drawersResult as any[]) ?? [];
-
-	// Fetch compartments for selected drawer
-	const compartmentsResult = useQuery(
-		(api as any).compartments.queries.listByDrawer,
-		selectedDrawerId && authContext
-			? { authContext, drawerId: selectedDrawerId as Id<"drawers"> }
-			: undefined,
-		{ enabled: !!authContext && !!selectedDrawerId },
-	);
-	const compartments = (compartmentsResult as any[]) ?? [];
-
-	// Filter out excluded compartment
-	const availableCompartments = compartments.filter(
-		(comp) => comp._id !== excludeCompartmentId,
-	);
-
-	return (
-		<div className="space-y-2">
-			{/* Blueprint */}
-			<select
-				value={selectedBlueprintId}
-				onChange={(e) => {
-					setSelectedBlueprintId(e.target.value);
-					setSelectedDrawerId("");
-					onChange("");
-				}}
-				className="w-full px-3 py-2 border rounded-lg"
-			>
-				<option value="">Select Blueprint...</option>
-				{blueprints.map((bp: any) => (
-					<option key={bp._id} value={bp._id}>
-						{bp.name}
-					</option>
-				))}
-			</select>
-
-			{/* Drawer */}
-			{selectedBlueprintId && (
-				<select
-					value={selectedDrawerId}
-					onChange={(e) => {
-						setSelectedDrawerId(e.target.value);
-						onChange("");
-					}}
-					className="w-full px-3 py-2 border rounded-lg"
-				>
-					<option value="">Select Drawer...</option>
-					{drawers.map((drawer: any) => (
-						<option key={drawer._id} value={drawer._id}>
-							{drawer.label || `Drawer ${drawer._id.slice(-4)}`}
-						</option>
-					))}
-				</select>
-			)}
-
-			{/* Compartment */}
-			{selectedDrawerId && (
-				<select
-					value={value}
-					onChange={(e) => onChange(e.target.value)}
-					className="w-full px-3 py-2 border rounded-lg"
-				>
-					<option value="">Select Compartment...</option>
-					{availableCompartments.map((comp: any) => (
-						<option key={comp._id} value={comp._id}>
-							{comp.label || `Compartment ${comp._id.slice(-4)}`}
-						</option>
-					))}
-				</select>
-			)}
-		</div>
 	);
 }

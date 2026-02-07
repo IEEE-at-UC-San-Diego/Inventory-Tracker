@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Layers } from "lucide-react";
-import type { Stage as KonvaStage } from "konva/lib/Stage";
 import type { KonvaEventObject } from "konva/lib/Node";
+import type { Stage as KonvaStage } from "konva/lib/Stage";
+import { Layers } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Blueprint, Compartment, Drawer, Viewport } from "@/types";
@@ -145,6 +145,7 @@ interface SimpleCompartmentShapeProps {
 	compartment: Compartment;
 	drawer: Drawer;
 	isSelected: boolean;
+	disabled?: boolean;
 	onClick: () => void;
 }
 
@@ -152,12 +153,13 @@ function SimpleCompartmentShape({
 	compartment,
 	drawer,
 	isSelected,
+	disabled = false,
 	onClick,
 }: SimpleCompartmentShapeProps) {
 	const absoluteX = drawer.x + compartment.x;
 	const absoluteY = drawer.y + compartment.y;
-	const fill = isSelected ? "#e0f2fe" : "#f8fafc";
-	const stroke = isSelected ? "#0ea5e9" : "#94a3b8";
+	const fill = disabled ? "#f1f5f9" : isSelected ? "#e0f2fe" : "#f8fafc";
+	const stroke = disabled ? "#cbd5e1" : isSelected ? "#0ea5e9" : "#94a3b8";
 	const strokeWidth = isSelected ? 2 : 1;
 
 	const handleClick = useCallback(
@@ -177,7 +179,7 @@ function SimpleCompartmentShape({
 			onTap={
 				handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void
 			}
-			cursor="pointer"
+			cursor={disabled ? "not-allowed" : "pointer"}
 		>
 			<Rect
 				x={-compartment.width / 2}
@@ -201,6 +203,7 @@ function SimpleCompartmentShape({
 					fontSize={10}
 					fontFamily="system-ui, -apple-system, sans-serif"
 					fill="#475569"
+					opacity={disabled ? 0.5 : 1}
 					fontStyle={isSelected ? "bold" : "normal"}
 					width={compartment.width - 8}
 					height={compartment.height - 8}
@@ -236,6 +239,7 @@ interface CanvasViewProps {
 	drawers: Array<Drawer & { compartments?: Compartment[] }>;
 	selectedDrawerId?: string;
 	selectedCompartmentId?: string;
+	disabledCompartmentIds?: string[];
 	onDrawerClick: (drawer: Drawer) => void;
 	onCompartmentClick: (compartment: Compartment, drawer: Drawer) => void;
 }
@@ -246,6 +250,7 @@ export function CanvasView({
 	drawers,
 	selectedDrawerId,
 	selectedCompartmentId,
+	disabledCompartmentIds,
 	onDrawerClick,
 	onCompartmentClick,
 }: CanvasViewProps) {
@@ -255,6 +260,10 @@ export function CanvasView({
 	);
 	const [isPanning, setIsPanning] = useState(false);
 	const lastPointerPosition = useRef<{ x: number; y: number } | null>(null);
+	const disabledCompartmentIdSet = useMemo(
+		() => new Set(disabledCompartmentIds ?? []),
+		[disabledCompartmentIds],
+	);
 
 	useEffect(() => {
 		if (width > 0 && height > 0) {
@@ -316,7 +325,11 @@ export function CanvasView({
 	}, []);
 
 	const handleMouseDown = useCallback((e: KonvaEventObject<MouseEvent>) => {
-		if (e.evt.button === 1 || (e.evt.button === 0 && e.evt.shiftKey)) {
+		if (
+			e.evt.button === 1 ||
+			e.evt.button === 2 ||
+			(e.evt.button === 0 && e.evt.shiftKey)
+		) {
 			setIsPanning(true);
 			lastPointerPosition.current = {
 				x: e.evt.clientX,
@@ -392,6 +405,7 @@ export function CanvasView({
 				ref={stageRef}
 				width={width}
 				height={height}
+				onContextMenu={(e) => e.evt.preventDefault()}
 				onWheel={handleWheel}
 				onMouseDown={handleMouseDown}
 				onMouseMove={handleMouseMove}
@@ -422,14 +436,18 @@ export function CanvasView({
 								compartment={compartment}
 								drawer={drawer}
 								isSelected={selectedCompartmentId === compartment._id}
-								onClick={() => onCompartmentClick(compartment, drawer)}
+								disabled={disabledCompartmentIdSet.has(compartment._id)}
+								onClick={() => {
+									if (disabledCompartmentIdSet.has(compartment._id)) return;
+									onCompartmentClick(compartment, drawer);
+								}}
 							/>
 						)),
 					)}
 				</Layer>
 			</Stage>
 			<div className="absolute bottom-2 right-2 px-2 py-1 bg-white/80 rounded text-xs text-gray-500">
-				Scroll to zoom • Shift+drag to pan
+				Scroll to zoom • Right-drag or Shift+drag to pan
 			</div>
 		</div>
 	);

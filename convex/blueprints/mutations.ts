@@ -40,7 +40,7 @@ function isLockValid(blueprint: Doc<'blueprints'>): boolean {
 
 /**
  * Create a new blueprint
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const create = mutation({
   args: {
@@ -51,8 +51,8 @@ export const create = mutation({
   handler: async (ctx, args): Promise<Id<'blueprints'>> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const now = Date.now()
 
@@ -71,7 +71,7 @@ export const create = mutation({
 
 /**
  * Update blueprint name
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const update = mutation({
   args: {
@@ -83,8 +83,8 @@ export const update = mutation({
   handler: async (ctx, args): Promise<boolean> => {
 	const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-	// Require Editor or Admin role
-	await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+	// Require General Officers or higher role
+	await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     await ctx.db.patch(args.blueprintId, {
       name: args.name,
@@ -97,7 +97,7 @@ export const update = mutation({
 
 /**
  * Delete a blueprint and all its drawers and compartments
- * Requires Admin role only
+ * Requires General Officers role or higher
  */
 export const deleteBlueprint = mutation({
   args: {
@@ -108,8 +108,8 @@ export const deleteBlueprint = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 
@@ -163,7 +163,7 @@ export const deleteBlueprint = mutation({
 
 /**
  * Acquire lock for editing a blueprint
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  * Fails if blueprint is already locked by another user
  */
 export const acquireLock = mutation({
@@ -179,8 +179,8 @@ export const acquireLock = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 
@@ -242,8 +242,8 @@ export const releaseLock = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 
@@ -278,7 +278,7 @@ export const releaseLock = mutation({
 })
 
 /**
- * Force release a lock (Admin override)
+ * Force release a lock (General Officers override)
  * For stuck locks or when user can't release properly
  */
 export const forceReleaseLock = mutation({
@@ -294,8 +294,8 @@ export const forceReleaseLock = mutation({
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-	// Require Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+	// Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 
@@ -310,7 +310,7 @@ export const forceReleaseLock = mutation({
 
     return {
       success: true,
-      message: 'Lock force-released by admin',
+      message: 'Lock force-released by authorized user',
       previousHolder,
     }
   },

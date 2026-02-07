@@ -12,7 +12,7 @@ export const Route = createFileRoute("/blueprints/new")({
 
 function NewBlueprintPage() {
 	return (
-		<ProtectedRoute requiredRole="Executive Officers">
+		<ProtectedRoute requiredRole="General Officers">
 			<NewBlueprintContent />
 		</ProtectedRoute>
 	);

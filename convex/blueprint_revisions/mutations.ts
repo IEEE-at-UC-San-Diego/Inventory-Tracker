@@ -11,7 +11,7 @@ const MAX_REVISIONS = 50
 /**
  * Create a new revision snapshot for a blueprint
  * Should be called after a blueprint is saved with changes
- * Requires Executive Officers role or higher
+ * Requires General Officers role or higher
  */
 export const createRevision = mutation({
   args: {
@@ -49,7 +49,7 @@ export const createRevision = mutation({
   returns: v.id('blueprintRevisions'),
   handler: async (ctx, args): Promise<Id<'blueprintRevisions'>> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify blueprint exists and belongs to org
     const blueprint = await ctx.db.get(args.blueprintId)
@@ -95,7 +95,7 @@ export const createRevision = mutation({
 
 /**
  * Restore a blueprint to a specific revision state
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  * This will create a new revision capturing the current state before restoring
  */
 export const restoreRevision = mutation({
@@ -111,7 +111,7 @@ export const restoreRevision = mutation({
   }),
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Get the revision to restore
     const revision = await ctx.db.get(args.revisionId)
@@ -297,7 +297,7 @@ export const restoreRevision = mutation({
 
 /**
  * Delete a specific revision
- * Requires Administrator role
+ * Requires General Officers role or higher
  */
 export const deleteRevision = mutation({
   args: {
@@ -307,7 +307,7 @@ export const deleteRevision = mutation({
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
-    await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const revision = await ctx.db.get(args.revisionId)
     if (!revision || revision.orgId !== orgId) {
@@ -334,7 +334,7 @@ export const deleteAllRevisions = mutation({
   }),
   handler: async (ctx, args) => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
-    await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify blueprint belongs to org
     const blueprint = await ctx.db.get(args.blueprintId)

@@ -94,13 +94,6 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 		new Set((partsResult ?? []).map((p) => p.category)),
 	).sort();
 
-	const userResult = useQuery(
-		api.users.queries.getCurrentUser,
-		authContext ? { authContext } : undefined,
-		{ enabled: !!authContext },
-	);
-	const orgId = userResult?.orgId;
-
 	const createPart = useMutation(api.parts.mutations.create);
 	const updatePart = useMutation(api.parts.mutations.update);
 	const checkInInventory = useMutation(api.inventory.mutations.checkIn);
@@ -608,22 +601,13 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 				/>
 			)}
 
-			{currentStep === "location" && orgId && (
+			{currentStep === "location" && (
 				<LocationStep
 					data={wizardData}
 					onUpdate={updateWizardData}
 					onSkip={handleSkipLocation}
-					orgId={orgId}
+					orgId={authContext?.orgId}
 				/>
-			)}
-
-			{currentStep === "location" && !orgId && (
-				<Card>
-					<CardContent className="py-8 text-center">
-						<Loader2 className="w-8 h-8 animate-spin mx-auto text-cyan-600" />
-						<p className="mt-4 text-gray-600">Loading organization...</p>
-					</CardContent>
-				</Card>
 			)}
 
 			{currentStep === "quantity" && (

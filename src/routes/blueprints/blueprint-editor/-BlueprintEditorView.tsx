@@ -178,7 +178,11 @@ export function BlueprintEditorView({
 										<Button size="sm" onClick={onSaveName}>
 											<Save className="w-4 h-4" />
 										</Button>
-										<Button size="sm" variant="ghost" onClick={onNameEditCancel}>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={onNameEditCancel}
+										>
 											<X className="w-4 h-4" />
 										</Button>
 									</>
@@ -193,7 +197,8 @@ export function BlueprintEditorView({
 											{blueprint.name}
 										</div>
 										<div className="text-xs text-gray-500 leading-tight">
-											Last updated {new Date(blueprint.updatedAt).toLocaleString()}
+											Last updated{" "}
+											{new Date(blueprint.updatedAt).toLocaleString()}
 										</div>
 									</button>
 								)}
@@ -354,7 +359,15 @@ export function BlueprintEditorView({
 												type="number"
 												min={1}
 												value={gridRows}
-												onChange={(e) => onGridRowsChange(Number(e.target.value))}
+												onChange={(e) =>
+													onGridRowsChange(Number(e.target.value))
+												}
+												onBlur={() => onRequestApplyGrid(gridRows, gridCols)}
+												onKeyDown={(e) => {
+													if (e.key !== "Enter") return;
+													e.preventDefault();
+													onRequestApplyGrid(gridRows, gridCols);
+												}}
 												disabled={!isLockedByMe}
 											/>
 										</div>
@@ -364,7 +377,15 @@ export function BlueprintEditorView({
 												type="number"
 												min={1}
 												value={gridCols}
-												onChange={(e) => onGridColsChange(Number(e.target.value))}
+												onChange={(e) =>
+													onGridColsChange(Number(e.target.value))
+												}
+												onBlur={() => onRequestApplyGrid(gridRows, gridCols)}
+												onKeyDown={(e) => {
+													if (e.key !== "Enter") return;
+													e.preventDefault();
+													onRequestApplyGrid(gridRows, gridCols);
+												}}
 												disabled={!isLockedByMe}
 											/>
 										</div>
@@ -403,18 +424,8 @@ export function BlueprintEditorView({
 											Remove Column
 										</Button>
 									</div>
-									<div className="mt-2 flex items-center justify-between gap-2">
-										<div className="text-xs text-gray-600">
-											Reducing rows/cols may delete compartments.
-										</div>
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={() => onRequestApplyGrid(gridRows, gridCols)}
-											disabled={!isLockedByMe}
-										>
-											Apply
-										</Button>
+									<div className="mt-2 text-xs text-gray-600">
+										Reducing rows/cols may delete compartments.
 									</div>
 								</div>
 
@@ -434,14 +445,17 @@ export function BlueprintEditorView({
 						{selectedCompartment && selectedDrawer && (
 							<div className="space-y-2 mt-3 border-t border-gray-200 pt-3">
 								<div className="text-xs text-gray-500">
-									In drawer: {selectedDrawer.label || `#${selectedDrawer._id.slice(-4)}`}
+									In drawer:{" "}
+									{selectedDrawer.label || `#${selectedDrawer._id.slice(-4)}`}
 								</div>
 								<div className="space-y-1">
 									<Label>Label</Label>
 									<div className="flex items-center gap-2">
 										<Input
 											value={compartmentLabelDraft}
-											onChange={(e) => onCompartmentLabelDraftChange(e.target.value)}
+											onChange={(e) =>
+												onCompartmentLabelDraftChange(e.target.value)
+											}
 											onKeyDown={(e) => {
 												if (e.key !== "Enter") return;
 												e.preventDefault();
@@ -465,7 +479,9 @@ export function BlueprintEditorView({
 									<Button
 										variant="destructive"
 										className="flex-1"
-										onClick={() => onOpenDeleteCompartment(selectedCompartment._id)}
+										onClick={() =>
+											onOpenDeleteCompartment(selectedCompartment._id)
+										}
 										disabled={!isLockedByMe}
 									>
 										Delete Compartment
@@ -486,8 +502,9 @@ export function BlueprintEditorView({
 										{highlightedCompartmentIds.length}
 									</span>
 									<span className="text-green-700">
-										 compartment
-										{highlightedCompartmentIds.length > 1 ? "s" : ""} highlighted
+										compartment
+										{highlightedCompartmentIds.length > 1 ? "s" : ""}{" "}
+										highlighted
 									</span>
 								</div>
 								<button
@@ -529,7 +546,9 @@ export function BlueprintEditorView({
 			<AlertDialog
 				open={showDeleteDrawerDialog}
 				onOpenChange={onCloseDeleteDrawers}
-				title={pendingDeleteDrawerIds.length > 1 ? "Delete Drawers" : "Delete Drawer"}
+				title={
+					pendingDeleteDrawerIds.length > 1 ? "Delete Drawers" : "Delete Drawer"
+				}
 				description={
 					pendingDeleteDrawerIds.length > 1
 						? `Are you sure you want to delete ${pendingDeleteDrawerIds.length} drawers? All compartments inside them will also be deleted.`
@@ -565,7 +584,11 @@ export function BlueprintEditorView({
 
 			{showActionHistory && (
 				<Sheet open={showActionHistory} onOpenChange={onShowActionHistory}>
-					<SheetContent side="right" className="w-96 overflow-y-auto" showCloseButton={false}>
+					<SheetContent
+						side="right"
+						className="w-96 overflow-y-auto"
+						showCloseButton={false}
+					>
 						<ActionHistoryPanel
 							historyState={historyState}
 							onUndo={onUndo}

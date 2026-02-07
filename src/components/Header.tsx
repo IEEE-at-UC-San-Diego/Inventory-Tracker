@@ -1,9 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { Home, Menu, Package, Settings, Users, X } from "lucide-react";
+import { Home, Menu, Package, X } from "lucide-react";
 import { useState } from "react";
+import { useRole } from "@/hooks/useRole";
 
 export default function Header() {
 	const [isOpen, setIsOpen] = useState(false);
+	const { hasRole } = useRole();
 
 	return (
 		<>
@@ -110,22 +112,9 @@ export default function Header() {
 						<span className="font-medium">Locations</span>
 					</Link>
 
-					<Link
-						to="/transactions"
-						onClick={() => setIsOpen(false)}
-						className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-						activeProps={{
-							className:
-								"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
-						}}
-					>
-						<Package size={20} />
-						<span className="font-medium">Transactions</span>
-					</Link>
-
-					<div className="mt-4 border-t border-gray-700 pt-4">
+					{hasRole("General Officers") && (
 						<Link
-							to="/settings"
+							to="/transactions"
 							onClick={() => setIsOpen(false)}
 							className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
 							activeProps={{
@@ -133,23 +122,10 @@ export default function Header() {
 									"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
 							}}
 						>
-							<Settings size={20} />
-							<span className="font-medium">Settings</span>
+							<Package size={20} />
+							<span className="font-medium">Transactions</span>
 						</Link>
-
-						<Link
-							to="/admin/users"
-							onClick={() => setIsOpen(false)}
-							className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-							activeProps={{
-								className:
-									"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
-							}}
-						>
-							<Users size={20} />
-							<span className="font-medium">Admin Users</span>
-						</Link>
-					</div>
+					)}
 				</nav>
 
 				<div className="p-4 border-t border-gray-700 bg-gray-800 flex flex-col gap-2">

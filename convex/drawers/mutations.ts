@@ -45,7 +45,7 @@ async function relayoutDrawerGridCompartments(
 
 /**
  * Create a new drawer in a blueprint
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  */
 export const create = mutation({
   args: {
@@ -65,8 +65,8 @@ export const create = mutation({
   handler: async (ctx, args): Promise<Id<'drawers'>> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify user holds the lock on this blueprint
     await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id, orgId)
@@ -115,7 +115,7 @@ export const create = mutation({
 
 /**
  * Update drawer properties
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  */
 export const update = mutation({
   args: {
@@ -134,8 +134,8 @@ export const update = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -186,7 +186,7 @@ export const update = mutation({
 
 /**
  * Delete a drawer and all its compartments
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  */
 export const deleteDrawer = mutation({
   args: {
@@ -197,8 +197,8 @@ export const deleteDrawer = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -249,7 +249,7 @@ export const deleteDrawer = mutation({
 
 /**
  * Reorder drawers by changing z-index
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  */
 export const reorderZIndex = mutation({
   args: {
@@ -261,8 +261,8 @@ export const reorderZIndex = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -308,8 +308,8 @@ export const reorderMultiple = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     // Verify user holds the lock on this blueprint
     await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id, orgId)

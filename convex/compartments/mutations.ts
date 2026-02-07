@@ -6,9 +6,37 @@ import { getCurrentOrgId } from '../organization_helpers'
 import { verifyBlueprintLock } from '../blueprints/mutations'
 import { authContextSchema } from '../types/auth'
 
+function pickGridDimensions(
+  count: number,
+  drawerWidth: number,
+  drawerHeight: number
+): { rows: number; cols: number } {
+  if (count <= 0) return { rows: 1, cols: 1 }
+  const targetAspect = drawerHeight === 0 ? 1 : drawerWidth / drawerHeight
+  let bestRows = 1
+  let bestCols = count
+  let bestScore = Number.POSITIVE_INFINITY
+
+  for (let rows = 1; rows <= count; rows++) {
+    if (count % rows !== 0) continue
+    const cols = count / rows
+    const gridAspect = cols / rows
+    const aspectScore = Math.abs(Math.log(gridAspect / targetAspect))
+    const shapeScore = Math.abs(cols - rows) * 0.01
+    const score = aspectScore + shapeScore
+    if (score < bestScore) {
+      bestScore = score
+      bestRows = rows
+      bestCols = cols
+    }
+  }
+
+  return { rows: bestRows, cols: bestCols }
+}
+
 /**
  * Create a new compartment in a drawer
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  */
 export const create = mutation({
   args: {
@@ -26,8 +54,8 @@ export const create = mutation({
   handler: async (ctx, args): Promise<Id<'compartments'>> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -77,7 +105,7 @@ export const create = mutation({
 
 /**
  * Update compartment properties
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  */
 export const update = mutation({
   args: {
@@ -89,14 +117,15 @@ export const update = mutation({
     width: v.optional(v.number()),
     height: v.optional(v.number()),
     rotation: v.optional(v.number()),
+    zIndex: v.optional(v.number()),
     label: v.optional(v.string()),
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const compartment = await ctx.db.get(args.compartmentId)
     if (!compartment) {
@@ -131,6 +160,7 @@ export const update = mutation({
     if (args.width !== undefined) updates.width = args.width
     if (args.height !== undefined) updates.height = args.height
     if (args.rotation !== undefined) updates.rotation = args.rotation
+    if (args.zIndex !== undefined) updates.zIndex = args.zIndex
     if (args.label !== undefined) updates.label = args.label
 
     await ctx.db.patch(args.compartmentId, updates)
@@ -149,7 +179,7 @@ export const update = mutation({
 
 /**
  * Delete a compartment
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  * Fails if compartment contains inventory
  */
 export const deleteCompartment = mutation({
@@ -161,8 +191,8 @@ export const deleteCompartment = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const compartment = await ctx.db.get(args.compartmentId)
     if (!compartment) {
@@ -196,8 +226,51 @@ export const deleteCompartment = mutation({
     // Delete the compartment
     await ctx.db.delete(args.compartmentId)
 
-    // Update drawer and blueprint timestamps
-    await ctx.db.patch(compartment.drawerId, { updatedAt: now })
+    const remainingCompartments = await ctx.db
+      .query('compartments')
+      .withIndex('by_drawerId', (q) => q.eq('drawerId', compartment.drawerId))
+      .collect()
+
+    if (remainingCompartments.length > 0) {
+      const { rows, cols } = pickGridDimensions(
+        remainingCompartments.length,
+        drawer.width,
+        drawer.height
+      )
+      const cellW = drawer.width / cols
+      const cellH = drawer.height / rows
+      const sortedCompartments = [...remainingCompartments].sort((a, b) => {
+        if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
+        if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
+        return a._id < b._id ? -1 : a._id > b._id ? 1 : 0
+      })
+
+      for (let i = 0; i < sortedCompartments.length; i++) {
+        const r = Math.floor(i / cols)
+        const c = i % cols
+        const x = -drawer.width / 2 + cellW / 2 + c * cellW
+        const y = -drawer.height / 2 + cellH / 2 + r * cellH
+        await ctx.db.patch(sortedCompartments[i]._id, {
+          x,
+          y,
+          width: cellW,
+          height: cellH,
+          rotation: 0,
+          zIndex: i,
+          updatedAt: now,
+        })
+      }
+
+      await ctx.db.patch(compartment.drawerId, {
+        gridRows: rows,
+        gridCols: cols,
+        updatedAt: now,
+      })
+    } else {
+      await ctx.db.patch(compartment.drawerId, { updatedAt: now })
+    }
+
+    // Update blueprint timestamp
     await ctx.db.patch(drawer.blueprintId, { updatedAt: now })
 
     return true
@@ -222,8 +295,8 @@ export const swap = mutation({
 
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const [a, b] = await Promise.all([
       ctx.db.get(args.aCompartmentId),
@@ -309,7 +382,7 @@ export const setGridForDrawer = mutation({
       ctx,
       args.authContext,
       orgId,
-      'Executive Officers'
+      'General Officers'
     )
 
     const drawer = await ctx.db.get(args.drawerId)
@@ -465,7 +538,7 @@ export const setGridForDrawer = mutation({
 
 /**
  * Reorder compartment z-index
- * Requires Editor role and active lock on the blueprint
+ * Requires General Officers role and active lock on the blueprint
  */
 export const reorderZIndex = mutation({
   args: {
@@ -477,8 +550,8 @@ export const reorderZIndex = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const compartment = await ctx.db.get(args.compartmentId)
     if (!compartment) {
@@ -527,8 +600,8 @@ export const reorderMultiple = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {

@@ -223,9 +223,20 @@ export async function deleteDrawersWithHistory({
 		);
 		return true;
 	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "An error occurred";
+		const inventoryBlockedDelete =
+			errorMessage.includes("Cannot delete drawer") &&
+			errorMessage.includes("contains inventory");
+		if (inventoryBlockedDelete) {
+			toast.error(
+				"Cannot delete drawer",
+				"Inventory must be removed or reassigned from this drawer's compartments before deletion.",
+			);
+			return false;
+		}
 		toast.error(
 			"Failed to delete drawer",
-			error instanceof Error ? error.message : "An error occurred",
+			errorMessage,
 		);
 		return false;
 	}

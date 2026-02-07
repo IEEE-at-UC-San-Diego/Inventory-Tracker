@@ -1,9 +1,10 @@
 import { Loader2, Plus, Search } from "lucide-react";
-import { useCallback, useState } from "react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { useCallback, useId, useState } from "react";
+import { LocationPicker2D } from "@/components/parts/LocationPicker2D";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQuery } from "@/integrations/convex/react-query";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import {
 	Dialog,
@@ -36,6 +37,8 @@ export function CheckInDialog({
 	const { authContext, getFreshAuthContext } = useAuth();
 	const { toast } = useToast();
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const quantityInputId = useId();
+	const notesInputId = useId();
 
 	// Form state
 	const [selectedPartId, setSelectedPartId] = useState<string>(
@@ -44,6 +47,11 @@ export function CheckInDialog({
 	const [selectedCompartmentId, setSelectedCompartmentId] = useState<string>(
 		preselectedCompartmentId ?? "",
 	);
+	const [selectedLocation, setSelectedLocation] = useState<{
+		blueprintId?: string;
+		drawerId?: string;
+		compartmentId?: string;
+	}>({});
 	const [quantity, setQuantity] = useState(1);
 	const [notes, setNotes] = useState("");
 	const [partSearchQuery, setPartSearchQuery] = useState("");
@@ -61,7 +69,6 @@ export function CheckInDialog({
 		{ enabled: !!authContext },
 	);
 	const parts = (partsResult as any[]) ?? [];
-
 	// Check-in mutation
 	const checkIn = useMutation(api.inventory.mutations.checkIn as any);
 
@@ -100,7 +107,7 @@ export function CheckInDialog({
 			try {
 				const context =
 					(await getFreshAuthContext()) ?? authContext ?? undefined;
-				await (checkIn as any).mutateAsync({
+				await checkIn({
 					authContext: context,
 					partId: selectedPartId as Id<"parts">,
 					compartmentId: selectedCompartmentId as Id<"compartments">,
@@ -120,6 +127,7 @@ export function CheckInDialog({
 				}
 				if (!preselectedCompartmentId) {
 					setSelectedCompartmentId("");
+					setSelectedLocation({});
 				}
 				setQuantity(1);
 				setNotes("");
@@ -157,7 +165,7 @@ export function CheckInDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-lg">
+			<DialogContent className="max-w-4xl">
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
@@ -248,19 +256,23 @@ export function CheckInDialog({
 						{!preselectedCompartmentId && (
 							<div className="space-y-2">
 								<Label>Select Location</Label>
-								<LocationSelector
-									authContext={authContext}
-									value={selectedCompartmentId}
-									onChange={setSelectedCompartmentId}
+								<LocationPicker2D
+									orgId={authContext?.orgId}
+									selectedLocation={selectedLocation}
+									onLocationChange={(location) => {
+										setSelectedLocation(location);
+										setSelectedCompartmentId(location.compartmentId ?? "");
+									}}
+									allowSkip={false}
 								/>
 							</div>
 						)}
 
 						{/* Quantity */}
 						<div className="space-y-2">
-							<Label htmlFor="quantity">Quantity</Label>
+							<Label htmlFor={quantityInputId}>Quantity</Label>
 							<Input
-								id="quantity"
+								id={quantityInputId}
 								type="number"
 								min={1}
 								value={quantity}
@@ -271,9 +283,9 @@ export function CheckInDialog({
 
 						{/* Notes */}
 						<div className="space-y-2">
-							<Label htmlFor="notes">Notes (optional)</Label>
+							<Label htmlFor={notesInputId}>Notes (optional)</Label>
 							<Textarea
-								id="notes"
+								id={notesInputId}
 								value={notes}
 								onChange={(e) => setNotes(e.target.value)}
 								placeholder="Add any additional information..."
@@ -313,103 +325,5 @@ export function CheckInDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-// Location selector component with cascading dropdowns
-interface LocationSelectorProps {
-	authContext: any;
-	value: string;
-	onChange: (value: string) => void;
-}
-
-function LocationSelector({
-	authContext,
-	value,
-	onChange,
-}: LocationSelectorProps) {
-	const [selectedBlueprintId, setSelectedBlueprintId] = useState("");
-	const [selectedDrawerId, setSelectedDrawerId] = useState("");
-
-	// Fetch blueprints
-	const blueprintsResult = useQuery(
-		api.blueprints.queries.list as any,
-		authContext ? { authContext } : undefined,
-	);
-	const blueprints = (blueprintsResult as any[]) ?? [];
-
-	// Fetch drawers for selected blueprint
-	const drawersResult = useQuery(
-		(api as any)["drawers/queries"].listByBlueprint,
-		selectedBlueprintId && authContext
-			? { authContext, blueprintId: selectedBlueprintId as Id<"blueprints"> }
-			: undefined,
-	);
-	const drawers = (drawersResult as any[]) ?? [];
-
-	// Fetch compartments for selected drawer
-	const compartmentsResult = useQuery(
-		(api as any).compartments.queries.listByDrawer,
-		selectedDrawerId && authContext
-			? { authContext, drawerId: selectedDrawerId as Id<"drawers"> }
-			: undefined,
-	);
-	const compartments = (compartmentsResult as any[]) ?? [];
-
-	return (
-		<div className="space-y-2">
-			{/* Blueprint */}
-			<select
-				value={selectedBlueprintId}
-				onChange={(e) => {
-					setSelectedBlueprintId(e.target.value);
-					setSelectedDrawerId("");
-					onChange("");
-				}}
-				className="w-full px-3 py-2 border rounded-lg"
-			>
-				<option value="">Select Blueprint...</option>
-				{blueprints.map((bp: any) => (
-					<option key={bp._id} value={bp._id}>
-						{bp.name}
-					</option>
-				))}
-			</select>
-
-			{/* Drawer */}
-			{selectedBlueprintId && (
-				<select
-					value={selectedDrawerId}
-					onChange={(e) => {
-						setSelectedDrawerId(e.target.value);
-						onChange("");
-					}}
-					className="w-full px-3 py-2 border rounded-lg"
-				>
-					<option value="">Select Drawer...</option>
-					{drawers.map((drawer: any) => (
-						<option key={drawer._id} value={drawer._id}>
-							{drawer.label || `Drawer ${drawer._id.slice(-4)}`}
-						</option>
-					))}
-				</select>
-			)}
-
-			{/* Compartment */}
-			{selectedDrawerId && (
-				<select
-					value={value}
-					onChange={(e) => onChange(e.target.value)}
-					className="w-full px-3 py-2 border rounded-lg"
-				>
-					<option value="">Select Compartment...</option>
-					{compartments.map((comp: any) => (
-						<option key={comp._id} value={comp._id}>
-							{comp.label || `Compartment ${comp._id.slice(-4)}`}
-						</option>
-					))}
-				</select>
-			)}
-		</div>
 	);
 }

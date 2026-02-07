@@ -4,9 +4,10 @@ import type { Compartment, DrawerWithCompartments } from "@/types";
 interface UseBlueprintCanvasCompartmentDragParams {
 	drawers: DrawerWithCompartments[];
 	snapToGrid: (value: number) => number;
-	findDrawerAtWorldPoint: (
-		point: { x: number; y: number },
-	) => DrawerWithCompartments | null;
+	findDrawerAtWorldPoint: (point: {
+		x: number;
+		y: number;
+	}) => DrawerWithCompartments | null;
 	findCompartmentAtWorldPoint: (
 		drawer: DrawerWithCompartments,
 		point: { x: number; y: number },
@@ -26,6 +27,26 @@ interface DragOverlayRect {
 	y: number;
 	width: number;
 	height: number;
+}
+
+function getNearestCompartmentInDrawer(
+	drawer: DrawerWithCompartments,
+	point: { x: number; y: number },
+	excludeCompartmentId: string,
+): Compartment | null {
+	let nearest: { compartment: Compartment; distanceSq: number } | null = null;
+	for (const compartment of drawer.compartments) {
+		if (compartment._id === excludeCompartmentId) continue;
+		const centerX = drawer.x + compartment.x;
+		const centerY = drawer.y + compartment.y;
+		const dx = point.x - centerX;
+		const dy = point.y - centerY;
+		const distanceSq = dx * dx + dy * dy;
+		if (!nearest || distanceSq < nearest.distanceSq) {
+			nearest = { compartment, distanceSq };
+		}
+	}
+	return nearest?.compartment ?? null;
 }
 
 interface UseBlueprintCanvasCompartmentDragResult {
@@ -135,7 +156,18 @@ export function useBlueprintCanvasCompartmentDrag({
 					setDragHover({ targetDrawerId: null, targetCompartmentId: null });
 					return;
 				}
-				const targetComp = findCompartmentAtWorldPoint(targetDrawer, point);
+				const directTargetComp = findCompartmentAtWorldPoint(
+					targetDrawer,
+					point,
+				);
+				const targetComp =
+					directTargetComp && directTargetComp._id !== pending.compartmentId
+						? directTargetComp
+						: getNearestCompartmentInDrawer(
+								targetDrawer,
+								point,
+								pending.compartmentId,
+							);
 				setDragHover({
 					targetDrawerId: targetDrawer._id,
 					targetCompartmentId: targetComp?._id ?? null,
@@ -173,9 +205,13 @@ export function useBlueprintCanvasCompartmentDrag({
 			const targetDrawer = findDrawerAtWorldPoint(point);
 			if (!targetDrawer || targetDrawer.rotation !== 0) return;
 
-			const targetComp = findCompartmentAtWorldPoint(targetDrawer, point);
+			const directTargetComp = findCompartmentAtWorldPoint(targetDrawer, point);
+			const targetComp =
+				directTargetComp && directTargetComp._id !== movingComp._id
+					? directTargetComp
+					: getNearestCompartmentInDrawer(targetDrawer, point, movingComp._id);
 
-			if (targetComp && targetComp._id !== movingComp._id) {
+			if (targetComp) {
 				await onSwapCompartments?.(movingComp._id, targetComp._id);
 				return;
 			}

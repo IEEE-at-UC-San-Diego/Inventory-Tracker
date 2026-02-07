@@ -389,7 +389,7 @@ interface LocationStepProps {
 	data: PartWizardData;
 	onUpdate: (updates: Partial<PartWizardData>) => void;
 	onSkip: () => void;
-	orgId: string;
+	orgId?: string;
 }
 
 export function LocationStep({ data, onUpdate, onSkip, orgId }: LocationStepProps) {

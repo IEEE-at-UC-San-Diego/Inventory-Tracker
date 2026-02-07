@@ -20,7 +20,7 @@ interface ProtectedRouteProps {
  *   <DashboardContent />
  * </ProtectedRoute>
  *
- * <ProtectedRoute requiredRole="Executive Officers">
+ * <ProtectedRoute requiredRole="General Officers">
  *   <EditorOnlyContent />
  * </ProtectedRoute>
  *
@@ -226,7 +226,7 @@ interface EditorOnlyProps {
 
 export function EditorOnly({ children, fallback = null }: EditorOnlyProps) {
 	return (
-		<RoleGuard requiredRole="Executive Officers" fallback={fallback}>
+		<RoleGuard requiredRole="General Officers" fallback={fallback}>
 			{children}
 		</RoleGuard>
 	);

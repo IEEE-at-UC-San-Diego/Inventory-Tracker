@@ -379,11 +379,14 @@ export function BlueprintEditorContent() {
 				drawers,
 				getRequiredAuthContext,
 				deleteCompartment,
+				setGridForDrawer,
+				toast,
 				pushHistoryEntry,
 			});
 			if (ok) {
 				setSelectedElement(null);
 				setSelectedDrawerIds([]);
+				setHasChanges(true);
 				toast.success("Compartment deleted");
 			}
 		},
@@ -392,6 +395,7 @@ export function BlueprintEditorContent() {
 			drawers,
 			getRequiredAuthContext,
 			pushHistoryEntry,
+			setGridForDrawer,
 			toast,
 		],
 	);

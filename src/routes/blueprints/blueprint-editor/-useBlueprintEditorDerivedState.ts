@@ -6,6 +6,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import type { BlueprintTool } from "@/components/blueprint/BlueprintControls";
 import type {
 	Compartment,
 	DrawerWithCompartments,
@@ -13,7 +14,6 @@ import type {
 } from "@/types";
 import type { AuthContext } from "@/types/auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import type { BlueprintTool } from "@/components/blueprint/BlueprintControls";
 
 interface ToastLike {
 	success: (title: string, description?: string) => void;
@@ -26,11 +26,9 @@ interface UseBlueprintEditorDerivedStateParams {
 		  }
 		| null
 		| undefined;
-	blueprint:
-		| {
-				drawers: DrawerWithCompartments[];
-		  }
-		| null;
+	blueprint: {
+		drawers: DrawerWithCompartments[];
+	} | null;
 	drawers: DrawerWithCompartments[];
 	selectedElement: SelectedElement;
 	selectedDrawerIds: string[];
@@ -130,7 +128,9 @@ export function useBlueprintEditorDerivedState({
 	}, [drawers, selectedElement]);
 
 	const selectedCompartment = useMemo(() => {
-		return selectedElement?.type === "compartment" ? selectedElement.data : null;
+		return selectedElement?.type === "compartment"
+			? selectedElement.data
+			: null;
 	}, [selectedElement]);
 
 	const applySelection = useCallback(
@@ -260,8 +260,12 @@ export function useBlueprintEditorDerivedState({
 	const requestApplyGrid = useCallback(
 		(rows: number, cols: number) => {
 			if (!selectedDrawer) return;
-			const safeRows = Math.max(1, Math.floor(rows));
-			const safeCols = Math.max(1, Math.floor(cols));
+			const safeRows = Number.isFinite(rows)
+				? Math.max(1, Math.floor(rows))
+				: 1;
+			const safeCols = Number.isFinite(cols)
+				? Math.max(1, Math.floor(cols))
+				: 1;
 			const newCells = safeRows * safeCols;
 			const existing = selectedDrawer.compartments.length;
 			if (newCells < existing) {

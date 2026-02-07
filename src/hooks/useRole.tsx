@@ -31,10 +31,10 @@ export function useRole() {
 	}, [hasRole]);
 
 	/**
-	 * Check if user is at least an Executive Officer (Editor equivalent)
+	 * Check if user is at least a General Officer (Editor equivalent)
 	 */
 	const isEditor = useCallback((): boolean => {
-		return hasRole("Executive Officers");
+		return hasRole("General Officers");
 	}, [hasRole]);
 
 	/**
@@ -66,10 +66,10 @@ export function useRole() {
 	}, [hasPermission]);
 
 	/**
-	 * Check if user can edit content (Executive Officers or higher, or write:inventory permission)
+	 * Check if user can edit content (General Officers or higher, or write:inventory permission)
 	 */
 	const canEdit = useCallback((): boolean => {
-		return hasRole("Executive Officers") || hasPermission("write:inventory");
+		return hasRole("General Officers") || hasPermission("write:inventory");
 	}, [hasRole, hasPermission]);
 
 	/**

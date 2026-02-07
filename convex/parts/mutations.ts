@@ -7,7 +7,7 @@ import { authContextSchema } from '../types/auth'
 
 /**
  * Create a new part
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  * Validates unique SKU within organization
  */
 export const create = mutation({
@@ -25,8 +25,8 @@ export const create = mutation({
   handler: async (ctx, args): Promise<Id<'parts'>> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const trimmedSku = args.sku.trim()
     if (!trimmedSku) {
@@ -69,7 +69,7 @@ export const create = mutation({
 
 /**
  * Update part details
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const update = mutation({
   args: {
@@ -87,8 +87,8 @@ export const update = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -135,7 +135,7 @@ export const update = mutation({
 
 /**
  * Archive a part (soft delete)
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  * Checks that no active inventory exists for the part
  */
 export const archive = mutation({
@@ -147,8 +147,8 @@ export const archive = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -183,7 +183,7 @@ export const archive = mutation({
 
 /**
  * Restore an archived part
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const unarchive = mutation({
   args: {
@@ -194,8 +194,8 @@ export const unarchive = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -217,7 +217,7 @@ export const unarchive = mutation({
 
 /**
  * Hard delete a part
- * Requires Admin role only
+ * Requires General Officers role or higher
  * Checks that no transactions exist for the part
  */
 export const remove = mutation({
@@ -229,8 +229,8 @@ export const remove = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Admin role only
-    await requireOrgRole(ctx, args.authContext, orgId, 'Administrator')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -262,7 +262,7 @@ export const remove = mutation({
 /**
  * Update part image
  * Stores image using Convex storage
- * Requires Editor role or higher
+ * Requires General Officers role or higher
  */
 export const updateImage = mutation({
   args: {
@@ -274,8 +274,8 @@ export const updateImage = mutation({
   handler: async (ctx, args): Promise<boolean> => {
     const orgId = await getCurrentOrgId(ctx, args.authContext)
 
-    // Require Editor or Admin role
-    await requireOrgRole(ctx, args.authContext, orgId, 'Executive Officers')
+    // Require General Officers or higher role
+    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
