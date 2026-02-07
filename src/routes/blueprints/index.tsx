@@ -1,22 +1,29 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-	Edit,
+	CalendarClock,
 	Folder,
 	Lock,
+	LockOpen,
+	LayoutPanelTop,
 	Pencil,
 	Plus,
-	Settings,
-	Unlock,
-	Users,
 } from "lucide-react";
 import { useMemo } from "react";
+import { api } from "../../../convex/_generated/api";
 import { EditorOnly, ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, StatCard } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+	StatCard,
+} from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@/integrations/convex/react-query";
 import type { Blueprint } from "@/types";
-import { api } from "../../../convex/_generated/api";
 
 export const Route = createFileRoute("/blueprints/")({
 	component: BlueprintsPage,
@@ -32,9 +39,7 @@ function BlueprintsPage() {
 
 function BlueprintsContent() {
 	const { authContext, isLoading } = useAuth();
-	const navigate = useNavigate();
 
-	// Fetch blueprints
 	const blueprintsResult = useQuery(
 		api.blueprints.queries.list,
 		authContext ? { authContext } : undefined,
@@ -44,181 +49,200 @@ function BlueprintsContent() {
 	);
 	const blueprints = (blueprintsResult ?? []) as Blueprint[];
 
-	// Calculate stats
 	const totalBlueprints = blueprints.length;
 	const lockedBlueprints = blueprints.filter((bp) => bp.isLocked).length;
 	const unlockedBlueprints = totalBlueprints - lockedBlueprints;
 	const totalDrawers = blueprints.reduce(
-		(sum, bp) => sum + (bp.drawerCount ?? 0),
+		(sum, blueprint) => sum + (blueprint.drawerCount ?? 0),
 		0,
 	);
 
 	const isLoadingBlueprints = blueprintsResult === undefined;
 
-	// Sort blueprints by updatedAt (most recent first)
 	const sortedBlueprints = useMemo(() => {
 		return [...blueprints].sort((a, b) => b.updatedAt - a.updatedAt);
 	}, [blueprints]);
 
 	return (
-		<div className="p-6 space-y-6">
-			{/* Header */}
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-				<div>
-					<h1 className="text-3xl font-bold text-gray-900">Blueprints</h1>
-					<p className="text-gray-600 mt-1">
-						View and manage your storage location layouts
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<EditorOnly>
-						<Link
-							to="/blueprints/new"
-							className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-						>
-							<Plus className="w-5 h-5" />
-							New Blueprint
-						</Link>
-					</EditorOnly>
-				</div>
-			</div>
-
-			{/* Stats */}
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-				<StatCard
-					title="Total Blueprints"
-					value={totalBlueprints}
-					description="All layouts"
-					icon={<Folder className="w-4 h-4" />}
-				/>
-				<StatCard
-					title="Drawers"
-					value={totalDrawers}
-					description="Storage units"
-					icon={<Settings className="w-4 h-4" />}
-				/>
-				<StatCard
-					title="Unlocked"
-					value={unlockedBlueprints}
-					description="Available for editing"
-					icon={<Unlock className="w-4 h-4" />}
-				/>
-				<StatCard
-					title="Locked"
-					value={lockedBlueprints}
-					description="Currently in use"
-					icon={<Lock className="w-4 h-4" />}
-				/>
-			</div>
-
-			{/* Blueprints List */}
-			<Card>
-				<CardContent className="p-0">
-					{isLoadingBlueprints ? (
-						<div className="p-12 text-center text-gray-500">
-							Loading blueprints...
+		<div className="bg-gradient-to-b from-slate-50/80 to-background">
+			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
+					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="space-y-1">
+							<CardTitle className="text-2xl sm:text-3xl">Blueprints</CardTitle>
+							<CardDescription className="text-sm sm:text-base">
+								Manage storage layouts, track lock status, and open editors
+								faster.
+							</CardDescription>
 						</div>
-					) : sortedBlueprints.length === 0 ? (
-						<div className="p-12 text-center">
-							<Folder className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-							<h3 className="text-lg font-medium text-gray-900 mb-2">
-								No blueprints yet
-							</h3>
-							<p className="text-gray-500 mb-4">
-								Create your first blueprint to start organizing your inventory.
-							</p>
-							<EditorOnly>
-								<Link
-									to="/blueprints/new"
-									className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-								>
-									<Plus className="w-5 h-5" />
-									Create Blueprint
+						<EditorOnly>
+							<Button asChild>
+								<Link to="/blueprints/new">
+									<Plus className="h-4 w-4" />
+									New Blueprint
 								</Link>
-							</EditorOnly>
-						</div>
-					) : (
-						<div className="divide-y divide-gray-200">
-							{sortedBlueprints.map((blueprint) => (
-								<div
-									key={blueprint._id}
-									role="link"
-									tabIndex={0}
-									className="block hover:bg-gray-50 transition-colors cursor-pointer"
-									onClick={() =>
-										navigate({
-											to: "/blueprints/$blueprintId",
-											params: { blueprintId: blueprint._id },
-											search: { partId: undefined, mode: undefined },
-										})
-									}
-									onKeyDown={(e) => {
-										if (e.key !== "Enter" && e.key !== " ") return;
-										e.preventDefault();
-										navigate({
-											to: "/blueprints/$blueprintId",
-											params: { blueprintId: blueprint._id },
-											search: { partId: undefined, mode: undefined },
-										});
-									}}
-								>
-									<div className="p-4 flex items-center justify-between">
-										<div className="flex items-center gap-4">
-											<div className="p-3 bg-cyan-50 rounded-lg">
-												<Folder className="w-6 h-6 text-cyan-600" />
-											</div>
-											<div>
-												<div className="flex items-center gap-2">
-													<h3 className="font-semibold text-gray-900">
+							</Button>
+						</EditorOnly>
+					</CardHeader>
+				</Card>
+
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+					<StatCard
+						title="Total Blueprints"
+						value={totalBlueprints}
+						description="Layouts available"
+						icon={<Folder className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Drawers"
+						value={totalDrawers}
+						description="Storage units across layouts"
+						icon={<LayoutPanelTop className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Unlocked"
+						value={unlockedBlueprints}
+						description="Ready for editing"
+						icon={<LockOpen className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Locked"
+						value={lockedBlueprints}
+						description="Currently in use"
+						icon={<Lock className="h-4 w-4" />}
+					/>
+				</div>
+
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-lg">Blueprint Library</CardTitle>
+						<CardDescription>
+							{sortedBlueprints.length} blueprint
+							{sortedBlueprints.length === 1 ? "" : "s"} sorted by most recent
+							update.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{isLoadingBlueprints ? (
+							<div className="rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
+								Loading blueprints...
+							</div>
+						) : sortedBlueprints.length === 0 ? (
+							<div className="rounded-lg border border-dashed border-slate-300 p-10 text-center">
+								<Folder className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+								<p className="text-base font-medium text-slate-900">
+									No blueprints yet
+								</p>
+								<p className="mt-1 text-sm text-slate-500">
+									Create your first layout to start assigning inventory
+									locations.
+								</p>
+								<EditorOnly>
+									<Button asChild className="mt-4">
+										<Link to="/blueprints/new">
+											<Plus className="h-4 w-4" />
+											Create Blueprint
+										</Link>
+									</Button>
+								</EditorOnly>
+							</div>
+						) : (
+							<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+								{sortedBlueprints.map((blueprint) => (
+									<Card
+										key={blueprint._id}
+										className="border-slate-200 transition-colors hover:border-cyan-300"
+									>
+										<CardHeader className="pb-3">
+											<div className="flex items-start justify-between gap-3">
+												<div className="space-y-1">
+													<CardTitle className="text-base">
 														{blueprint.name}
-													</h3>
-													{blueprint.isLocked && (
-														<Badge variant="outline" className="text-xs">
-															<Lock className="w-3 h-3 mr-1" />
-															Locked
-														</Badge>
-													)}
-												</div>
-												<div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-													<span className="flex items-center gap-1">
-														<Settings className="w-3 h-3" />
-														{blueprint.drawerCount ?? 0} drawers
-													</span>
-													<span className="flex items-center gap-1">
-														<Edit className="w-3 h-3" />
+													</CardTitle>
+													<CardDescription className="text-xs">
 														Updated{" "}
 														{new Date(blueprint.updatedAt).toLocaleDateString()}
-													</span>
+													</CardDescription>
+												</div>
+												{blueprint.isLocked ? (
+													<Badge
+														variant="outline"
+														className="border-amber-200 text-amber-700"
+													>
+														<Lock className="mr-1 h-3 w-3" />
+														Locked
+													</Badge>
+												) : (
+													<Badge
+														variant="outline"
+														className="border-emerald-200 text-emerald-700"
+													>
+														<LockOpen className="mr-1 h-3 w-3" />
+														Unlocked
+													</Badge>
+												)}
+											</div>
+										</CardHeader>
+										<CardContent className="space-y-4">
+											<div className="grid grid-cols-2 gap-2 text-sm">
+												<div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+													<p className="text-xs text-slate-500">Drawers</p>
+													<p className="font-semibold text-slate-900">
+														{blueprint.drawerCount ?? 0}
+													</p>
+												</div>
+												<div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+													<p className="text-xs text-slate-500">Last Edited</p>
+													<p className="font-semibold text-slate-900">
+														{new Date(blueprint.updatedAt).toLocaleTimeString(
+															[],
+															{
+																hour: "2-digit",
+																minute: "2-digit",
+															},
+														)}
+													</p>
 												</div>
 											</div>
-										</div>
-										<div className="text-right text-sm text-gray-500">
-											<div className="flex items-center gap-3 justify-end">
-												<EditorOnly>
+
+											<div className="flex flex-wrap items-center gap-2">
+												<Button asChild variant="outline" size="sm">
 													<Link
 														to="/blueprints/$blueprintId"
 														params={{ blueprintId: blueprint._id }}
-														search={{ mode: "edit", partId: undefined }}
-														className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-700"
-														onClick={(e) => e.stopPropagation()}
 													>
-														<Pencil className="w-3 h-3" />
-														<span>Edit</span>
+														<Folder className="h-3.5 w-3.5" />
+														Open
 													</Link>
+												</Button>
+												<EditorOnly>
+													<Button asChild size="sm">
+														<Link
+															to="/blueprints/$blueprintId"
+															params={{ blueprintId: blueprint._id }}
+															search={{ mode: "edit", partId: undefined }}
+														>
+															<Pencil className="h-3.5 w-3.5" />
+															Edit
+														</Link>
+													</Button>
 												</EditorOnly>
-												<div className="flex items-center gap-1">
-													<Users className="w-3 h-3" />
-													<span>View Details</span>
-												</div>
 											</div>
-										</div>
-									</div>
-								</div>
-							))}
-						</div>
-					)}
-				</CardContent>
-			</Card>
+
+											<div className="flex items-center gap-2 text-xs text-slate-500">
+												<CalendarClock className="h-3.5 w-3.5" />
+												{blueprint.isLocked
+													? "Read-only while locked"
+													: "Available for updates"}
+											</div>
+										</CardContent>
+									</Card>
+								))}
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			</div>
 		</div>
 	);
 }

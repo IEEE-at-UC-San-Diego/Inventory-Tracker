@@ -9,7 +9,9 @@ import {
 	RefreshCw,
 	Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import {
 	filterTransactions,
@@ -18,12 +20,17 @@ import {
 	TransactionPagination,
 	TransactionTable,
 } from "@/components/transactions";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@/integrations/convex/react-query";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/transactions/")({
 	component: TransactionsPage,
@@ -55,13 +62,12 @@ function TransactionsContent() {
 		selectedCompartmentId: undefined,
 	});
 
-	// Fetch transactions with real-time subscription
 	const transactionsResult = useQuery(
 		api.transactions.queries.list,
 		authContext
 			? {
 					authContext,
-					limit: 1000, // Fetch more for client-side filtering
+					limit: 1000,
 				}
 			: undefined,
 		{
@@ -69,7 +75,6 @@ function TransactionsContent() {
 		},
 	);
 
-	// Fetch stats
 	const statsResult = useQuery(
 		api.transactions.queries.getStats,
 		authContext ? { authContext } : undefined,
@@ -78,7 +83,6 @@ function TransactionsContent() {
 		},
 	);
 
-	// Fetch users for filter dropdown
 	const orgUsers = useQuery(
 		api.organizations.queries.getOrgMembers,
 		authContext
@@ -92,7 +96,6 @@ function TransactionsContent() {
 		},
 	);
 
-	// Fetch compartments for location filter
 	const inventoryResult = useQuery(
 		api.inventory.queries.list,
 		authContext ? { authContext, includeDetails: true } : undefined,
@@ -124,25 +127,17 @@ function TransactionsContent() {
 		return Array.from(uniqueComps.values());
 	}, [inventoryItems]);
 
-	// Filter transactions
 	const filteredTransactions = useMemo(
 		() => filterTransactions(transactions, filters),
 		[transactions, filters],
 	);
 
-	// Pagination
 	const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
 	const paginatedTransactions = useMemo(() => {
 		const start = (currentPage - 1) * ITEMS_PER_PAGE;
 		return filteredTransactions.slice(start, start + ITEMS_PER_PAGE);
 	}, [filteredTransactions, currentPage]);
 
-	// Reset to page 1 when filters change
-	useEffect(() => {
-		setCurrentPage(1);
-	}, []);
-
-	// Export to CSV
 	const handleExport = useCallback(() => {
 		const headers = [
 			"Date/Time",
@@ -156,16 +151,16 @@ function TransactionsContent() {
 			"Notes",
 		];
 
-		const rows = filteredTransactions.map((t) => [
-			new Date(t.timestamp).toISOString(),
-			t.actionType,
-			t.part?.name || "",
-			t.part?.sku || "",
-			t.quantityDelta,
-			t.sourceCompartment?.label || "",
-			t.destCompartment?.label || "",
-			t.user?.name || "",
-			t.notes || "",
+		const rows = filteredTransactions.map((transaction) => [
+			new Date(transaction.timestamp).toISOString(),
+			transaction.actionType,
+			transaction.part?.name || "",
+			transaction.part?.sku || "",
+			transaction.quantityDelta,
+			transaction.sourceCompartment?.label || "",
+			transaction.destCompartment?.label || "",
+			transaction.user?.name || "",
+			transaction.notes || "",
 		]);
 
 		const csvContent = [
@@ -173,16 +168,15 @@ function TransactionsContent() {
 			...rows.map((row) =>
 				row
 					.map((cell) => {
-						// Escape cells that contain commas or quotes
-						const cellStr = String(cell || "");
+						const cellString = String(cell || "");
 						if (
-							cellStr.includes(",") ||
-							cellStr.includes('"') ||
-							cellStr.includes("\n")
+							cellString.includes(",") ||
+							cellString.includes('"') ||
+							cellString.includes("\n")
 						) {
-							return `"${cellStr.replace(/"/g, '""')}"`;
+							return `"${cellString.replace(/"/g, '""')}"`;
 						}
-						return cellStr;
+						return cellString;
 					})
 					.join(","),
 			),
@@ -191,8 +185,8 @@ function TransactionsContent() {
 		const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
 		const link = document.createElement("a");
 		const url = URL.createObjectURL(blob);
-
 		const timestamp = new Date().toISOString().split("T")[0];
+
 		link.setAttribute("href", url);
 		link.setAttribute("download", `transactions_${timestamp}.csv`);
 		link.style.visibility = "hidden";
@@ -206,13 +200,18 @@ function TransactionsContent() {
 		);
 	}, [filteredTransactions, toast]);
 
-	// Refresh handler
 	const handleRefresh = useCallback(() => {
-		// The query will automatically refetch due to Convex's real-time nature
 		toast.info("Refreshed", "Transaction data has been updated");
 	}, [toast]);
 
-	// Calculate action stats
+	const handleFiltersChange = useCallback(
+		(nextFilters: TransactionFilterState) => {
+			setFilters(nextFilters);
+			setCurrentPage(1);
+		},
+		[],
+	);
+
 	const actionStats = useMemo(() => {
 		const adds = transactions.filter((t) => t.actionType === "Add").length;
 		const removes = transactions.filter(
@@ -226,145 +225,151 @@ function TransactionsContent() {
 	}, [transactions]);
 
 	return (
-		<div className="p-6 space-y-6">
-			{/* Header */}
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-				<div>
-					<h1 className="text-3xl font-bold text-gray-900">Transaction Log</h1>
-					<p className="text-gray-600 mt-1">
-						Complete audit trail of all inventory changes
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<button
-						onClick={handleRefresh}
-						className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-					>
-						<RefreshCw className="w-4 h-4" />
-						Refresh
-					</button>
-					<button
-						onClick={handleExport}
-						disabled={filteredTransactions.length === 0}
-						className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-					>
-						<Download className="w-4 h-4" />
-						Export CSV
-					</button>
-				</div>
-			</div>
-
-			{/* Stats Cards */}
-			<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-				<ActionStatCard
-					title="Check In"
-					value={actionStats.adds}
-					icon={<ArrowUpCircle className="w-5 h-5" />}
-					color="green"
-					trend={stats ? `+${stats.transactionsByType.Add} today` : undefined}
-				/>
-				<ActionStatCard
-					title="Check Out"
-					value={actionStats.removes}
-					icon={<ArrowDownCircle className="w-5 h-5" />}
-					color="red"
-					trend={
-						stats ? `-${stats.transactionsByType.Remove} today` : undefined
-					}
-				/>
-				<ActionStatCard
-					title="Moves"
-					value={actionStats.moves}
-					icon={<ArrowLeftRight className="w-5 h-5" />}
-					color="blue"
-					trend={stats ? `${stats.transactionsByType.Move} today` : undefined}
-				/>
-				<ActionStatCard
-					title="Adjustments"
-					value={actionStats.adjusts}
-					icon={<Zap className="w-5 h-5" />}
-					color="yellow"
-					trend={stats ? `${stats.transactionsByType.Adjust} today` : undefined}
-				/>
-				<ActionStatCard
-					title="Total"
-					value={transactions.length}
-					icon={<History className="w-5 h-5" />}
-					color="gray"
-					trend={stats ? `${stats.totalTransactions} all time` : undefined}
-				/>
-				<ActionStatCard
-					title="Today"
-					value={stats?.transactionsToday || 0}
-					icon={<Activity className="w-5 h-5" />}
-					color="cyan"
-					trend={stats ? `${stats.transactionsThisWeek} this week` : undefined}
-				/>
-			</div>
-
-			{/* Filters */}
-			<Card>
-				<CardContent className="p-4">
-					<TransactionFilters
-						filters={filters}
-						onFiltersChange={setFilters}
-						onExport={
-							filteredTransactions.length > 0 ? handleExport : undefined
-						}
-						onRefresh={handleRefresh}
-						users={users}
-						compartments={compartments}
-						hasNewActivity={false}
-					/>
-				</CardContent>
-			</Card>
-
-			{/* Transactions Table */}
-			<Card>
-				<CardContent className="p-0">
-					<TransactionTable
-						transactions={paginatedTransactions}
-						isLoading={transactionsResult === undefined}
-						emptyMessage="No transactions match your filters. Try adjusting your search criteria."
-					/>
-
-					{/* Pagination */}
-					{filteredTransactions.length > 0 && totalPages > 1 && (
-						<TransactionPagination
-							currentPage={currentPage}
-							totalPages={totalPages}
-							onPageChange={setCurrentPage}
-							totalItems={filteredTransactions.length}
-							itemsPerPage={ITEMS_PER_PAGE}
-						/>
-					)}
-
-					{/* Single page summary */}
-					{filteredTransactions.length > 0 && totalPages === 1 && (
-						<div className="px-4 py-3 border-t border-gray-200 text-sm text-gray-500 text-center">
-							Showing all {filteredTransactions.length} transactions
+		<div className="bg-gradient-to-b from-slate-50/80 to-background">
+			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
+					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="space-y-1">
+							<CardTitle className="text-2xl sm:text-3xl">
+								Transaction Log
+							</CardTitle>
+							<CardDescription className="text-sm sm:text-base">
+								Full audit history for all inventory changes.
+							</CardDescription>
 						</div>
-					)}
-				</CardContent>
-			</Card>
+						<div className="flex flex-wrap items-center gap-2">
+							<Button variant="outline" onClick={handleRefresh}>
+								<RefreshCw className="h-4 w-4" />
+								Refresh
+							</Button>
+							<Button
+								onClick={handleExport}
+								disabled={filteredTransactions.length === 0}
+							>
+								<Download className="h-4 w-4" />
+								Export CSV
+							</Button>
+						</div>
+					</CardHeader>
+				</Card>
 
-			{/* Summary footer */}
-			<div className="text-sm text-gray-500 text-center">
-				<p>
-					Displaying {filteredTransactions.length} of {transactions.length}{" "}
-					total transactions
-				</p>
+				<div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+					<ActionStatCard
+						title="Check In"
+						value={actionStats.adds}
+						icon={<ArrowUpCircle className="h-5 w-5" />}
+						color="green"
+						trend={stats ? `+${stats.transactionsByType.Add} today` : undefined}
+					/>
+					<ActionStatCard
+						title="Check Out"
+						value={actionStats.removes}
+						icon={<ArrowDownCircle className="h-5 w-5" />}
+						color="red"
+						trend={
+							stats ? `-${stats.transactionsByType.Remove} today` : undefined
+						}
+					/>
+					<ActionStatCard
+						title="Moves"
+						value={actionStats.moves}
+						icon={<ArrowLeftRight className="h-5 w-5" />}
+						color="blue"
+						trend={stats ? `${stats.transactionsByType.Move} today` : undefined}
+					/>
+					<ActionStatCard
+						title="Adjust"
+						value={actionStats.adjusts}
+						icon={<Zap className="h-5 w-5" />}
+						color="amber"
+						trend={
+							stats ? `${stats.transactionsByType.Adjust} today` : undefined
+						}
+					/>
+					<ActionStatCard
+						title="Total"
+						value={transactions.length}
+						icon={<History className="h-5 w-5" />}
+						color="slate"
+						trend={stats ? `${stats.totalTransactions} all time` : undefined}
+					/>
+					<ActionStatCard
+						title="Today"
+						value={stats?.transactionsToday || 0}
+						icon={<Activity className="h-5 w-5" />}
+						color="cyan"
+						trend={
+							stats ? `${stats.transactionsThisWeek} this week` : undefined
+						}
+					/>
+				</div>
+
+				<Card>
+					<CardHeader className="pb-3">
+						<CardTitle className="text-lg">Filters</CardTitle>
+						<CardDescription>
+							Refine results by action, date, user, location, and search terms.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<TransactionFilters
+							filters={filters}
+							onFiltersChange={handleFiltersChange}
+							onExport={
+								filteredTransactions.length > 0 ? handleExport : undefined
+							}
+							onRefresh={handleRefresh}
+							users={users}
+							compartments={compartments}
+							hasNewActivity={false}
+						/>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader className="pb-3">
+						<div className="flex items-center justify-between gap-3">
+							<CardTitle className="text-lg">Transactions</CardTitle>
+							<CardDescription>
+								Showing {filteredTransactions.length} of {transactions.length}{" "}
+								records
+							</CardDescription>
+						</div>
+					</CardHeader>
+					<CardContent className="p-0">
+						<TransactionTable
+							transactions={paginatedTransactions}
+							isLoading={transactionsResult === undefined}
+							emptyMessage="No transactions match your filters. Try adjusting your search criteria."
+						/>
+
+						{filteredTransactions.length > 0 && totalPages > 1 && (
+							<TransactionPagination
+								currentPage={currentPage}
+								totalPages={totalPages}
+								onPageChange={setCurrentPage}
+								totalItems={filteredTransactions.length}
+								itemsPerPage={ITEMS_PER_PAGE}
+							/>
+						)}
+
+						{filteredTransactions.length > 0 && totalPages === 1 && (
+							<div className="border-t border-slate-200 px-4 py-3 text-center text-sm text-slate-500">
+								Showing all {filteredTransactions.length} transactions
+							</div>
+						)}
+					</CardContent>
+				</Card>
 			</div>
 		</div>
 	);
 }
 
-// Action stat card component
 interface ActionStatCardProps {
 	title: string;
 	value: number;
-	icon: React.ReactNode;
-	color: "green" | "red" | "blue" | "yellow" | "gray" | "cyan";
+	icon: ReactNode;
+	color: "green" | "red" | "blue" | "amber" | "slate" | "cyan";
 	trend?: string;
 }
 
@@ -376,58 +381,24 @@ function ActionStatCard({
 	trend,
 }: ActionStatCardProps) {
 	const colorClasses = {
-		green: {
-			bg: "bg-green-50",
-			text: "text-green-700",
-			icon: "text-green-600",
-			border: "border-green-200",
-		},
-		red: {
-			bg: "bg-red-50",
-			text: "text-red-700",
-			icon: "text-red-600",
-			border: "border-red-200",
-		},
-		blue: {
-			bg: "bg-blue-50",
-			text: "text-blue-700",
-			icon: "text-blue-600",
-			border: "border-blue-200",
-		},
-		yellow: {
-			bg: "bg-yellow-50",
-			text: "text-yellow-700",
-			icon: "text-yellow-600",
-			border: "border-yellow-200",
-		},
-		gray: {
-			bg: "bg-gray-50",
-			text: "text-gray-700",
-			icon: "text-gray-600",
-			border: "border-gray-200",
-		},
-		cyan: {
-			bg: "bg-cyan-50",
-			text: "text-cyan-700",
-			icon: "text-cyan-600",
-			border: "border-cyan-200",
-		},
+		green: "border-emerald-200 bg-emerald-50 text-emerald-800",
+		red: "border-rose-200 bg-rose-50 text-rose-800",
+		blue: "border-blue-200 bg-blue-50 text-blue-800",
+		amber: "border-amber-200 bg-amber-50 text-amber-800",
+		slate: "border-slate-200 bg-slate-50 text-slate-800",
+		cyan: "border-cyan-200 bg-cyan-50 text-cyan-800",
 	};
 
-	const colors = colorClasses[color];
-
 	return (
-		<div className={`p-4 rounded-lg border ${colors.bg} ${colors.border}`}>
+		<div className={`rounded-lg border p-4 ${colorClasses[color]}`}>
 			<div className="flex items-center justify-between">
-				<span className={`text-xs font-medium ${colors.text}`}>{title}</span>
-				<span className={colors.icon}>{icon}</span>
+				<span className="text-xs font-semibold uppercase tracking-wide">
+					{title}
+				</span>
+				<span>{icon}</span>
 			</div>
-			<p className={`text-2xl font-bold mt-1 ${colors.text}`}>
-				{value.toLocaleString()}
-			</p>
-			{trend && (
-				<p className={`text-xs mt-1 ${colors.text} opacity-75`}>{trend}</p>
-			)}
+			<p className="mt-1 text-2xl font-semibold">{value.toLocaleString()}</p>
+			{trend && <p className="mt-1 text-xs opacity-80">{trend}</p>}
 		</div>
 	);
 }

@@ -29,7 +29,10 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
 				</li>
 
 				{items.map((item, index) => (
-					<li key={index} className="flex items-center gap-1">
+					<li
+						key={`${item.to ?? "current"}-${item.label}`}
+						className="flex items-center gap-1"
+					>
 						<ChevronRight className="w-4 h-4 text-gray-400" />
 						{item.to ? (
 							<Link
@@ -69,7 +72,7 @@ export const breadcrumbPresets = {
 		...(blueprintName ? [{ label: blueprintName }] : []),
 	],
 	inventory: (compartmentLabel?: string): BreadcrumbItem[] => [
-		{ label: "Inventory", to: "/inventory" },
+		{ label: "Inventory", to: "/parts" },
 		...(compartmentLabel ? [{ label: compartmentLabel }] : []),
 	],
 	transactions: (): BreadcrumbItem[] => [

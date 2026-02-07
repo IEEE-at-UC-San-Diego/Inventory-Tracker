@@ -70,7 +70,7 @@ export default function Header() {
 						}}
 					>
 						<Package size={20} />
-						<span className="font-medium">Parts</span>
+						<span className="font-medium">Inventory</span>
 					</Link>
 
 					<Link
@@ -84,32 +84,6 @@ export default function Header() {
 					>
 						<Package size={20} />
 						<span className="font-medium">Blueprints</span>
-					</Link>
-
-					<Link
-						to="/inventory"
-						onClick={() => setIsOpen(false)}
-						className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-						activeProps={{
-							className:
-								"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
-						}}
-					>
-						<Package size={20} />
-						<span className="font-medium">Inventory</span>
-					</Link>
-
-					<Link
-						to="/locations"
-						onClick={() => setIsOpen(false)}
-						className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-						activeProps={{
-							className:
-								"flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
-						}}
-					>
-						<Package size={20} />
-						<span className="font-medium">Locations</span>
 					</Link>
 
 					{hasRole("General Officers") && (

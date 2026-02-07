@@ -36,12 +36,7 @@ import {
 } from "./-pick-location-steps";
 
 type WizardStep = 1 | 2 | 3 | 4;
-const RETURN_TO_ROUTES = [
-	"/parts/new",
-	"/parts",
-	"/inventory",
-	"/blueprints",
-] as const;
+const RETURN_TO_ROUTES = ["/parts/new", "/parts", "/blueprints"] as const;
 type ReturnToRoute = (typeof RETURN_TO_ROUTES)[number];
 
 const isReturnToRoute = (value: string): value is ReturnToRoute =>
@@ -406,59 +401,54 @@ function LocationPickerContent() {
 										scaleX={viewport.zoom}
 										scaleY={viewport.zoom}
 									>
-										{step === 2 && (
-											<>
-												{drawers
-													.filter(
-														(d) =>
-															!selectedDrawer || d._id === selectedDrawer._id,
-													)
-													.sort((a, b) => a.zIndex - b.zIndex)
-													.map((drawer) => (
-														<DrawerShape
-															key={drawer._id}
-															drawer={drawer}
-															isSelected={selectedDrawer?._id === drawer._id}
-															isLocked={false}
-															isLockedByMe={true}
-															mode="view"
-															viewport={viewport}
-															highlighted={false}
-															onSelect={() => handleSelectDrawer(drawer)}
-															onDragEnd={() => {}}
-															onTransformEnd={() => {}}
-														/>
-													))}
-											</>
-										)}
+										{step === 2 &&
+											drawers
+												.filter(
+													(d) =>
+														!selectedDrawer || d._id === selectedDrawer._id,
+												)
+												.sort((a, b) => a.zIndex - b.zIndex)
+												.map((drawer) => (
+													<DrawerShape
+														key={drawer._id}
+														drawer={drawer}
+														isSelected={selectedDrawer?._id === drawer._id}
+														isLocked={false}
+														isLockedByMe={true}
+														mode="view"
+														viewport={viewport}
+														highlighted={false}
+														onSelect={() => handleSelectDrawer(drawer)}
+														onDragEnd={() => {}}
+														onTransformEnd={() => {}}
+													/>
+												))}
 
-										{step === 3 && selectedDrawer && (
-											<>
-												{selectedDrawer.compartments
-													.sort((a, b) => a.zIndex - b.zIndex)
-													.map((compartment) => (
-														<CompartmentShape
-															key={compartment._id}
-															compartment={compartment}
-															drawer={selectedDrawer}
-															isSelected={
-																selectedCompartment?._id === compartment._id
-															}
-															isLockedByMe={true}
-															mode="view"
-															viewport={viewport}
-															highlighted={false}
-															inventoryCount={0}
-															onSelect={() =>
-																handleSelectCompartment(compartment)
-															}
-															onDoubleClick={() => {}}
-															onDragEnd={() => {}}
-															onTransformEnd={() => {}}
-														/>
-													))}
-											</>
-										)}
+										{step === 3 &&
+											selectedDrawer &&
+											selectedDrawer.compartments
+												.sort((a, b) => a.zIndex - b.zIndex)
+												.map((compartment) => (
+													<CompartmentShape
+														key={compartment._id}
+														compartment={compartment}
+														drawer={selectedDrawer}
+														isSelected={
+															selectedCompartment?._id === compartment._id
+														}
+														isLockedByMe={true}
+														mode="view"
+														viewport={viewport}
+														highlighted={false}
+														inventoryCount={0}
+														onSelect={() =>
+															handleSelectCompartment(compartment)
+														}
+														onDoubleClick={() => {}}
+														onDragEnd={() => {}}
+														onTransformEnd={() => {}}
+													/>
+												))}
 									</Layer>
 								</Stage>
 							</div>
@@ -517,15 +507,18 @@ function LocationPickerContent() {
 					</div>
 				)}
 
-				{step === 4 && (
-					<ConfirmationStep
-						blueprint={selectedBlueprint!}
-						drawer={selectedDrawer!}
-						compartment={selectedCompartment!}
-						quantity={quantity}
-						onQuantityChange={setQuantity}
-					/>
-				)}
+				{step === 4 &&
+					selectedBlueprint &&
+					selectedDrawer &&
+					selectedCompartment && (
+						<ConfirmationStep
+							blueprint={selectedBlueprint}
+							drawer={selectedDrawer}
+							compartment={selectedCompartment}
+							quantity={quantity}
+							onQuantityChange={setQuantity}
+						/>
+					)}
 			</main>
 
 			<footer className="bg-white border-t px-6 py-4 shrink-0">

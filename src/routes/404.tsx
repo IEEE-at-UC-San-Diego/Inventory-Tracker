@@ -38,6 +38,7 @@ function NotFoundPage() {
 							Go to Dashboard
 						</Link>
 						<button
+							type="button"
 							onClick={() => window.history.back()}
 							className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
 						>
@@ -52,11 +53,6 @@ function NotFoundPage() {
 						<div className="flex flex-wrap justify-center gap-2">
 							<QuickLink
 								to="/parts"
-								icon={<Search className="w-3 h-3" />}
-								label="Parts"
-							/>
-							<QuickLink
-								to="/inventory"
 								icon={<Search className="w-3 h-3" />}
 								label="Inventory"
 							/>

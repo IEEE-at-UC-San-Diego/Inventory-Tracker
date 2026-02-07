@@ -4,23 +4,22 @@ import {
 	AlertTriangle,
 	ArrowLeftRight,
 	ArrowRight,
-	CheckCircle,
+	CheckCircle2,
+	Clock4,
 	History,
-	Inbox,
-	LayoutGrid,
-	Map,
+	Map as BlueprintMap,
 	Minus,
 	Package,
 	Plus,
 	Users,
-	Zap,
+	Wrench,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { useQuery } from "@/integrations/convex/react-query";
-import { ProtectedRoute } from "../components/auth/ProtectedRoute";
-import { QuantityDelta, TransactionBadge } from "../components/transactions";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { QuantityDelta, TransactionBadge } from "@/components/transactions";
+import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -28,10 +27,11 @@ import {
 	CardHeader,
 	CardTitle,
 	StatCard,
-} from "../components/ui/card";
-import { ToastProvider } from "../components/ui/toast";
-import { useAuth } from "../hooks/useAuth";
-import { useRole } from "../hooks/useRole";
+} from "@/components/ui/card";
+import { ToastProvider } from "@/components/ui/toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/hooks/useRole";
+import { useQuery } from "@/integrations/convex/react-query";
 
 export const Route = createFileRoute("/home")({
 	component: HomePage,
@@ -51,7 +51,6 @@ function HomeContent() {
 	const { user, authContext, isLoading } = useAuth();
 	const { isAdmin, isEditor } = useRole();
 
-	// Fetch home data with real-time subscriptions
 	const stats = useQuery(
 		api.organization_helpers.getOrgStats,
 		authContext ? { authContext } : undefined,
@@ -93,7 +92,6 @@ function HomeContent() {
 		},
 	);
 
-	// Calculate derived data
 	const recentTransactions = transactionsResult?.items?.slice(0, 10) || [];
 	const blueprints = blueprintsResult || [];
 	const orgUsers = usersResult || [];
@@ -110,7 +108,6 @@ function HomeContent() {
 		};
 	}>;
 
-	// Calculate low stock items (less than 10 quantity)
 	const lowStockItems = useMemo(() => {
 		if (inventoryItems.length === 0) return [];
 		return inventoryItems
@@ -119,12 +116,10 @@ function HomeContent() {
 			.slice(0, 5);
 	}, [inventoryItems]);
 
-	// Calculate locked blueprints
 	const lockedBlueprints = useMemo(() => {
 		return blueprints.filter((bp) => bp.lockedBy);
 	}, [blueprints]);
 
-	// Calculate today's transaction stats
 	const todayStats = useMemo(() => {
 		const now = Date.now();
 		const oneDayMs = 24 * 60 * 60 * 1000;
@@ -144,371 +139,301 @@ function HomeContent() {
 	}, [recentTransactions]);
 
 	return (
-		<div className="p-6 space-y-6">
-			{/* Welcome header with live indicator */}
-			<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-				<div>
-					<h1 className="text-3xl font-bold text-gray-900">
-						Welcome back, {user?.name?.split(" ")[0] || "User"}!
-					</h1>
-					<p className="text-gray-600 mt-1">
-						Here's what's happening with your inventory today.
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<LiveIndicator />
-					<span className="text-sm text-gray-500">
-						Last updated: {new Date().toLocaleTimeString()}
-					</span>
-				</div>
-			</div>
-
-			{/* Stats grid */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-				<StatCard
-					title="Total Parts"
-					value={stats?.totalParts || 0}
-					description="Active parts in system"
-					icon={<Package className="w-4 h-4" />}
-					trend={
-						stats && stats.totalParts > 0
-							? { value: 0, isPositive: true }
-							: undefined
-					}
-				/>
-				<StatCard
-					title="Inventory Items"
-					value={stats?.totalInventory || 0}
-					description="Total units in stock"
-					icon={<LayoutGrid className="w-4 h-4" />}
-					trend={{ value: 12, isPositive: true }}
-				/>
-				<StatCard
-					title="Active Blueprints"
-					value={blueprints.length}
-					description={`${lockedBlueprints.length} currently locked`}
-					icon={<Map className="w-4 h-4" />}
-					trend={
-						lockedBlueprints.length > 0
-							? { value: lockedBlueprints.length, isPositive: false }
-							: undefined
-					}
-				/>
-				<StatCard
-					title="Transactions Today"
-					value={todayStats.total}
-					description="Activity in last 24 hours"
-					icon={<History className="w-4 h-4" />}
-					trend={
-						todayStats.total > 0
-							? { value: todayStats.total, isPositive: true }
-							: undefined
-					}
-				/>
-			</div>
-
-			{/* Today's activity breakdown */}
-			{todayStats.total > 0 && (
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-lg flex items-center gap-2">
-							<Activity className="w-5 h-5 text-cyan-600" />
-							Today's Activity Breakdown
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-							<ActivityStat
-								label="Check In"
-								value={todayStats.adds}
-								icon={<Plus className="w-4 h-4" />}
-								color="green"
-							/>
-							<ActivityStat
-								label="Check Out"
-								value={todayStats.removes}
-								icon={<Minus className="w-4 h-4" />}
-								color="red"
-							/>
-							<ActivityStat
-								label="Moves"
-								value={todayStats.moves}
-								icon={<ArrowLeftRight className="w-4 h-4" />}
-								color="blue"
-							/>
-							<ActivityStat
-								label="Adjustments"
-								value={todayStats.adjusts}
-								icon={<Zap className="w-4 h-4" />}
-								color="yellow"
-							/>
+		<div className="bg-gradient-to-b from-slate-50/80 to-background">
+			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
+					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="space-y-1">
+							<CardTitle className="text-2xl sm:text-3xl">
+								Welcome back, {user?.name?.split(" ")[0] || "User"}
+							</CardTitle>
+							<CardDescription className="text-sm sm:text-base">
+								Track stock movement, spot risks early, and keep storage
+								organized.
+							</CardDescription>
 						</div>
-					</CardContent>
-				</Card>
-			)}
-
-			{/* Main content grid */}
-			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-				{/* Quick actions - takes 1 column */}
-				<Card className="lg:col-span-1">
-					<CardHeader>
-						<CardTitle>Quick Actions</CardTitle>
-						<CardDescription>
-							Common tasks you might want to perform
-						</CardDescription>
+						<div className="flex flex-wrap items-center gap-2">
+							<LiveIndicator />
+							<span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600">
+								<Clock4 className="h-3.5 w-3.5" />
+								{new Date().toLocaleTimeString()}
+							</span>
+						</div>
 					</CardHeader>
-					<CardContent>
-						<div className="space-y-2">
+				</Card>
+
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+					<StatCard
+						title="Total Parts"
+						value={stats?.totalParts || 0}
+						description="Active parts in catalog"
+						icon={<Package className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Inventory Units"
+						value={stats?.totalInventory || 0}
+						description="Units across all locations"
+						icon={<Wrench className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Active Blueprints"
+						value={blueprints.length}
+						description={`${lockedBlueprints.length} locked`}
+						icon={<BlueprintMap className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Transactions Today"
+						value={todayStats.total}
+						description="Past 24 hours"
+						icon={<History className="h-4 w-4" />}
+					/>
+				</div>
+
+				<div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+					<Card className="xl:col-span-2">
+						<CardHeader>
+							<CardTitle className="text-lg">Quick Actions</CardTitle>
+							<CardDescription>
+								Go directly to your most common tasks.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-2">
 							<QuickActionButton
 								to="/parts/new"
-								icon={<Package className="w-5 h-5" />}
-								title="Add Part"
-								description="Create a new part"
-								color="cyan"
+								icon={<Package className="h-4 w-4" />}
+								title="Create Part"
+								description="Add a new part record"
 							/>
 							<QuickActionButton
-								to="/inventory"
-								icon={<Inbox className="w-5 h-5" />}
-								title="Check In Items"
-								description="Add inventory to storage"
-								color="green"
+								to="/parts"
+								icon={<Plus className="h-4 w-4" />}
+								title="Check In"
+								description="Receive inventory into storage"
 							/>
 							{(isEditor() || isAdmin()) && (
 								<QuickActionButton
-									to="/inventory"
-									icon={<ArrowRight className="w-5 h-5 rotate-90" />}
-									title="Check Out Items"
-									description="Remove inventory from storage"
-									color="red"
+									to="/parts"
+									icon={<Minus className="h-4 w-4" />}
+									title="Check Out"
+									description="Issue inventory from storage"
 								/>
 							)}
 							<QuickActionButton
 								to="/blueprints"
-								icon={<Map className="w-5 h-5" />}
-								title="View Blueprints"
-								description="Manage storage layouts"
-								color="blue"
+								icon={<BlueprintMap className="h-4 w-4" />}
+								title="Open Blueprints"
+								description="Review storage layout"
 							/>
-							<QuickActionButton
-								to="/transactions"
-								icon={<History className="w-5 h-5" />}
-								title="View History"
-								description="Recent activity log"
-								color="purple"
-							/>
-						</div>
-					</CardContent>
-				</Card>
+						</CardContent>
+					</Card>
 
-				{/* Recent activity - takes 2 columns */}
-				<Card className="lg:col-span-2">
-					<CardHeader className="flex flex-row items-center justify-between">
-						<div>
-							<CardTitle>Recent Activity</CardTitle>
-							<CardDescription>Latest inventory transactions</CardDescription>
-						</div>
-						<Link
-							to="/transactions"
-							className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
-						>
-							View all
-							<ArrowRight className="w-4 h-4" />
-						</Link>
-					</CardHeader>
-					<CardContent>
-						{recentTransactions.length > 0 ? (
-							<div className="space-y-2">
-								{recentTransactions.slice(0, 5).map((transaction) => (
-									<div
-										key={transaction._id}
-										className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-									>
-										<div className="flex items-center gap-3">
-											<TransactionBadge
-												actionType={transaction.actionType}
-												showLabel={false}
-												size="sm"
-											/>
-											<div>
-												<p className="text-sm font-medium text-gray-900">
-													{transaction.part?.name || "Unknown Part"}
-												</p>
-												<p className="text-xs text-gray-500">
-													{transaction.user?.name} •{" "}
-													{formatRelativeTime(transaction.timestamp)}
-												</p>
-											</div>
-										</div>
-										<QuantityDelta delta={transaction.quantityDelta} />
-									</div>
-								))}
+					<Card className="xl:col-span-3">
+						<CardHeader className="flex-row items-start justify-between gap-4">
+							<div className="space-y-1">
+								<CardTitle className="text-lg">Recent Activity</CardTitle>
+								<CardDescription>
+									Latest inventory transactions across your team.
+								</CardDescription>
 							</div>
-						) : (
-							<EmptyState
-								icon={<History className="w-12 h-12" />}
-								title="No recent activity"
-								description="Transactions will appear here when inventory changes occur"
-							/>
-						)}
-					</CardContent>
-				</Card>
-			</div>
-
-			{/* Alerts and Status - 2 columns */}
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				{/* Low Stock Alerts */}
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<AlertTriangle className="w-5 h-5 text-yellow-500" />
-							Low Stock Alerts
-						</CardTitle>
-						<CardDescription>Items requiring attention</CardDescription>
-					</CardHeader>
-					<CardContent>
-						{lowStockItems.length > 0 ? (
-							<div className="space-y-3">
-								<div className="flex items-center gap-2 text-yellow-600">
-									<AlertTriangle className="w-5 h-5" />
-									<span className="font-medium">
-										{lowStockItems.length} items running low
-									</span>
+							<Button asChild variant="outline" size="sm">
+								<Link to="/transactions">
+									View all
+									<ArrowRight className="h-4 w-4" />
+								</Link>
+							</Button>
+						</CardHeader>
+						<CardContent>
+							{recentTransactions.length > 0 ? (
+								<div className="space-y-2">
+									{recentTransactions.slice(0, 6).map((transaction) => (
+										<div
+											key={transaction._id}
+											className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5"
+										>
+											<div className="flex items-center gap-3">
+												<TransactionBadge
+													actionType={transaction.actionType}
+													showLabel={false}
+													size="sm"
+												/>
+												<div>
+													<p className="text-sm font-medium text-slate-900">
+														{transaction.part?.name || "Unknown Part"}
+													</p>
+													<p className="text-xs text-slate-500">
+														{transaction.user?.name || "Unknown user"} •{" "}
+														{formatRelativeTime(transaction.timestamp)}
+													</p>
+												</div>
+											</div>
+											<QuantityDelta delta={transaction.quantityDelta} />
+										</div>
+									))}
 								</div>
-								<ul className="space-y-2">
+							) : (
+								<EmptyState
+									icon={<History className="h-10 w-10" />}
+									title="No recent activity"
+									description="New stock movements will show here."
+								/>
+							)}
+						</CardContent>
+					</Card>
+				</div>
+
+				{todayStats.total > 0 && (
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-lg">Today’s Breakdown</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+								<ActivityStat
+									label="Check In"
+									value={todayStats.adds}
+									icon={<Plus className="h-4 w-4" />}
+									color="green"
+								/>
+								<ActivityStat
+									label="Check Out"
+									value={todayStats.removes}
+									icon={<Minus className="h-4 w-4" />}
+									color="red"
+								/>
+								<ActivityStat
+									label="Moves"
+									value={todayStats.moves}
+									icon={<ArrowLeftRight className="h-4 w-4" />}
+									color="blue"
+								/>
+								<ActivityStat
+									label="Adjustments"
+									value={todayStats.adjusts}
+									icon={<Activity className="h-4 w-4" />}
+									color="amber"
+								/>
+							</div>
+						</CardContent>
+					</Card>
+				)}
+
+				<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2 text-lg">
+								<AlertTriangle className="h-5 w-5 text-amber-500" />
+								Low Stock Alerts
+							</CardTitle>
+							<CardDescription>
+								Items under 10 units that may need replenishment.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{lowStockItems.length > 0 ? (
+								<div className="space-y-2">
 									{lowStockItems.map((item) => (
-										<li
+										<div
 											key={item._id}
-											className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg"
+											className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2"
 										>
 											<div className="flex items-center gap-2">
-												<Package className="w-4 h-4 text-yellow-600" />
-												<span className="text-sm font-medium text-gray-900">
+												<Package className="h-4 w-4 text-amber-700" />
+												<span className="text-sm font-medium text-slate-900">
 													{item.part?.name || "Unknown Part"}
 												</span>
 											</div>
-											<span className="text-sm font-bold text-yellow-700">
+											<span className="text-sm font-semibold text-amber-800">
 												{item.quantity} units
 											</span>
-										</li>
+										</div>
 									))}
-								</ul>
-								{inventoryItems.filter((i) => i.quantity < 10).length > 5 && (
-									<Link
-										to="/inventory"
-										className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
-									>
-										View all alerts
-										<ArrowRight className="w-4 h-4" />
-									</Link>
+								</div>
+							) : (
+								<EmptyState
+									icon={<CheckCircle2 className="h-10 w-10 text-emerald-500" />}
+									title="Stock levels look healthy"
+									description="No low-stock alerts at the moment."
+								/>
+							)}
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2 text-lg">
+								<Users className="h-5 w-5 text-cyan-600" />
+								Team & Blueprint Status
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-3">
+							<div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
+								<span className="text-sm font-medium text-slate-700">
+									Members
+								</span>
+								<span className="text-lg font-semibold text-slate-900">
+									{orgUsers.length}
+								</span>
+							</div>
+							<div className="space-y-2">
+								{lockedBlueprints.length > 0 ? (
+									lockedBlueprints.slice(0, 3).map((bp) => (
+										<div
+											key={bp._id}
+											className="flex items-center justify-between rounded-lg border border-cyan-200 bg-cyan-50/70 px-3 py-2"
+										>
+											<span className="text-sm font-medium text-slate-900">
+												{bp.name}
+											</span>
+											<span className="text-xs text-cyan-700">
+												{bp.lockedByUser?.name || "Unknown"}
+											</span>
+										</div>
+									))
+								) : (
+									<div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+										No blueprint locks currently active.
+									</div>
 								)}
 							</div>
-						) : (
-							<EmptyState
-								icon={<CheckCircle className="w-12 h-12 text-green-500" />}
-								title="All items well stocked!"
-								description="No low stock alerts at this time"
-							/>
-						)}
-					</CardContent>
-				</Card>
-
-				{/* Active Users & System Status */}
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Users className="w-5 h-5 text-cyan-500" />
-							Organization
-						</CardTitle>
-						<CardDescription>Team and system status</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						{/* Active users count */}
-						<div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-							<div className="flex items-center gap-2">
-								<Users className="w-5 h-5 text-gray-500" />
-								<span className="font-medium text-gray-700">Team Members</span>
-							</div>
-							<span className="text-lg font-bold text-gray-900">
-								{orgUsers.length}
-							</span>
-						</div>
-
-						{/* Locked blueprints */}
-						{lockedBlueprints.length > 0 && (
-							<div className="space-y-2">
-								<p className="text-sm font-medium text-gray-700">
-									Locked Blueprints
-								</p>
-								{lockedBlueprints.slice(0, 3).map((bp) => (
-									<div
-										key={bp._id}
-										className="flex items-center justify-between p-3 bg-blue-50 rounded-lg"
-									>
-										<div className="flex items-center gap-2">
-											<Map className="w-4 h-4 text-blue-500" />
-											<span className="text-sm text-gray-900">{bp.name}</span>
-										</div>
-										<span className="text-xs text-blue-600">
-											by {bp.lockedByUser?.name || "Unknown"}
-										</span>
-									</div>
-								))}
-							</div>
-						)}
-
-						{/* System status */}
-						<div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-							<div className="flex items-center gap-2">
-								<Activity className="w-5 h-5 text-green-500" />
-								<span className="font-medium text-gray-700">System Status</span>
-							</div>
-							<span className="text-sm font-medium text-green-600 flex items-center gap-1">
-								<span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-								Live
-							</span>
-						</div>
-					</CardContent>
-				</Card>
+						</CardContent>
+					</Card>
+				</div>
 			</div>
 		</div>
 	);
 }
 
-// Activity stat component
 interface ActivityStatProps {
 	label: string;
 	value: number;
-	icon: React.ReactNode;
-	color: "green" | "red" | "blue" | "yellow" | "purple";
+	icon: ReactNode;
+	color: "green" | "red" | "blue" | "amber";
 }
 
 function ActivityStat({ label, value, icon, color }: ActivityStatProps) {
 	const colorClasses = {
-		green: "bg-green-50 text-green-700",
-		red: "bg-red-50 text-red-700",
-		blue: "bg-blue-50 text-blue-700",
-		yellow: "bg-yellow-50 text-yellow-700",
-		purple: "bg-purple-50 text-purple-700",
+		green: "border-emerald-200 bg-emerald-50 text-emerald-800",
+		red: "border-rose-200 bg-rose-50 text-rose-800",
+		blue: "border-blue-200 bg-blue-50 text-blue-800",
+		amber: "border-amber-200 bg-amber-50 text-amber-800",
 	};
 
 	return (
-		<div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-			<div className="flex items-center gap-2 mb-1">
+		<div className={`rounded-lg border p-3 ${colorClasses[color]}`}>
+			<div className="mb-1.5 flex items-center gap-2 text-xs font-medium">
 				{icon}
-				<span className="text-xs font-medium">{label}</span>
+				<span>{label}</span>
 			</div>
-			<p className="text-2xl font-bold">{value}</p>
+			<p className="text-2xl font-semibold">{value}</p>
 		</div>
 	);
 }
 
-// Quick action button component
 interface QuickActionButtonProps {
 	to: string;
-	icon: React.ReactNode;
+	icon: ReactNode;
 	title: string;
 	description: string;
-	color: "cyan" | "green" | "red" | "blue" | "purple";
 }
 
 function QuickActionButton({
@@ -516,48 +441,41 @@ function QuickActionButton({
 	icon,
 	title,
 	description,
-	color,
 }: QuickActionButtonProps) {
-	const colorClasses = {
-		cyan: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100",
-		green: "bg-green-50 text-green-600 group-hover:bg-green-100",
-		red: "bg-red-50 text-red-600 group-hover:bg-red-100",
-		blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-		purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-	};
-
 	return (
-		<Link
-			to={to}
-			className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors group"
+		<Button
+			asChild
+			variant="outline"
+			size="lg"
+			className="h-auto w-full justify-between px-3 py-3"
 		>
-			<div
-				className={`p-2 rounded-lg transition-colors ${colorClasses[color]}`}
-			>
-				{icon}
-			</div>
-			<div className="flex-1">
-				<p className="font-medium text-gray-900">{title}</p>
-				<p className="text-xs text-gray-500">{description}</p>
-			</div>
-			<ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
-		</Link>
+			<Link to={to}>
+				<div className="flex items-center gap-3">
+					<div className="rounded-md bg-slate-100 p-2 text-slate-700">
+						{icon}
+					</div>
+					<div className="text-left">
+						<p className="text-sm font-semibold text-slate-900">{title}</p>
+						<p className="text-xs text-slate-500">{description}</p>
+					</div>
+				</div>
+				<ArrowRight className="h-4 w-4 text-slate-400" />
+			</Link>
+		</Button>
 	);
 }
 
-// Live indicator component
 function LiveIndicator() {
 	return (
-		<div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
-			<span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+		<div className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700">
+			<span className="h-2 w-2 rounded-full bg-emerald-500" />
 			Live
 		</div>
 	);
 }
 
-// Empty state component
 interface EmptyStateProps {
-	icon: React.ReactNode;
+	icon: ReactNode;
 	title: string;
 	description: string;
 }
@@ -565,14 +483,13 @@ interface EmptyStateProps {
 function EmptyState({ icon, title, description }: EmptyStateProps) {
 	return (
 		<div className="flex flex-col items-center justify-center py-8 text-center">
-			<div className="text-gray-300 mb-3">{icon}</div>
-			<p className="text-gray-900 font-medium">{title}</p>
-			<p className="text-sm text-gray-500 mt-1">{description}</p>
+			<div className="mb-3 text-slate-300">{icon}</div>
+			<p className="font-medium text-slate-900">{title}</p>
+			<p className="mt-1 text-sm text-slate-500">{description}</p>
 		</div>
 	);
 }
 
-// Format relative time helper
 function formatRelativeTime(timestamp: number): string {
 	const now = Date.now();
 	const diff = now - timestamp;

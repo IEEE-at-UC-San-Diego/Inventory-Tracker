@@ -3,10 +3,9 @@ import {
 	Boxes,
 	History,
 	Home,
-	LayoutGrid,
 	Map as MapIcon,
-	MapPin,
 	Package,
+	Users,
 	X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -40,7 +39,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 		},
 		{
 			to: "/parts",
-			label: "Parts",
+			label: "Inventory",
 			icon: <Package size={20} />,
 			requiredRole: "Member",
 		},
@@ -48,18 +47,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 			to: "/blueprints",
 			label: "Blueprints",
 			icon: <MapIcon size={20} />,
-			requiredRole: "Member",
-		},
-		{
-			to: "/inventory",
-			label: "Inventory",
-			icon: <LayoutGrid size={20} />,
-			requiredRole: "Member",
-		},
-		{
-			to: "/locations",
-			label: "Locations",
-			icon: <MapPin size={20} />,
 			requiredRole: "Member",
 		},
 		{

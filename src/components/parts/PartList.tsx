@@ -1,5 +1,17 @@
+import { Grid2X2, LayoutList, Search, X } from "lucide-react";
 import { useMemo } from "react";
 import type { Part } from "@/types";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "../ui/select";
+import { Switch } from "../ui/switch";
 import { PartCard, PartCardSkeleton } from "./PartCard";
 
 type SortField = "name" | "sku" | "category" | "createdAt";
@@ -38,16 +50,27 @@ export function PartList({
 	emptyMessage = "No parts found",
 }: PartListProps) {
 	if (isLoading) {
+		const skeletonIds = [
+			"skeleton-a",
+			"skeleton-b",
+			"skeleton-c",
+			"skeleton-d",
+			"skeleton-e",
+			"skeleton-f",
+			"skeleton-g",
+			"skeleton-h",
+		];
+
 		return (
 			<div
 				className={
 					viewMode === "grid"
-						? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+						? "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
 						: "space-y-2"
 				}
 			>
-				{Array.from({ length: 8 }).map((_, i) => (
-					<PartCardSkeleton key={i} viewMode={viewMode} />
+				{skeletonIds.map((skeletonId) => (
+					<PartCardSkeleton key={skeletonId} viewMode={viewMode} />
 				))}
 			</div>
 		);
@@ -55,61 +78,50 @@ export function PartList({
 
 	if (parts.length === 0) {
 		return (
-			<div className="flex flex-col items-center justify-center py-16 text-gray-500">
-				<div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-					<svg
-						className="w-12 h-12 text-gray-300"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={1.5}
-							d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-						/>
-					</svg>
+			<div className="flex flex-col items-center justify-center py-16 text-center">
+				<div className="mb-4 rounded-full bg-slate-100 p-5">
+					<Search className="h-8 w-8 text-slate-400" />
 				</div>
-				<p className="text-lg font-medium text-gray-900">{emptyMessage}</p>
-				<p className="text-sm text-gray-500 mt-1">
-					Try adjusting your filters or add a new part
+				<p className="text-lg font-medium text-slate-900">{emptyMessage}</p>
+				<p className="mt-1 text-sm text-slate-500">
+					Try adjusting your filters or add a new part.
 				</p>
 			</div>
 		);
 	}
 
-	// List view with sortable headers
 	if (viewMode === "list") {
 		return (
-			<div className="bg-white rounded-lg border">
-				{/* Header */}
-				<div className="grid grid-cols-[auto_1fr_120px_140px_100px] gap-4 p-4 border-b bg-gray-50 text-sm font-medium text-gray-700">
-					<div className="w-12"></div>
-					<button
-						className="flex items-center gap-1 text-left hover:text-gray-900"
+			<div className="overflow-hidden rounded-lg border border-slate-200">
+				<div className="grid grid-cols-[auto_1fr_120px_140px_100px] gap-4 border-b border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700">
+					<div className="w-12" />
+					<Button
+						variant="ghost"
+						size="sm"
+						className="justify-start px-0"
 						onClick={() => onSort?.("name")}
 					>
 						Name
 						{sortField === "name" && (
 							<span>{sortOrder === "asc" ? "↑" : "↓"}</span>
 						)}
-					</button>
-					<button
-						className="flex items-center gap-1 text-left hover:text-gray-900"
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="justify-start px-0"
 						onClick={() => onSort?.("category")}
 					>
 						Category
 						{sortField === "category" && (
 							<span>{sortOrder === "asc" ? "↑" : "↓"}</span>
 						)}
-					</button>
+					</Button>
 					<span className="text-right">Inventory</span>
 					<span className="text-right">Actions</span>
 				</div>
 
-				{/* Items */}
-				<div className="divide-y">
+				<div className="divide-y divide-slate-100">
 					{parts.map((part) => (
 						<PartCard
 							key={part._id}
@@ -126,9 +138,8 @@ export function PartList({
 		);
 	}
 
-	// Grid view
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{parts.map((part) => (
 				<PartCard
 					key={part._id}
@@ -144,7 +155,6 @@ export function PartList({
 	);
 }
 
-// Pagination component
 interface PaginationProps {
 	currentPage: number;
 	totalPages: number;
@@ -167,25 +177,27 @@ export function Pagination({
 		const maxVisible = 5;
 
 		if (totalPages <= maxVisible) {
-			for (let i = 1; i <= totalPages; i++) {
-				items.push(i);
+			for (let index = 1; index <= totalPages; index += 1) {
+				items.push(index);
+			}
+		} else if (currentPage <= 3) {
+			for (let index = 1; index <= 4; index += 1) items.push(index);
+			items.push("...");
+			items.push(totalPages);
+		} else if (currentPage >= totalPages - 2) {
+			items.push(1);
+			items.push("...");
+			for (let index = totalPages - 3; index <= totalPages; index += 1) {
+				items.push(index);
 			}
 		} else {
-			if (currentPage <= 3) {
-				for (let i = 1; i <= 4; i++) items.push(i);
-				items.push("...");
-				items.push(totalPages);
-			} else if (currentPage >= totalPages - 2) {
-				items.push(1);
-				items.push("...");
-				for (let i = totalPages - 3; i <= totalPages; i++) items.push(i);
-			} else {
-				items.push(1);
-				items.push("...");
-				for (let i = currentPage - 1; i <= currentPage + 1; i++) items.push(i);
-				items.push("...");
-				items.push(totalPages);
+			items.push(1);
+			items.push("...");
+			for (let index = currentPage - 1; index <= currentPage + 1; index += 1) {
+				items.push(index);
 			}
+			items.push("...");
+			items.push(totalPages);
 		}
 
 		return items;
@@ -195,66 +207,76 @@ export function Pagination({
 	const endItem = Math.min(currentPage * pageSize, totalItems);
 
 	return (
-		<div className="flex items-center justify-between px-4 py-3 bg-white border-t">
-			<div className="flex items-center gap-4">
-				<span className="text-sm text-gray-700">
+		<div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/60 px-4 py-3">
+			<div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+				<span>
 					Showing <span className="font-medium">{startItem}</span> to{" "}
 					<span className="font-medium">{endItem}</span> of{" "}
-					<span className="font-medium">{totalItems}</span> results
+					<span className="font-medium">{totalItems}</span>
 				</span>
 				{onPageSizeChange && (
-					<select
-						value={pageSize}
-						onChange={(e) => onPageSizeChange(Number(e.target.value))}
-						className="text-sm border rounded px-2 py-1"
+					<Select
+						value={String(pageSize)}
+						onValueChange={(value) => onPageSizeChange(Number(value))}
 					>
-						<option value={10}>10 per page</option>
-						<option value={20}>20 per page</option>
-						<option value={50}>50 per page</option>
-						<option value={100}>100 per page</option>
-					</select>
+						<SelectTrigger size="sm" className="w-[130px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="10">10 / page</SelectItem>
+							<SelectItem value="20">20 / page</SelectItem>
+							<SelectItem value="50">50 / page</SelectItem>
+							<SelectItem value="100">100 / page</SelectItem>
+						</SelectContent>
+					</Select>
 				)}
 			</div>
 
 			<div className="flex items-center gap-1">
-				<button
+				<Button
+					variant="outline"
+					size="sm"
 					onClick={() => onPageChange(currentPage - 1)}
 					disabled={currentPage === 1}
-					className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Previous
-				</button>
+				</Button>
 
-				{pages.map((page, index) => (
-					<button
-						key={index}
-						onClick={() => typeof page === "number" && onPageChange(page)}
-						disabled={page === "..."}
-						className={`px-3 py-1 text-sm border rounded ${
-							page === currentPage
-								? "bg-cyan-600 text-white border-cyan-600"
-								: page === "..."
-									? "cursor-default border-transparent"
-									: "hover:bg-gray-50"
-						}`}
-					>
-						{page}
-					</button>
-				))}
+				{(() => {
+					let ellipsisCount = 0;
+					return pages.map((page) => {
+						const key =
+							page === "..."
+								? `ellipsis-${ellipsisCount++}`
+								: `page-${String(page)}`;
 
-				<button
+						return (
+							<Button
+								key={key}
+								variant={page === currentPage ? "default" : "outline"}
+								size="sm"
+								onClick={() => typeof page === "number" && onPageChange(page)}
+								disabled={page === "..."}
+							>
+								{page}
+							</Button>
+						);
+					});
+				})()}
+
+				<Button
+					variant="outline"
+					size="sm"
 					onClick={() => onPageChange(currentPage + 1)}
 					disabled={currentPage === totalPages}
-					className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Next
-				</button>
+				</Button>
 			</div>
 		</div>
 	);
 }
 
-// Filter and search bar component
 interface PartFiltersProps {
 	searchQuery: string;
 	onSearchChange: (query: string) => void;
@@ -279,113 +301,67 @@ export function PartFilters({
 	onViewModeChange,
 }: PartFiltersProps) {
 	return (
-		<div className="flex flex-col sm:flex-row gap-4 p-4 bg-white rounded-lg border">
-			{/* Search */}
-			<div className="flex-1 relative">
-				<svg
-					className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth={2}
-						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-					/>
-				</svg>
-				<input
+		<div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
+			<div className="relative">
+				<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+				<Input
 					type="text"
-					placeholder="Search by name, SKU, or description..."
+					placeholder="Search by name, SKU, or description"
 					value={searchQuery}
-					onChange={(e) => onSearchChange(e.target.value)}
-					className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+					onChange={(event) => onSearchChange(event.target.value)}
+					className="pl-10"
 				/>
 			</div>
 
-			{/* Filters */}
-			<div className="flex items-center gap-2 flex-wrap">
-				{/* Category filter */}
-				<select
-					value={selectedCategory}
-					onChange={(e) => onCategoryChange(e.target.value)}
-					className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-				>
-					<option value="">All Categories</option>
-					{categories.map((cat) => (
-						<option key={cat} value={cat}>
-							{cat}
-						</option>
+			<Select
+				value={selectedCategory || "all"}
+				onValueChange={(value) =>
+					onCategoryChange(value === "all" ? "" : value)
+				}
+			>
+				<SelectTrigger className="w-full lg:w-[200px]">
+					<SelectValue placeholder="All Categories" />
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value="all">All Categories</SelectItem>
+					{categories.map((category) => (
+						<SelectItem key={category} value={category}>
+							{category}
+						</SelectItem>
 					))}
-				</select>
+				</SelectContent>
+			</Select>
 
-				{/* Archived toggle */}
-				<label className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
-					<input
-						type="checkbox"
-						checked={showArchived}
-						onChange={(e) => onShowArchivedChange(e.target.checked)}
-						className="rounded border-gray-300"
-					/>
-					<span className="text-sm text-gray-700">Show archived</span>
-				</label>
-
-				{/* View mode toggle */}
-				<div className="flex items-center border rounded-lg overflow-hidden">
-					<button
-						onClick={() => onViewModeChange("grid")}
-						className={`p-2 ${
-							viewMode === "grid"
-								? "bg-cyan-600 text-white"
-								: "hover:bg-gray-50"
-						}`}
-						title="Grid view"
-					>
-						<svg
-							className="w-5 h-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-							/>
-						</svg>
-					</button>
-					<button
-						onClick={() => onViewModeChange("list")}
-						className={`p-2 ${
-							viewMode === "list"
-								? "bg-cyan-600 text-white"
-								: "hover:bg-gray-50"
-						}`}
-						title="List view"
-					>
-						<svg
-							className="w-5 h-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M4 6h16M4 12h16M4 18h16"
-							/>
-						</svg>
-					</button>
+			<div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 lg:min-w-[180px]">
+				<div className="text-sm">
+					<p className="font-medium text-slate-900">Show Archived</p>
+					<p className="text-xs text-slate-500">Include inactive parts</p>
 				</div>
+				<Switch checked={showArchived} onCheckedChange={onShowArchivedChange} />
+			</div>
+
+			<div className="inline-flex items-center rounded-md border border-slate-200 p-1">
+				<Button
+					variant={viewMode === "grid" ? "default" : "ghost"}
+					size="sm"
+					onClick={() => onViewModeChange("grid")}
+				>
+					<Grid2X2 className="h-4 w-4" />
+					Grid
+				</Button>
+				<Button
+					variant={viewMode === "list" ? "default" : "ghost"}
+					size="sm"
+					onClick={() => onViewModeChange("list")}
+				>
+					<LayoutList className="h-4 w-4" />
+					List
+				</Button>
 			</div>
 		</div>
 	);
 }
 
-// Active filter chips
 interface FilterChipsProps {
 	filters: Array<{
 		key: string;
@@ -398,32 +374,23 @@ export function FilterChips({ filters }: FilterChipsProps) {
 	if (filters.length === 0) return null;
 
 	return (
-		<div className="flex items-center gap-2 flex-wrap">
+		<div className="flex flex-wrap items-center gap-2">
 			{filters.map((filter) => (
-				<span
+				<Badge
 					key={filter.key}
-					className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 text-sm rounded-full"
+					variant="outline"
+					className="gap-1 border-cyan-200 bg-cyan-50 text-cyan-800"
 				>
 					{filter.label}
-					<button
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						className="h-4 w-4 rounded-full p-0"
 						onClick={filter.onRemove}
-						className="p-0.5 hover:bg-cyan-100 rounded-full"
 					>
-						<svg
-							className="w-3 h-3"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
-					</button>
-				</span>
+						<X className="h-3 w-3" />
+					</Button>
+				</Badge>
 			))}
 		</div>
 	);

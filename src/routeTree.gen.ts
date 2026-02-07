@@ -18,7 +18,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TransactionsIndexRouteImport } from './routes/transactions/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as PartsIndexRouteImport } from './routes/parts/index'
-import { Route as LocationsIndexRouteImport } from './routes/locations/index'
 import { Route as InventoryIndexRouteImport } from './routes/inventory/index'
 import { Route as BlueprintsIndexRouteImport } from './routes/blueprints/index'
 import { Route as PartsNewRouteImport } from './routes/parts/new'
@@ -72,11 +71,6 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
 const PartsIndexRoute = PartsIndexRouteImport.update({
   id: '/parts/',
   path: '/parts/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LocationsIndexRoute = LocationsIndexRouteImport.update({
-  id: '/locations/',
-  path: '/locations/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryIndexRoute = InventoryIndexRouteImport.update({
@@ -140,7 +134,6 @@ export interface FileRoutesByFullPath {
   '/parts/new': typeof PartsNewRoute
   '/blueprints/': typeof BlueprintsIndexRoute
   '/inventory/': typeof InventoryIndexRoute
-  '/locations/': typeof LocationsIndexRoute
   '/parts/': typeof PartsIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/transactions/': typeof TransactionsIndexRoute
@@ -161,7 +154,6 @@ export interface FileRoutesByTo {
   '/parts/new': typeof PartsNewRoute
   '/blueprints': typeof BlueprintsIndexRoute
   '/inventory': typeof InventoryIndexRoute
-  '/locations': typeof LocationsIndexRoute
   '/parts': typeof PartsIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/transactions': typeof TransactionsIndexRoute
@@ -183,7 +175,6 @@ export interface FileRoutesById {
   '/parts/new': typeof PartsNewRoute
   '/blueprints/': typeof BlueprintsIndexRoute
   '/inventory/': typeof InventoryIndexRoute
-  '/locations/': typeof LocationsIndexRoute
   '/parts/': typeof PartsIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/transactions/': typeof TransactionsIndexRoute
@@ -206,7 +197,6 @@ export interface FileRouteTypes {
     | '/parts/new'
     | '/blueprints/'
     | '/inventory/'
-    | '/locations/'
     | '/parts/'
     | '/settings/'
     | '/transactions/'
@@ -227,7 +217,6 @@ export interface FileRouteTypes {
     | '/parts/new'
     | '/blueprints'
     | '/inventory'
-    | '/locations'
     | '/parts'
     | '/settings'
     | '/transactions'
@@ -248,7 +237,6 @@ export interface FileRouteTypes {
     | '/parts/new'
     | '/blueprints/'
     | '/inventory/'
-    | '/locations/'
     | '/parts/'
     | '/settings/'
     | '/transactions/'
@@ -270,7 +258,6 @@ export interface RootRouteChildren {
   PartsNewRoute: typeof PartsNewRoute
   BlueprintsIndexRoute: typeof BlueprintsIndexRoute
   InventoryIndexRoute: typeof InventoryIndexRoute
-  LocationsIndexRoute: typeof LocationsIndexRoute
   PartsIndexRoute: typeof PartsIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   TransactionsIndexRoute: typeof TransactionsIndexRoute
@@ -340,13 +327,6 @@ declare module '@tanstack/react-router' {
       path: '/parts'
       fullPath: '/parts/'
       preLoaderRoute: typeof PartsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/locations/': {
-      id: '/locations/'
-      path: '/locations'
-      fullPath: '/locations/'
-      preLoaderRoute: typeof LocationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory/': {
@@ -430,7 +410,6 @@ const rootRouteChildren: RootRouteChildren = {
   PartsNewRoute: PartsNewRoute,
   BlueprintsIndexRoute: BlueprintsIndexRoute,
   InventoryIndexRoute: InventoryIndexRoute,
-  LocationsIndexRoute: LocationsIndexRoute,
   PartsIndexRoute: PartsIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   TransactionsIndexRoute: TransactionsIndexRoute,

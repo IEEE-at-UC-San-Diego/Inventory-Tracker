@@ -1,34 +1,74 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Archive, Download, Filter, Package, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { EditorOnly, ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import {
+	Archive,
+	ArrowRightLeft,
+	Boxes,
+	Download,
+	Filter,
+	Layers3,
+	Minus,
+	Package,
+	Plus,
+	Search,
+	TriangleAlert,
+} from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import {
+	AdminOnly,
+	EditorOnly,
+	ProtectedRoute,
+} from "@/components/auth/ProtectedRoute";
 import {
 	FilterChips,
 	Pagination,
 	PartFilters,
 	PartList,
 } from "@/components/parts";
+import {
+	AdjustDialog,
+	CheckInDialog,
+	CheckOutDialog,
+	MoveDialog,
+} from "@/components/inventory";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, StatCard } from "@/components/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+	StatCard,
+} from "@/components/ui/card";
 import { AlertDialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { DataTable } from "@/components/ui/table";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { useMutation, useQuery } from "@/integrations/convex/react-query";
 import { createCSV, downloadCSV, generateTimestamp } from "@/lib/csv-export";
 import type { Part } from "@/types";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/parts/")({
-	component: PartsPage,
+	component: InventoryWorkspacePage,
 });
 
-function PartsPage() {
+function InventoryWorkspacePage() {
 	return (
 		<ProtectedRoute>
 			<ToastProvider>
-				<PartsContent />
+				<InventoryWorkspaceContent />
 			</ToastProvider>
 		</ProtectedRoute>
 	);
@@ -37,14 +77,30 @@ function PartsPage() {
 type SortField = "name" | "sku" | "category" | "createdAt";
 type SortOrder = "asc" | "desc";
 
-const PAGE_SIZE = 20;
+const PART_PAGE_SIZE = 20;
 
-function PartsContent() {
+interface InventoryListItem {
+	_id: Id<"inventory">;
+	partId: Id<"parts">;
+	compartmentId: Id<"compartments">;
+	quantity: number;
+	part?: {
+		_id: Id<"parts">;
+		name: string;
+		sku: string;
+		category: string;
+	};
+	compartment?: {
+		_id: Id<"compartments">;
+		label?: string;
+	};
+}
+
+function InventoryWorkspaceContent() {
 	const { toast } = useToast();
 	const { canEdit } = useRole();
 	const { authContext, getFreshAuthContext, isLoading } = useAuth();
 
-	// Helper to get fresh auth context for mutations
 	const getAuthContextForMutation = useCallback(
 		async (context: typeof authContext) => {
 			const fresh = await getFreshAuthContext();
@@ -52,6 +108,7 @@ function PartsContent() {
 		},
 		[getFreshAuthContext],
 	);
+
 	const getRequiredAuthContext = useCallback(async () => {
 		const context = await getAuthContextForMutation(authContext);
 		if (!context) {
@@ -60,7 +117,6 @@ function PartsContent() {
 		return context;
 	}, [authContext, getAuthContextForMutation]);
 
-	// Filter and sort state
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showArchived, setShowArchived] = useState(false);
 	const [selectedCategory, setSelectedCategory] = useState("");
@@ -69,20 +125,19 @@ function PartsContent() {
 	const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 	const [currentPage, setCurrentPage] = useState(1);
 
-	// Dialog state
+	const [inventorySearchQuery, setInventorySearchQuery] = useState("");
+	const [inventoryCategory, setInventoryCategory] = useState("");
+	const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+
+	const [showCheckIn, setShowCheckIn] = useState(false);
+	const [showCheckOut, setShowCheckOut] = useState(false);
+	const [showMove, setShowMove] = useState(false);
+	const [showAdjust, setShowAdjust] = useState(false);
+	const [adjustItem, setAdjustItem] = useState<InventoryListItem | null>(null);
+
 	const [deletePart, setDeletePart] = useState<Part | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
 
-	// Handle highlight on blueprint
-	const handleHighlightOnBlueprint = useCallback(
-		(_partId: string) => {
-			// Navigate to blueprints with partId in search params
-			toast.info("Part highlighted - select a blueprint to see its location");
-		},
-		[toast],
-	);
-
-	// Fetch parts data
 	const partsResult = useQuery(
 		api.parts.queries.list,
 		authContext
@@ -97,22 +152,28 @@ function PartsContent() {
 	);
 	const parts = partsResult ?? [];
 
-	// Fetch inventory summary for all parts
 	const inventoryResult = useQuery(
 		api.inventory.queries.list,
-		authContext
-			? {
-					authContext,
-					includeDetails: true,
-				}
-			: undefined,
+		authContext ? { authContext, includeDetails: true } : undefined,
 		{
 			enabled: !!authContext && !isLoading,
 		},
 	);
-	const inventory = inventoryResult ?? [];
+	const inventory = (inventoryResult ?? []) as InventoryListItem[];
 
-	// Build parts with stats
+	const lowStockResult = useQuery(
+		api.inventory.queries.getLowStock,
+		authContext ? { authContext, threshold: 10 } : undefined,
+		{
+			enabled: !!authContext && !isLoading,
+		},
+	);
+	const lowStockItems = lowStockResult ?? [];
+
+	const categories = useMemo(() => {
+		return Array.from(new Set(parts.map((part) => part.category))).sort();
+	}, [parts]);
+
 	const partsWithStats = useMemo(() => {
 		const inventoryByPart = new Map<
 			string,
@@ -137,6 +198,7 @@ function PartsContent() {
 				quantity: 0,
 				locations: 0,
 			};
+
 			return {
 				...part,
 				totalQuantity: stats.quantity,
@@ -145,12 +207,6 @@ function PartsContent() {
 		});
 	}, [parts, inventory]);
 
-	// Get unique categories
-	const categories = useMemo(() => {
-		return Array.from(new Set(parts.map((p) => p.category))).sort();
-	}, [parts]);
-
-	// Filter and sort parts
 	const filteredParts = useMemo(() => {
 		let result = partsWithStats.filter((part) => {
 			const matchesSearch =
@@ -165,7 +221,6 @@ function PartsContent() {
 			return matchesSearch && matchesCategory;
 		});
 
-		// Sort
 		result = [...result].sort((a, b) => {
 			let comparison = 0;
 			switch (sortField) {
@@ -188,21 +243,42 @@ function PartsContent() {
 		return result;
 	}, [partsWithStats, searchQuery, selectedCategory, sortField, sortOrder]);
 
-	// Pagination
-	const totalPages = Math.ceil(filteredParts.length / PAGE_SIZE);
+	const totalPartPages = Math.ceil(filteredParts.length / PART_PAGE_SIZE);
 	const paginatedParts = filteredParts.slice(
-		(currentPage - 1) * PAGE_SIZE,
-		currentPage * PAGE_SIZE,
+		(currentPage - 1) * PART_PAGE_SIZE,
+		currentPage * PART_PAGE_SIZE,
 	);
 
-	// Reset page when filters change
-	useEffect(() => {
-		setCurrentPage(1);
-	}, []);
+	const filteredInventory = useMemo(() => {
+		return inventory.filter((item) => {
+			const part = item.part;
+			if (!part) return false;
 
-	// Handle sort
+			const matchesSearch =
+				inventorySearchQuery === "" ||
+				part.name.toLowerCase().includes(inventorySearchQuery.toLowerCase()) ||
+				part.sku.toLowerCase().includes(inventorySearchQuery.toLowerCase());
+
+			const matchesCategory =
+				inventoryCategory === "" || part.category === inventoryCategory;
+
+			const matchesLowStock = !showLowStockOnly || item.quantity < 10;
+
+			return matchesSearch && matchesCategory && matchesLowStock;
+		});
+	}, [inventory, inventorySearchQuery, inventoryCategory, showLowStockOnly]);
+
+	const totalParts = parts.length;
+	const archivedCount = parts.filter((part) => part.archived).length;
+	const activeCount = totalParts - archivedCount;
+	const totalUnits = inventory.reduce((sum, item) => sum + item.quantity, 0);
+	const locationCount = new Set(inventory.map((item) => item.compartmentId))
+		.size;
+	const lowStockCount = lowStockItems.length;
+
 	const handleSort = useCallback(
 		(field: SortField) => {
+			setCurrentPage(1);
 			if (sortField === field) {
 				setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
 			} else {
@@ -213,7 +289,6 @@ function PartsContent() {
 		[sortField],
 	);
 
-	// Archive mutation
 	const archivePart = useMutation(api.parts.mutations.archive);
 	const unarchivePart = useMutation(api.parts.mutations.unarchive);
 
@@ -241,10 +316,9 @@ function PartsContent() {
 				);
 			}
 		},
-		[archivePart, unarchivePart, toast, getRequiredAuthContext],
+		[archivePart, getRequiredAuthContext, toast, unarchivePart],
 	);
 
-	// Delete mutation
 	const deletePartMutation = useMutation(api.parts.mutations.remove);
 
 	const handleDelete = useCallback(async () => {
@@ -267,9 +341,23 @@ function PartsContent() {
 		} finally {
 			setIsDeleting(false);
 		}
-	}, [deletePart, deletePartMutation, toast, getRequiredAuthContext]);
+	}, [deletePart, deletePartMutation, getRequiredAuthContext, toast]);
 
-	// Export parts to CSV
+	const handleAdjust = useCallback((item: InventoryListItem) => {
+		setAdjustItem(item);
+		setShowAdjust(true);
+	}, []);
+
+	const handleHighlightOnBlueprint = useCallback(
+		(_partId: string) => {
+			toast.info(
+				"Part highlighted",
+				"Open a blueprint to view this part location",
+			);
+		},
+		[toast],
+	);
+
 	const handleExportParts = useCallback(() => {
 		const headers = [
 			"Name",
@@ -298,181 +386,451 @@ function PartsContent() {
 		downloadCSV(csvContent, `parts_${timestamp}.csv`);
 
 		toast.success(
-			"Export Complete",
-			`Downloaded ${filteredParts.length} parts to CSV`,
+			"Parts Export Complete",
+			`Downloaded ${filteredParts.length} part records`,
 		);
 	}, [filteredParts, toast]);
 
-	// Build active filter chips
-	const activeFilters = useMemo(() => {
-		const filters: Array<{ key: string; label: string; onRemove: () => void }> =
+	const handleExportInventory = useCallback(() => {
+		const headers = [
+			"Part Name",
+			"Part SKU",
+			"Category",
+			"Quantity",
+			"Location",
+			"Low Stock",
+		];
+
+		const rows = filteredInventory.map((item) => [
+			item.part?.name || "",
+			item.part?.sku || "",
+			item.part?.category || "",
+			String(item.quantity),
+			item.compartment?.label || "Unknown",
+			item.quantity < 10 ? "Yes" : "No",
+		]);
+
+		const csvContent = createCSV(headers, rows);
+		const timestamp = generateTimestamp();
+		downloadCSV(csvContent, `inventory_${timestamp}.csv`);
+
+		toast.success(
+			"Inventory Export Complete",
+			`Downloaded ${filteredInventory.length} inventory records`,
+		);
+	}, [filteredInventory, toast]);
+
+	const partFilterChips = useMemo(() => {
+		const chips: Array<{ key: string; label: string; onRemove: () => void }> =
 			[];
 
 		if (searchQuery) {
-			filters.push({
+			chips.push({
 				key: "search",
 				label: `Search: "${searchQuery}"`,
-				onRemove: () => setSearchQuery(""),
+				onRemove: () => {
+					setSearchQuery("");
+					setCurrentPage(1);
+				},
 			});
 		}
 
 		if (selectedCategory) {
-			filters.push({
+			chips.push({
 				key: "category",
 				label: `Category: ${selectedCategory}`,
-				onRemove: () => setSelectedCategory(""),
+				onRemove: () => {
+					setSelectedCategory("");
+					setCurrentPage(1);
+				},
 			});
 		}
 
 		if (showArchived) {
-			filters.push({
+			chips.push({
 				key: "archived",
 				label: "Show Archived",
-				onRemove: () => setShowArchived(false),
+				onRemove: () => {
+					setShowArchived(false);
+					setCurrentPage(1);
+				},
 			});
 		}
 
-		return filters;
+		return chips;
 	}, [searchQuery, selectedCategory, showArchived]);
 
-	// Stats
-	const totalParts = parts.length;
-	const archivedCount = parts.filter((p) => p.archived).length;
-	const activeCount = totalParts - archivedCount;
-	const totalInventory = partsWithStats.reduce(
-		(sum, p) => sum + (p.totalQuantity ?? 0),
-		0,
-	);
-
-	return (
-		<div className="p-6 space-y-6">
-			{/* Header */}
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-				<div>
-					<h1 className="text-3xl font-bold text-gray-900">Parts</h1>
-					<p className="text-gray-600 mt-1">
-						Manage your inventory parts and components
+	const inventoryColumns = [
+		{
+			key: "part",
+			header: "Part",
+			cell: (item: InventoryListItem) => (
+				<div className="min-w-0">
+					<Link
+						to="/parts/$partId"
+						params={{ partId: item.partId }}
+						className="block truncate text-sm font-medium text-slate-900 hover:text-cyan-700"
+					>
+						{item.part?.name || "Unknown Part"}
+					</Link>
+					<p className="truncate text-xs text-slate-500">
+						{item.part?.sku || ""}
 					</p>
 				</div>
-				<div className="flex items-center gap-2">
-					<Button
-						variant="outline"
-						onClick={handleExportParts}
-						disabled={filteredParts.length === 0}
-						className="inline-flex items-center gap-2"
+			),
+		},
+		{
+			key: "location",
+			header: "Location",
+			cell: (item: InventoryListItem) => (
+				<span className="text-sm text-slate-700">
+					{item.compartment?.label || "Unknown"}
+				</span>
+			),
+		},
+		{
+			key: "qty",
+			header: "Qty",
+			cell: (item: InventoryListItem) => (
+				<div className="flex items-center gap-1.5">
+					<span
+						className={
+							item.quantity < 10
+								? "font-semibold text-rose-600"
+								: "font-semibold text-slate-900"
+						}
 					>
-						<Download className="w-4 h-4" />
-						Export CSV
-					</Button>
-					<EditorOnly>
-						<Link
-							to="/parts/new"
-							className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-						>
-							<Plus className="w-5 h-5" />
-							Add Part
-						</Link>
-					</EditorOnly>
-				</div>
-			</div>
-
-			{/* Stats */}
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-				<StatCard
-					title="Total Parts"
-					value={totalParts}
-					description="All parts in system"
-					icon={<Package className="w-4 h-4" />}
-				/>
-				<StatCard
-					title="Active"
-					value={activeCount}
-					description="Currently active"
-					icon={<Filter className="w-4 h-4" />}
-				/>
-				<StatCard
-					title="Archived"
-					value={archivedCount}
-					description="Inactive parts"
-					icon={<Archive className="w-4 h-4" />}
-				/>
-				<StatCard
-					title="In Stock"
-					value={totalInventory}
-					description="Total units across all locations"
-					icon={<Package className="w-4 h-4" />}
-				/>
-			</div>
-
-			{/* Filters */}
-			<PartFilters
-				searchQuery={searchQuery}
-				onSearchChange={setSearchQuery}
-				selectedCategory={selectedCategory}
-				onCategoryChange={setSelectedCategory}
-				categories={categories}
-				showArchived={showArchived}
-				onShowArchivedChange={setShowArchived}
-				viewMode={viewMode}
-				onViewModeChange={setViewMode}
-			/>
-
-			{/* Active filter chips */}
-			<FilterChips
-				filters={[
-					...activeFilters,
-					{
-						key: "sort",
-						label: `Sort: ${sortField} ${sortOrder === "asc" ? "↑" : "↓"}`,
-						onRemove: () => {
-							setSortField("name");
-							setSortOrder("asc");
-						},
-					},
-				]}
-			/>
-
-			{/* Parts List */}
-			<Card>
-				<CardContent className="p-0">
-					<PartList
-						parts={paginatedParts}
-						isLoading={isLoading}
-						viewMode={viewMode}
-						sortField={sortField}
-						sortOrder={sortOrder}
-						onSort={handleSort}
-						onArchive={handleArchive}
-						onDelete={setDeletePart}
-						onHighlightParts={handleHighlightOnBlueprint}
-						canEdit={canEdit()}
-						emptyMessage="No parts found. Try adjusting your filters or add a new part."
-					/>
-
-					{/* Pagination */}
-					{filteredParts.length > 0 && (
-						<Pagination
-							currentPage={currentPage}
-							totalPages={totalPages}
-							onPageChange={setCurrentPage}
-							pageSize={PAGE_SIZE}
-							totalItems={filteredParts.length}
-						/>
+						{item.quantity}
+					</span>
+					{item.quantity < 10 && (
+						<TriangleAlert className="h-3.5 w-3.5 text-rose-500" />
 					)}
-				</CardContent>
-			</Card>
+				</div>
+			),
+		},
+		{
+			key: "actions",
+			header: "",
+			cell: (item: InventoryListItem) => (
+				<AdminOnly>
+					<Button variant="ghost" size="sm" onClick={() => handleAdjust(item)}>
+						Adjust
+					</Button>
+				</AdminOnly>
+			),
+		},
+	];
 
-			{/* Delete confirmation */}
-			<AlertDialog
-				open={!!deletePart}
-				onOpenChange={() => !isDeleting && setDeletePart(null)}
-				title="Delete Part"
-				description={`Are you sure you want to delete "${deletePart?.name}"? This action cannot be undone and will remove all associated inventory records.`}
-				confirmLabel={isDeleting ? "Deleting..." : "Delete"}
-				cancelLabel="Cancel"
-				onConfirm={handleDelete}
-				variant="destructive"
-			/>
+	return (
+		<div className="bg-gradient-to-b from-slate-50/80 to-background">
+			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
+					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="space-y-1">
+							<CardTitle className="text-2xl sm:text-3xl">
+								Inventory Workspace
+							</CardTitle>
+							<CardDescription className="text-sm sm:text-base">
+								Manage parts and live stock from one compact page.
+							</CardDescription>
+						</div>
+						<div className="flex flex-wrap items-center gap-2">
+							<Button variant="outline" size="sm" onClick={handleExportParts}>
+								<Download className="h-4 w-4" />
+								Export Parts
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={handleExportInventory}
+							>
+								<Download className="h-4 w-4" />
+								Export Stock
+							</Button>
+							<EditorOnly>
+								<Button asChild size="sm">
+									<Link to="/parts/new">
+										<Plus className="h-4 w-4" />
+										Add Part
+									</Link>
+								</Button>
+								<Button size="sm" onClick={() => setShowCheckIn(true)}>
+									<Plus className="h-4 w-4" />
+									Check In
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => setShowCheckOut(true)}
+								>
+									<Minus className="h-4 w-4" />
+									Check Out
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => setShowMove(true)}
+								>
+									<ArrowRightLeft className="h-4 w-4" />
+									Move
+								</Button>
+							</EditorOnly>
+						</div>
+					</CardHeader>
+				</Card>
+
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+					<StatCard
+						title="Parts"
+						value={totalParts}
+						description="Total records"
+						icon={<Package className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Active"
+						value={activeCount}
+						description="In use"
+						icon={<Filter className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Archived"
+						value={archivedCount}
+						description="Hidden"
+						icon={<Archive className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Units"
+						value={totalUnits}
+						description="In stock"
+						icon={<Boxes className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Locations"
+						value={locationCount}
+						description="With inventory"
+						icon={<Layers3 className="h-4 w-4" />}
+					/>
+					<StatCard
+						title="Low Stock"
+						value={lowStockCount}
+						description="Below 10 units"
+						icon={<TriangleAlert className="h-4 w-4" />}
+						className={lowStockCount > 0 ? "border-amber-200" : undefined}
+					/>
+				</div>
+
+				<div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+					<Card className="xl:col-span-3">
+						<CardHeader className="pb-3">
+							<div className="flex flex-wrap items-center justify-between gap-2">
+								<div>
+									<CardTitle className="text-lg">Parts Catalog</CardTitle>
+									<CardDescription>
+										Showing {paginatedParts.length} of {filteredParts.length}{" "}
+										parts
+									</CardDescription>
+								</div>
+								<Badge variant="outline">
+									{viewMode === "grid" ? "Grid" : "List"} view
+								</Badge>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<PartFilters
+								searchQuery={searchQuery}
+								onSearchChange={(query) => {
+									setSearchQuery(query);
+									setCurrentPage(1);
+								}}
+								selectedCategory={selectedCategory}
+								onCategoryChange={(category) => {
+									setSelectedCategory(category);
+									setCurrentPage(1);
+								}}
+								categories={categories}
+								showArchived={showArchived}
+								onShowArchivedChange={(show) => {
+									setShowArchived(show);
+									setCurrentPage(1);
+								}}
+								viewMode={viewMode}
+								onViewModeChange={setViewMode}
+							/>
+
+							<FilterChips
+								filters={[
+									...partFilterChips,
+									{
+										key: "sort",
+										label: `Sort: ${sortField} ${sortOrder === "asc" ? "↑" : "↓"}`,
+										onRemove: () => {
+											setSortField("name");
+											setSortOrder("asc");
+											setCurrentPage(1);
+										},
+									},
+								]}
+							/>
+
+							<PartList
+								parts={paginatedParts}
+								isLoading={isLoading}
+								viewMode={viewMode}
+								sortField={sortField}
+								sortOrder={sortOrder}
+								onSort={handleSort}
+								onArchive={handleArchive}
+								onDelete={setDeletePart}
+								onHighlightParts={handleHighlightOnBlueprint}
+								canEdit={canEdit()}
+								emptyMessage="No parts found. Adjust filters or add a new part."
+							/>
+
+							{filteredParts.length > 0 && (
+								<Pagination
+									currentPage={currentPage}
+									totalPages={totalPartPages}
+									onPageChange={setCurrentPage}
+									pageSize={PART_PAGE_SIZE}
+									totalItems={filteredParts.length}
+								/>
+							)}
+						</CardContent>
+					</Card>
+
+					<Card className="xl:col-span-2">
+						<CardHeader className="pb-3">
+							<CardTitle className="text-lg">Live Stock</CardTitle>
+							<CardDescription>
+								Filter inventory by part, category, and low-stock risk.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="grid grid-cols-1 gap-2">
+								<div className="relative">
+									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+									<Input
+										placeholder="Search inventory"
+										value={inventorySearchQuery}
+										onChange={(event) =>
+											setInventorySearchQuery(event.target.value)
+										}
+										className="pl-10"
+									/>
+								</div>
+
+								<Select
+									value={inventoryCategory || "all"}
+									onValueChange={(value) =>
+										setInventoryCategory(value === "all" ? "" : value)
+									}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="All Categories" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Categories</SelectItem>
+										{categories.map((category) => (
+											<SelectItem key={category} value={category}>
+												{category}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+
+								<div className="flex items-center justify-between rounded-md border px-3 py-2">
+									<div>
+										<p className="text-sm font-medium">Low stock only</p>
+										<p className="text-xs text-slate-500">Under 10 units</p>
+									</div>
+									<Switch
+										checked={showLowStockOnly}
+										onCheckedChange={setShowLowStockOnly}
+									/>
+								</div>
+							</div>
+
+							{lowStockCount > 0 && (
+								<div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+									<p className="mb-2 text-sm font-semibold text-amber-900">
+										{lowStockCount} low-stock item
+										{lowStockCount === 1 ? "" : "s"}
+									</p>
+									<div className="space-y-1.5">
+										{lowStockItems.slice(0, 4).map((item) => (
+											<div
+												key={item._id}
+												className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5 text-sm"
+											>
+												<span className="truncate">{item.part?.name}</span>
+												<span className="font-semibold text-rose-600">
+													{item.quantity}
+												</span>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+
+							<div className="overflow-hidden rounded-lg border">
+								<DataTable
+									columns={inventoryColumns}
+									data={filteredInventory}
+									keyExtractor={(item) => item._id}
+									isLoading={isLoading}
+									emptyMessage="No inventory records match your filters."
+								/>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+
+				<CheckInDialog
+					open={showCheckIn}
+					onOpenChange={setShowCheckIn}
+					onSuccess={() => {
+						// Refetch happens automatically.
+					}}
+				/>
+				<CheckOutDialog
+					open={showCheckOut}
+					onOpenChange={setShowCheckOut}
+					onSuccess={() => {
+						// Refetch happens automatically.
+					}}
+				/>
+				<MoveDialog
+					open={showMove}
+					onOpenChange={setShowMove}
+					onSuccess={() => {
+						// Refetch happens automatically.
+					}}
+				/>
+				<AdjustDialog
+					open={showAdjust}
+					onOpenChange={(open) => {
+						setShowAdjust(open);
+						if (!open) setAdjustItem(null);
+					}}
+					inventoryId={adjustItem?._id ?? null}
+					preselectedPartId={adjustItem?.partId ?? null}
+					preselectedCompartmentId={adjustItem?.compartmentId ?? null}
+					onSuccess={() => {
+						setAdjustItem(null);
+					}}
+				/>
+
+				<AlertDialog
+					open={!!deletePart}
+					onOpenChange={() => !isDeleting && setDeletePart(null)}
+					title="Delete Part"
+					description={`Are you sure you want to delete "${deletePart?.name}"? This action cannot be undone and will remove all associated inventory records.`}
+					confirmLabel={isDeleting ? "Deleting..." : "Delete"}
+					cancelLabel="Cancel"
+					onConfirm={handleDelete}
+					variant="destructive"
+				/>
+			</div>
 		</div>
 	);
 }
