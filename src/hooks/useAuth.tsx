@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	const hasInitializedRef = useRef(false);
 	const hasHydratedFromLogtoRef = useRef(false);
+	const hydrateInFlightRef = useRef<Promise<void> | null>(null);
 	// Avoid stampeding refresh calls when multiple components ask for a "fresh" auth context.
 	const refreshInFlightRef = useRef<Promise<AuthContextType | null> | null>(
 		null,
@@ -287,6 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (!logtoAuthenticated) {
 			hasHydratedFromLogtoRef.current = false;
+			hydrateInFlightRef.current = null;
 			return;
 		}
 
@@ -298,7 +300,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 
+		if (hydrateInFlightRef.current) {
+			return;
+		}
+
 		let cancelled = false;
+		// Claim hydration immediately so auth-state updates during hydration don't
+		// trigger a second concurrent hydration cycle.
+		hasHydratedFromLogtoRef.current = true;
 
 		const hydrateFromLogto = async () => {
 			console.log(
@@ -408,6 +417,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					setError(
 						err instanceof Error ? err.message : "Failed to hydrate auth",
 					);
+					// Allow retry if hydration failed unexpectedly.
+					hasHydratedFromLogtoRef.current = false;
 				}
 			} finally {
 				if (!cancelled) {
@@ -416,7 +427,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 						hasHydratedFromLogtoRef.current,
 					);
 					setIsLoading(false);
-					hasHydratedFromLogtoRef.current = true;
 					console.log(
 						"[useAuth] hydrateFromLogto - COMPLETED. hasHydratedFromLogtoRef is now:",
 						hasHydratedFromLogtoRef.current,
@@ -425,7 +435,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 		};
 
-		void hydrateFromLogto();
+		const promise = hydrateFromLogto();
+		hydrateInFlightRef.current = promise;
+		void promise.finally(() => {
+			if (hydrateInFlightRef.current === promise) {
+				hydrateInFlightRef.current = null;
+			}
+		});
 
 		return () => {
 			cancelled = true;

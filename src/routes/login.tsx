@@ -1,8 +1,7 @@
 import { useLogto } from "@logto/react";
 import { createFileRoute, Navigate, useSearch } from "@tanstack/react-router";
-import { AlertCircle, Boxes } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useState } from "react";
-import type { User, UserRole } from "@/types";
 import { useAuth } from "../hooks/useAuth";
 
 export const Route = createFileRoute("/login")({
@@ -39,8 +38,8 @@ function LoginPage() {
 			<div className="max-w-md w-full space-y-8">
 				{/* Logo */}
 				<div className="text-center">
-					<div className="mx-auto h-16 w-16 bg-cyan-600 rounded-xl flex items-center justify-center">
-						<Boxes className="h-10 w-10 text-white" />
+					<div className="mx-auto h-16 flex items-center justify-center">
+						<img src="/Blue_Logo.png" alt="IEEE Logo" className="h-16 w-auto" />
 					</div>
 					<h2 className="mt-6 text-3xl font-extrabold text-gray-900">
 						Inventory Tracker
@@ -75,41 +74,16 @@ function LoginPage() {
 
 				{/* Login options */}
 				{!isLoading && (
-					<div className="space-y-6">
+					<div>
 						{/* Logto Login */}
 						<div>
 							<button
 								onClick={handleLogin}
 								className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors"
 							>
-								Sign in with Logto
+								Sign in with IEEE at UCSD
 							</button>
 						</div>
-
-						{/* Divider */}
-						<div className="relative">
-							<div className="absolute inset-0 flex items-center">
-								<div className="w-full border-t border-gray-300" />
-							</div>
-							<div className="relative flex justify-center text-sm">
-								<span className="px-2 bg-gray-50 text-gray-500">
-									Development Mode
-								</span>
-							</div>
-						</div>
-
-						{/* Dev login options */}
-						<div className="grid grid-cols-4 gap-3">
-							<DevLoginButton role="Member" label="Read-only" />
-							<DevLoginButton role="General Officers" label="Check in/out" />
-							<DevLoginButton role="Executive Officers" label="Can edit" />
-							<DevLoginButton role="Administrator" label="Full access" />
-						</div>
-
-						<p className="text-xs text-center text-gray-500">
-							Development login allows testing different user roles without
-							Logto configuration.
-						</p>
 					</div>
 				)}
 
@@ -121,40 +95,5 @@ function LoginPage() {
 				</div>
 			</div>
 		</div>
-	);
-}
-
-// Development login component for testing purposes
-function DevLoginButton({ role, label }: { role: UserRole; label: string }) {
-	const handleDevLogin = async () => {
-		// Store dev user info for development testing
-		const devUser: User = {
-			_id: `dev-convex-id-${Date.now()}`,
-			logtoUserId: `dev-user-${role.toLowerCase()}`,
-			name: `Dev ${role}`,
-			email: `${role.toLowerCase()}@dev.example.com`,
-			orgId: "dev-org-id",
-			role,
-			createdAt: Date.now(),
-		};
-
-		// Store in local storage (note: this bypasses Logto and is for dev only)
-		localStorage.setItem(
-			"inventory_tracker_convex_user",
-			JSON.stringify(devUser),
-		);
-
-		// Reload to trigger auth state refresh
-		window.location.href = "/home";
-	};
-
-	return (
-		<button
-			onClick={handleDevLogin}
-			className="flex flex-col items-center justify-center p-4 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
-		>
-			<span className="text-sm font-medium text-gray-900">{role}</span>
-			<span className="text-xs text-gray-500 mt-1">{label}</span>
-		</button>
 	);
 }
