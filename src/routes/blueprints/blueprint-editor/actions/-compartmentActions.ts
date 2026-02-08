@@ -109,6 +109,14 @@ interface DeleteCompartmentWithHistoryArgs {
 		compartmentId: Id<"compartments">;
 		force?: boolean;
 	}) => Promise<boolean | void>;
+	updateCompartment?: (args: {
+		authContext: AuthContext;
+		compartmentId: Id<"compartments">;
+		x?: number;
+		y?: number;
+		width?: number;
+		height?: number;
+	}) => Promise<boolean | void>;
 	setGridForDrawer?: (args: {
 		authContext: AuthContext;
 		drawerId: Id<"drawers">;
@@ -158,6 +166,7 @@ export async function deleteCompartmentWithHistory({
 	force,
 	getRequiredAuthContext,
 	deleteCompartment,
+	updateCompartment,
 	setGridForDrawer,
 	toast,
 	pushHistoryEntry,
@@ -173,81 +182,186 @@ export async function deleteCompartmentWithHistory({
 	}
 	if (!snapshot || !sourceDrawer) return false;
 
-	const remainingCompartments = sourceDrawer.compartments
-		.filter((c) => c._id !== compartmentId)
-		.sort((a, b) => {
-			if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex;
-			if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
-			return a._id.localeCompare(b._id);
-		});
+	const remainingCompartments = sourceDrawer.compartments.filter(
+		(c) => c._id !== compartmentId,
+	);
 
 	const relayoutSteps: HistoryStep[] = [];
 	let targetGrid: { rows: number; cols: number } | null = null;
-	if (remainingCompartments.length > 0) {
-		const { rows, cols } = pickGridDimensions(
-			remainingCompartments.length,
-			sourceDrawer.width,
-			sourceDrawer.height,
-		);
-		targetGrid = { rows, cols };
-		const cellW = sourceDrawer.width / cols;
-		const cellH = sourceDrawer.height / rows;
 
-		if (sourceDrawer.gridRows !== rows || sourceDrawer.gridCols !== cols) {
-			relayoutSteps.push({
-				type: "updateDrawer",
-				drawerId: sourceDrawer._id,
-				prev: {
-					gridRows: sourceDrawer.gridRows,
-					gridCols: sourceDrawer.gridCols,
-				},
-				next: {
-					gridRows: rows,
-					gridCols: cols,
-				},
-			});
+	if (remainingCompartments.length > 0) {
+		// Find an adjacent neighbor sharing a full edge and expand it to fill the gap.
+		// This avoids repositioning every compartment in the drawer.
+		const SNAP = 2;
+		const delLeft = snapshot.x - snapshot.width / 2;
+		const delRight = snapshot.x + snapshot.width / 2;
+		const delTop = snapshot.y - snapshot.height / 2;
+		const delBottom = snapshot.y + snapshot.height / 2;
+
+		type Neighbor = {
+			comp: Compartment;
+			side: "left" | "right" | "top" | "bottom";
+		};
+		let bestNeighbor: Neighbor | null = null;
+
+		for (const comp of remainingCompartments) {
+			const cLeft = comp.x - comp.width / 2;
+			const cRight = comp.x + comp.width / 2;
+			const cTop = comp.y - comp.height / 2;
+			const cBottom = comp.y + comp.height / 2;
+
+			// Left neighbor: its right edge touches deleted left edge, same vertical span
+			if (
+				Math.abs(cRight - delLeft) <= SNAP &&
+				Math.abs(cTop - delTop) <= SNAP &&
+				Math.abs(cBottom - delBottom) <= SNAP
+			) {
+				bestNeighbor = { comp, side: "left" };
+				break;
+			}
+			// Right neighbor: its left edge touches deleted right edge, same vertical span
+			if (
+				Math.abs(cLeft - delRight) <= SNAP &&
+				Math.abs(cTop - delTop) <= SNAP &&
+				Math.abs(cBottom - delBottom) <= SNAP
+			) {
+				bestNeighbor = { comp, side: "right" };
+				break;
+			}
+			// Top neighbor: its bottom edge touches deleted top edge, same horizontal span
+			if (
+				Math.abs(cBottom - delTop) <= SNAP &&
+				Math.abs(cLeft - delLeft) <= SNAP &&
+				Math.abs(cRight - delRight) <= SNAP
+			) {
+				bestNeighbor = { comp, side: "top" };
+				break;
+			}
+			// Bottom neighbor: its top edge touches deleted bottom edge, same horizontal span
+			if (
+				Math.abs(cTop - delBottom) <= SNAP &&
+				Math.abs(cLeft - delLeft) <= SNAP &&
+				Math.abs(cRight - delRight) <= SNAP
+			) {
+				bestNeighbor = { comp, side: "bottom" };
+				break;
+			}
 		}
 
-		for (const [index, compartment] of remainingCompartments.entries()) {
-			const row = Math.floor(index / cols);
-			const col = index % cols;
-			const nextX = -sourceDrawer.width / 2 + cellW / 2 + col * cellW;
-			const nextY = -sourceDrawer.height / 2 + cellH / 2 + row * cellH;
-			const nextWidth = cellW;
-			const nextHeight = cellH;
-			const nextRotation = 0;
-			const nextZIndex = index;
+		if (bestNeighbor) {
+			// Expand the neighbor to absorb the deleted compartment's space
+			const { comp, side } = bestNeighbor;
+			let nextX = comp.x;
+			let nextY = comp.y;
+			let nextWidth = comp.width;
+			let nextHeight = comp.height;
 
-			const didChange =
-				compartment.x !== nextX ||
-				compartment.y !== nextY ||
-				compartment.width !== nextWidth ||
-				compartment.height !== nextHeight ||
-				compartment.rotation !== nextRotation ||
-				compartment.zIndex !== nextZIndex;
-
-			if (!didChange) continue;
+			if (side === "left") {
+				// Neighbor is to the left → expand its right edge
+				nextWidth = comp.width + snapshot.width;
+				nextX = comp.x + snapshot.width / 2;
+			} else if (side === "right") {
+				// Neighbor is to the right → expand its left edge
+				nextWidth = comp.width + snapshot.width;
+				nextX = comp.x - snapshot.width / 2;
+			} else if (side === "top") {
+				// Neighbor is above → expand its bottom edge
+				nextHeight = comp.height + snapshot.height;
+				nextY = comp.y + snapshot.height / 2;
+			} else {
+				// Neighbor is below → expand its top edge
+				nextHeight = comp.height + snapshot.height;
+				nextY = comp.y - snapshot.height / 2;
+			}
 
 			relayoutSteps.push({
 				type: "updateCompartment",
-				compartmentId: compartment._id,
+				compartmentId: comp._id,
 				prev: {
-					x: compartment.x,
-					y: compartment.y,
-					width: compartment.width,
-					height: compartment.height,
-					rotation: compartment.rotation,
-					zIndex: compartment.zIndex,
+					x: comp.x,
+					y: comp.y,
+					width: comp.width,
+					height: comp.height,
 				},
 				next: {
 					x: nextX,
 					y: nextY,
 					width: nextWidth,
 					height: nextHeight,
-					rotation: nextRotation,
-					zIndex: nextZIndex,
 				},
 			});
+		} else {
+			// No clean neighbor found — fall back to full grid relayout
+			const sortedRemaining = [...remainingCompartments].sort((a, b) => {
+				if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex;
+				if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+				return a._id.localeCompare(b._id);
+			});
+			const { rows, cols } = pickGridDimensions(
+				sortedRemaining.length,
+				sourceDrawer.width,
+				sourceDrawer.height,
+			);
+			targetGrid = { rows, cols };
+			const cellW = sourceDrawer.width / cols;
+			const cellH = sourceDrawer.height / rows;
+
+			if (sourceDrawer.gridRows !== rows || sourceDrawer.gridCols !== cols) {
+				relayoutSteps.push({
+					type: "updateDrawer",
+					drawerId: sourceDrawer._id,
+					prev: {
+						gridRows: sourceDrawer.gridRows,
+						gridCols: sourceDrawer.gridCols,
+					},
+					next: {
+						gridRows: rows,
+						gridCols: cols,
+					},
+				});
+			}
+
+			for (const [index, compartment] of sortedRemaining.entries()) {
+				const row = Math.floor(index / cols);
+				const col = index % cols;
+				const nextX = -sourceDrawer.width / 2 + cellW / 2 + col * cellW;
+				const nextY = -sourceDrawer.height / 2 + cellH / 2 + row * cellH;
+				const nextWidth = cellW;
+				const nextHeight = cellH;
+				const nextRotation = 0;
+				const nextZIndex = index;
+
+				const didChange =
+					compartment.x !== nextX ||
+					compartment.y !== nextY ||
+					compartment.width !== nextWidth ||
+					compartment.height !== nextHeight ||
+					compartment.rotation !== nextRotation ||
+					compartment.zIndex !== nextZIndex;
+
+				if (!didChange) continue;
+
+				relayoutSteps.push({
+					type: "updateCompartment",
+					compartmentId: compartment._id,
+					prev: {
+						x: compartment.x,
+						y: compartment.y,
+						width: compartment.width,
+						height: compartment.height,
+						rotation: compartment.rotation,
+						zIndex: compartment.zIndex,
+					},
+					next: {
+						x: nextX,
+						y: nextY,
+						width: nextWidth,
+						height: nextHeight,
+						rotation: nextRotation,
+						zIndex: nextZIndex,
+					},
+				});
+			}
 		}
 	}
 
@@ -258,6 +372,23 @@ export async function deleteCompartmentWithHistory({
 			compartmentId: compartmentId as Id<"compartments">,
 			force,
 		});
+
+		// Persist neighbor expansion or grid relayout updates
+		if (updateCompartment) {
+			for (const step of relayoutSteps) {
+				if (step.type === "updateCompartment" && step.next) {
+					await updateCompartment({
+						authContext: context,
+						compartmentId: step.compartmentId as Id<"compartments">,
+						x: step.next.x as number | undefined,
+						y: step.next.y as number | undefined,
+						width: step.next.width as number | undefined,
+						height: step.next.height as number | undefined,
+					});
+				}
+			}
+		}
+
 		if (targetGrid && setGridForDrawer) {
 			await setGridForDrawer({
 				authContext: context,

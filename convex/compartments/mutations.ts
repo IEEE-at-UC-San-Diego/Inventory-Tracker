@@ -241,40 +241,127 @@ export const deleteCompartment = mutation({
       .collect()
 
     if (remainingCompartments.length > 0) {
-      const { rows, cols } = pickGridDimensions(
-        remainingCompartments.length,
-        drawer.width,
-        drawer.height
-      )
-      const cellW = drawer.width / cols
-      const cellH = drawer.height / rows
-      const sortedCompartments = [...remainingCompartments].sort((a, b) => {
-        if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
-        if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
-        return a._id < b._id ? -1 : a._id > b._id ? 1 : 0
-      })
+      // Try to find an adjacent neighbor sharing a full edge and expand it
+      const SNAP = 2
+      const delLeft = compartment.x - compartment.width / 2
+      const delRight = compartment.x + compartment.width / 2
+      const delTop = compartment.y - compartment.height / 2
+      const delBottom = compartment.y + compartment.height / 2
 
-      for (let i = 0; i < sortedCompartments.length; i++) {
-        const r = Math.floor(i / cols)
-        const c = i % cols
-        const x = -drawer.width / 2 + cellW / 2 + c * cellW
-        const y = -drawer.height / 2 + cellH / 2 + r * cellH
-        await ctx.db.patch(sortedCompartments[i]._id, {
-          x,
-          y,
-          width: cellW,
-          height: cellH,
-          rotation: 0,
-          zIndex: i,
+      let neighbor: (typeof remainingCompartments)[0] | null = null
+      let side: 'left' | 'right' | 'top' | 'bottom' | null = null
+
+      for (const comp of remainingCompartments) {
+        const cLeft = comp.x - comp.width / 2
+        const cRight = comp.x + comp.width / 2
+        const cTop = comp.y - comp.height / 2
+        const cBottom = comp.y + comp.height / 2
+
+        if (
+          Math.abs(cRight - delLeft) <= SNAP &&
+          Math.abs(cTop - delTop) <= SNAP &&
+          Math.abs(cBottom - delBottom) <= SNAP
+        ) {
+          neighbor = comp
+          side = 'left'
+          break
+        }
+        if (
+          Math.abs(cLeft - delRight) <= SNAP &&
+          Math.abs(cTop - delTop) <= SNAP &&
+          Math.abs(cBottom - delBottom) <= SNAP
+        ) {
+          neighbor = comp
+          side = 'right'
+          break
+        }
+        if (
+          Math.abs(cBottom - delTop) <= SNAP &&
+          Math.abs(cLeft - delLeft) <= SNAP &&
+          Math.abs(cRight - delRight) <= SNAP
+        ) {
+          neighbor = comp
+          side = 'top'
+          break
+        }
+        if (
+          Math.abs(cTop - delBottom) <= SNAP &&
+          Math.abs(cLeft - delLeft) <= SNAP &&
+          Math.abs(cRight - delRight) <= SNAP
+        ) {
+          neighbor = comp
+          side = 'bottom'
+          break
+        }
+      }
+
+      if (neighbor && side) {
+        // Expand the neighbor to absorb the deleted compartment's space
+        let nextX = neighbor.x
+        let nextY = neighbor.y
+        let nextWidth = neighbor.width
+        let nextHeight = neighbor.height
+
+        if (side === 'left') {
+          nextWidth = neighbor.width + compartment.width
+          nextX = neighbor.x + compartment.width / 2
+        } else if (side === 'right') {
+          nextWidth = neighbor.width + compartment.width
+          nextX = neighbor.x - compartment.width / 2
+        } else if (side === 'top') {
+          nextHeight = neighbor.height + compartment.height
+          nextY = neighbor.y + compartment.height / 2
+        } else {
+          nextHeight = neighbor.height + compartment.height
+          nextY = neighbor.y - compartment.height / 2
+        }
+
+        await ctx.db.patch(neighbor._id, {
+          x: nextX,
+          y: nextY,
+          width: nextWidth,
+          height: nextHeight,
+          updatedAt: now,
+        })
+      } else {
+        // No clean neighbor — fall back to full grid relayout
+        const { rows, cols } = pickGridDimensions(
+          remainingCompartments.length,
+          drawer.width,
+          drawer.height
+        )
+        const cellW = drawer.width / cols
+        const cellH = drawer.height / rows
+        const sortedCompartments = [...remainingCompartments].sort((a, b) => {
+          if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
+          if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
+          return a._id < b._id ? -1 : a._id > b._id ? 1 : 0
+        })
+
+        for (let i = 0; i < sortedCompartments.length; i++) {
+          const r = Math.floor(i / cols)
+          const c = i % cols
+          const x = -drawer.width / 2 + cellW / 2 + c * cellW
+          const y = -drawer.height / 2 + cellH / 2 + r * cellH
+          await ctx.db.patch(sortedCompartments[i]._id, {
+            x,
+            y,
+            width: cellW,
+            height: cellH,
+            rotation: 0,
+            zIndex: i,
+            updatedAt: now,
+          })
+        }
+
+        await ctx.db.patch(compartment.drawerId, {
+          gridRows: rows,
+          gridCols: cols,
           updatedAt: now,
         })
       }
 
-      await ctx.db.patch(compartment.drawerId, {
-        gridRows: rows,
-        gridCols: cols,
-        updatedAt: now,
-      })
+      await ctx.db.patch(compartment.drawerId, { updatedAt: now })
     } else {
       await ctx.db.patch(compartment.drawerId, { updatedAt: now })
     }

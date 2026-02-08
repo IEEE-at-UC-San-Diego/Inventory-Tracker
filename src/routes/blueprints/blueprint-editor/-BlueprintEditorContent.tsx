@@ -489,6 +489,7 @@ export function BlueprintEditorContent() {
 				force,
 				getRequiredAuthContext,
 				deleteCompartment,
+				updateCompartment,
 				setGridForDrawer,
 				toast,
 				pushHistoryEntry,
@@ -507,6 +508,7 @@ export function BlueprintEditorContent() {
 			pushHistoryEntry,
 			setGridForDrawer,
 			toast,
+			updateCompartment,
 		],
 	);
 
