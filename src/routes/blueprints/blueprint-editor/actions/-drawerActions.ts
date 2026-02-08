@@ -45,6 +45,7 @@ export interface DrawerMutationFns {
 	deleteDrawer: (args: {
 		authContext: AuthContext;
 		drawerId: Id<"drawers">;
+		force?: boolean;
 	}) => Promise<boolean | void>;
 	createCompartment: (args: {
 		authContext: AuthContext;
@@ -167,6 +168,7 @@ export async function createDrawerWithHistory({
 interface DeleteDrawersWithHistoryArgs {
 	drawerIds: string[];
 	drawers: DrawerWithCompartments[];
+	force?: boolean;
 	getRequiredAuthContext: () => Promise<AuthContext>;
 	deleteDrawer: DrawerMutationFns["deleteDrawer"];
 	pushHistoryEntry: PushHistoryEntryFn;
@@ -178,6 +180,7 @@ interface DeleteDrawersWithHistoryArgs {
 export async function deleteDrawersWithHistory({
 	drawerIds,
 	drawers,
+	force,
 	getRequiredAuthContext,
 	deleteDrawer,
 	pushHistoryEntry,
@@ -196,9 +199,10 @@ export async function deleteDrawersWithHistory({
 			const snapshot = drawers.find((d) => d._id === drawerId) ?? null;
 			if (!snapshot) continue;
 
-			await deleteDrawer({
+				await deleteDrawer({
 				authContext: context,
 				drawerId: drawerId as Id<"drawers">,
+				force,
 			});
 			steps.push({
 				type: "deleteDrawer",
@@ -358,23 +362,51 @@ export async function updateDrawerWithHistory({
 			const rowHeightSum = rowHeights.reduce((a, b) => a + b, 0);
 
 			// Distribute new drawer dimensions across columns/rows proportionally
-			// Each column gets at least DRAWER_GRID_SIZE
-			const newColWidths = colWidths.map((w) =>
-				Math.max(DRAWER_GRID_SIZE, Math.floor((w / (colWidthSum || totalOldW)) * newW / DRAWER_GRID_SIZE) * DRAWER_GRID_SIZE),
-			);
-			const newRowHeights = rowHeights.map((h) =>
-				Math.max(DRAWER_GRID_SIZE, Math.floor((h / (rowHeightSum || totalOldH)) * newH / DRAWER_GRID_SIZE) * DRAWER_GRID_SIZE),
-			);
+			// Uses largest-remainder method to minimize rounding error
+			const distributeProportionally = (
+				sizes: number[],
+				sizeSum: number,
+				totalOld: number,
+				totalNew: number,
+			): number[] => {
+				const idealSizes = sizes.map(
+					(s) => ((s / (sizeSum || totalOld)) * totalNew),
+				);
+				// Snap each to grid, but track fractional remainders
+				const snapped = idealSizes.map(
+					(s) => Math.max(DRAWER_GRID_SIZE, Math.round(s / DRAWER_GRID_SIZE) * DRAWER_GRID_SIZE),
+				);
+				// Fix total to match exactly
+				let diff = totalNew - snapped.reduce((a, b) => a + b, 0);
+				// Distribute remainder one GRID_SIZE at a time to the entries with largest fractional error
+				const errors = idealSizes.map((ideal, i) => ({
+					i,
+					err: ideal - snapped[i],
+				}));
+				while (Math.abs(diff) >= DRAWER_GRID_SIZE) {
+					if (diff > 0) {
+						errors.sort((a, b) => b.err - a.err);
+						const target = errors[0];
+						snapped[target.i] += DRAWER_GRID_SIZE;
+						target.err -= DRAWER_GRID_SIZE;
+						diff -= DRAWER_GRID_SIZE;
+					} else {
+						errors.sort((a, b) => a.err - b.err);
+						const target = errors[0];
+						if (snapped[target.i] > DRAWER_GRID_SIZE) {
+							snapped[target.i] -= DRAWER_GRID_SIZE;
+							target.err += DRAWER_GRID_SIZE;
+							diff += DRAWER_GRID_SIZE;
+						} else {
+							break;
+						}
+					}
+				}
+				return snapped;
+			};
 
-			// Distribute any remaining space to the last column/row
-			const usedW = newColWidths.reduce((a, b) => a + b, 0);
-			const usedH = newRowHeights.reduce((a, b) => a + b, 0);
-			if (newColWidths.length > 0) {
-				newColWidths[newColWidths.length - 1] += newW - usedW;
-			}
-			if (newRowHeights.length > 0) {
-				newRowHeights[newRowHeights.length - 1] += newH - usedH;
-			}
+			const newColWidths = distributeProportionally(colWidths, colWidthSum, totalOldW, newW);
+			const newRowHeights = distributeProportionally(rowHeights, rowHeightSum, totalOldH, newH);
 
 			// Compute new column start positions (left edges in new drawer-local coords)
 			const newColStarts: number[] = [];

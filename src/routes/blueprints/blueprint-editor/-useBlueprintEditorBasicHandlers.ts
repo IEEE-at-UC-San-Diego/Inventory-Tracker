@@ -136,7 +136,7 @@ export function useBlueprintEditorBasicHandlers({
 				toast,
 			});
 			if (created) {
-				setTool("select");
+				// Tool persistence: keep the drawer tool active for repeated use
 			}
 		},
 		[

@@ -102,10 +102,12 @@ export async function swapCompartmentsWithHistory({
 interface DeleteCompartmentWithHistoryArgs {
 	compartmentId: string;
 	drawers: DrawerWithCompartments[];
+	force?: boolean;
 	getRequiredAuthContext: () => Promise<AuthContext>;
 	deleteCompartment: (args: {
 		authContext: AuthContext;
 		compartmentId: Id<"compartments">;
+		force?: boolean;
 	}) => Promise<boolean | void>;
 	setGridForDrawer?: (args: {
 		authContext: AuthContext;
@@ -153,6 +155,7 @@ function pickGridDimensions(
 export async function deleteCompartmentWithHistory({
 	compartmentId,
 	drawers,
+	force,
 	getRequiredAuthContext,
 	deleteCompartment,
 	setGridForDrawer,
@@ -253,6 +256,7 @@ export async function deleteCompartmentWithHistory({
 		await deleteCompartment({
 			authContext: context,
 			compartmentId: compartmentId as Id<"compartments">,
+			force,
 		});
 		if (targetGrid && setGridForDrawer) {
 			await setGridForDrawer({

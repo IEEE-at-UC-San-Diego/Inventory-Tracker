@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Grid3X3, Minus, Package, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Grid3X3, Minus, Package, Plus, Trash2 } from "lucide-react";
 import type { SetStateAction } from "react";
 import { MemberOnly } from "@/components/auth/ProtectedRoute";
 import { CheckInDialog } from "@/components/inventory/CheckInDialog";
@@ -254,45 +254,51 @@ export function CompartmentDetailsPanel({
 							</MemberOnly>
 						</div>
 					) : (
-						<div className="space-y-2">
-							{compartmentInventory.map((item) => (
-								<div
-									key={item._id}
-									className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
-								>
-									<div className="flex items-center gap-2">
-										<Package className="w-4 h-4 text-gray-400" />
-										<div>
-											<Link
-												to="/parts/$partId"
-												params={{ partId: item.partId }}
-												className="font-medium text-sm hover:text-cyan-600"
+						<details className="group">
+							<summary className="cursor-pointer text-xs font-medium text-gray-500 uppercase tracking-wide select-none list-none flex items-center gap-1">
+								<ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
+								{compartmentInventory.length} item{compartmentInventory.length !== 1 ? "s" : ""}
+							</summary>
+							<div className="space-y-2 mt-2">
+								{compartmentInventory.map((item) => (
+									<div
+										key={item._id}
+										className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+									>
+										<div className="flex items-center gap-2">
+											<Package className="w-4 h-4 text-gray-400" />
+											<div>
+												<Link
+													to="/parts/$partId"
+													params={{ partId: item.partId }}
+													className="font-medium text-sm hover:text-cyan-600"
+												>
+													{item.part?.name || "Unknown Part"}
+												</Link>
+												<p className="text-xs text-gray-500">{item.part?.sku}</p>
+											</div>
+										</div>
+										<div className="flex items-center gap-2">
+											<Badge
+												variant={item.quantity < 10 ? "destructive" : "default"}
 											>
-												{item.part?.name || "Unknown Part"}
-											</Link>
-											<p className="text-xs text-gray-500">{item.part?.sku}</p>
+												{item.quantity}
+											</Badge>
+											<MemberOnly>
+												<Button
+													size="sm"
+													variant="ghost"
+													onClick={() => onCheckOut(compartment._id)}
+													disabled={item.quantity <= 0}
+												>
+													<Minus className="w-4 h-4" />
+												</Button>
+											</MemberOnly>
 										</div>
 									</div>
-									<div className="flex items-center gap-2">
-										<Badge
-											variant={item.quantity < 10 ? "destructive" : "default"}
-										>
-											{item.quantity}
-										</Badge>
-										<MemberOnly>
-											<Button
-												size="sm"
-												variant="ghost"
-												onClick={() => onCheckOut(compartment._id)}
-												disabled={item.quantity <= 0}
-											>
-												<Minus className="w-4 h-4" />
-											</Button>
-										</MemberOnly>
-									</div>
-								</div>
-							))}
-						</div>
+								))}
+							</div>
+						</details>
 					)}
 				</CardContent>
 			</Card>

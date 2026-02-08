@@ -128,9 +128,11 @@ export interface BlueprintEditorViewProps {
 	onOpenDeleteDrawers: (drawerIds: string[]) => void;
 	onCloseDeleteDrawers: (open: boolean) => void;
 	onConfirmDeleteDrawers: () => void;
+	onForceDeleteDrawers: () => void;
 	onOpenDeleteCompartment: (compartmentId: string) => void;
 	onCloseDeleteCompartment: (open: boolean) => void;
 	onConfirmDeleteCompartment: () => void;
+	onForceDeleteCompartment: () => void;
 	onDrawerLabelDraftChange: (value: string) => void;
 	onCompartmentLabelDraftChange: (value: string) => void;
 	onSaveDrawerLabel: () => void;

@@ -105,9 +105,11 @@ export function BlueprintEditorView({
 	onOpenDeleteDrawers,
 	onCloseDeleteDrawers,
 	onConfirmDeleteDrawers,
+	onForceDeleteDrawers,
 	onOpenDeleteCompartment,
 	onCloseDeleteCompartment,
 	onConfirmDeleteCompartment,
+	onForceDeleteCompartment,
 	onDrawerLabelDraftChange,
 	onCompartmentLabelDraftChange,
 	onSaveDrawerLabel,
@@ -567,24 +569,28 @@ export function BlueprintEditorView({
 				}
 				description={
 					pendingDeleteDrawerIds.length > 1
-						? `Are you sure you want to delete ${pendingDeleteDrawerIds.length} drawers? All compartments inside them will also be deleted.`
-						: "Are you sure you want to delete this drawer? All compartments inside it will also be deleted."
+						? `Are you sure you want to delete ${pendingDeleteDrawerIds.length} drawers? All compartments inside them will also be deleted. If any compartments contain inventory, use "Force Delete" to remove inventory as well.`
+						: 'Are you sure you want to delete this drawer? All compartments inside it will also be deleted. If any compartments contain inventory, use "Force Delete" to remove inventory as well.'
 				}
 				confirmLabel="Delete"
 				cancelLabel="Cancel"
 				onConfirm={() => void onConfirmDeleteDrawers()}
 				variant="destructive"
+				extraActionLabel="Force Delete (with inventory)"
+				onExtraAction={() => void onForceDeleteDrawers()}
 			/>
 
 			<AlertDialog
 				open={showDeleteCompartmentDialog}
 				onOpenChange={onCloseDeleteCompartment}
 				title="Delete Compartment"
-				description="Are you sure you want to delete this compartment? This cannot be undone."
+				description={'Are you sure you want to delete this compartment? If it contains inventory, use "Force Delete" to remove inventory as well.'}
 				confirmLabel="Delete"
 				cancelLabel="Cancel"
 				onConfirm={() => void onConfirmDeleteCompartment()}
 				variant="destructive"
+				extraActionLabel="Force Delete (with inventory)"
+				onExtraAction={() => void onForceDeleteCompartment()}
 			/>
 
 			{showVersionHistory && (

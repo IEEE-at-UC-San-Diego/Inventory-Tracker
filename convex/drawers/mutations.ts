@@ -187,11 +187,14 @@ export const update = mutation({
 /**
  * Delete a drawer and all its compartments
  * Requires General Officers role and active lock on the blueprint
+ * When force=true, deletes inventory records in compartments first.
+ * Otherwise fails if any compartment contains inventory.
  */
 export const deleteDrawer = mutation({
   args: {
     authContext: authContextSchema,
     drawerId: v.id('drawers'),
+    force: v.optional(v.boolean()),
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
@@ -219,12 +222,18 @@ export const deleteDrawer = mutation({
       const inventory = await ctx.db
         .query('inventory')
         .withIndex('by_compartmentId', (q) => q.eq('compartmentId', compartment._id))
-        .take(1)
+        .collect()
 
       if (inventory.length > 0) {
-        throw new Error(
-          `Cannot delete drawer: compartment "${compartment.label || compartment._id}" contains inventory. Remove inventory first.`
-        )
+        if (args.force) {
+          for (const inv of inventory) {
+            await ctx.db.delete(inv._id)
+          }
+        } else {
+          throw new Error(
+            `Cannot delete drawer: compartment "${compartment.label || compartment._id}" contains inventory. Remove inventory first.`
+          )
+        }
       }
     }
 

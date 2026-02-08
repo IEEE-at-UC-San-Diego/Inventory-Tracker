@@ -20,7 +20,7 @@ interface DrawerShapeProps {
 	onSelect: (drawer: Drawer) => void;
 }
 
-const HANDLE_SIZE = 14;
+const HANDLE_SIZE = 24;
 
 const RESIZE_HANDLES = [
 	{ handle: "nw" },

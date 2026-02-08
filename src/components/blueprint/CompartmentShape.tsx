@@ -16,6 +16,7 @@ interface CompartmentShapeProps {
 	highlighted?: boolean;
 	highlightColor?: string;
 	inventoryCount?: number;
+	gridLabel?: string;
 	isDragOrigin?: boolean;
 	isDropTarget?: boolean;
 	performanceMode?: boolean;
@@ -89,6 +90,7 @@ export const CompartmentShape = memo(function CompartmentShape({
 	highlighted = false,
 	highlightColor,
 	inventoryCount = 0,
+	gridLabel,
 	isDragOrigin = false,
 	isDropTarget = false,
 	performanceMode = false,
@@ -307,6 +309,21 @@ export const CompartmentShape = memo(function CompartmentShape({
 					align="center"
 					verticalAlign="middle"
 					ellipsis
+					perfectDrawEnabled={false}
+					listening={false}
+				/>
+			)}
+
+			{/* Grid position label (e.g. A1, B2) */}
+			{gridLabel && compartment.width >= 40 && compartment.height >= 30 && (
+				<Text
+					x={-compartment.width / 2 + 3}
+					y={compartment.height / 2 - 14}
+					text={gridLabel}
+					fontSize={9}
+					fontFamily="system-ui, -apple-system, sans-serif"
+					fill="#94a3b8"
+					fontStyle="bold"
 					perfectDrawEnabled={false}
 					listening={false}
 				/>

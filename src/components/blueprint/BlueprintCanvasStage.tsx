@@ -225,6 +225,94 @@ export function BlueprintCanvasStage({
 		return result;
 	}, [drawersForRender, highlightedCompartmentIdSet]);
 
+	const overlapDrawerIds = useMemo(() => {
+		const result = new Set<string>();
+
+		// Drawers overlapping with a resize operation
+		if (draftResize && !draftResize.isValid) {
+			const halfW = draftResize.currentWidth / 2;
+			const halfH = draftResize.currentHeight / 2;
+			for (const other of drawersForRender) {
+				if (other._id === draftResize.drawerId) continue;
+				const halfOW = other.width / 2;
+				const halfOH = other.height / 2;
+				if (
+					Math.abs(draftResize.currentX - other.x) < halfW + halfOW &&
+					Math.abs(draftResize.currentY - other.y) < halfH + halfOH
+				) {
+					result.add(other._id);
+				}
+			}
+		}
+
+		// Drawers overlapping with a move operation
+		if (invalidDrop) {
+			const movingDrawers = drawersForRender.filter((d) => selectedDrawerIdSet.has(d._id));
+			const staticDrawers = drawersForRender.filter((d) => !selectedDrawerIdSet.has(d._id));
+			for (const moving of movingDrawers) {
+				const mHalfW = moving.width / 2;
+				const mHalfH = moving.height / 2;
+				for (const other of staticDrawers) {
+					const oHalfW = other.width / 2;
+					const oHalfH = other.height / 2;
+					if (
+						Math.abs(moving.x - other.x) < mHalfW + oHalfW &&
+						Math.abs(moving.y - other.y) < mHalfH + oHalfH
+					) {
+						result.add(other._id);
+					}
+				}
+			}
+		}
+
+		return result;
+	}, [draftResize, drawersForRender, invalidDrop, selectedDrawerIdSet]);
+
+	const compartmentGridLabels = useMemo(() => {
+		const labels = new Map<string, string>();
+		const SNAP = 2;
+		for (const drawer of drawersForRender) {
+			if (drawer.compartments.length === 0) continue;
+			// Collect unique top-edges (rows) and left-edges (columns)
+			const topEdges = new Set<number>();
+			const leftEdges = new Set<number>();
+			for (const c of drawer.compartments) {
+				const top = c.y - c.height / 2;
+				const left = c.x - c.width / 2;
+				// Snap to nearest existing edge
+				let foundTop = false;
+				for (const t of topEdges) {
+					if (Math.abs(t - top) <= SNAP) { foundTop = true; break; }
+				}
+				if (!foundTop) topEdges.add(top);
+				let foundLeft = false;
+				for (const l of leftEdges) {
+					if (Math.abs(l - left) <= SNAP) { foundLeft = true; break; }
+				}
+				if (!foundLeft) leftEdges.add(left);
+			}
+			const sortedRows = [...topEdges].sort((a, b) => a - b);
+			const sortedCols = [...leftEdges].sort((a, b) => a - b);
+
+			for (const c of drawer.compartments) {
+				const top = c.y - c.height / 2;
+				const left = c.x - c.width / 2;
+				let rowIdx = 0;
+				for (let i = 0; i < sortedRows.length; i++) {
+					if (Math.abs(sortedRows[i] - top) <= SNAP) { rowIdx = i; break; }
+				}
+				let colIdx = 0;
+				for (let i = 0; i < sortedCols.length; i++) {
+					if (Math.abs(sortedCols[i] - left) <= SNAP) { colIdx = i; break; }
+				}
+				const rowLetter = String.fromCharCode(65 + (rowIdx % 26));
+				const colNumber = colIdx + 1;
+				labels.set(c._id, `${rowLetter}${colNumber}`);
+			}
+		}
+		return labels;
+	}, [drawersForRender]);
+
 	const gridLines = useMemo(() => {
 		const lines = [];
 		const zoom = viewport.zoom;
@@ -421,7 +509,11 @@ export function BlueprintCanvasStage({
 							performanceMode={performanceMode}
 							showLabel={showLabels}
 							highlighted={highlightedDrawerIdSet.has(drawer._id)}
-							invalidDrop={invalidDrop && selectedDrawerIdSet.has(drawer._id)}
+							invalidDrop={
+							(invalidDrop && selectedDrawerIdSet.has(drawer._id)) ||
+							(draftResize !== null && draftResize.drawerId === drawer._id && !draftResize.isValid) ||
+							overlapDrawerIds.has(drawer._id)
+						}
 							onSelect={handleDrawerSelect}
 						/>
 					))}
@@ -455,6 +547,7 @@ export function BlueprintCanvasStage({
 								inventoryCount={
 									compartmentsWithInventory?.get(compartment._id) ?? 0
 								}
+								gridLabel={compartmentGridLabels.get(compartment._id)}
 								onSelect={handleCompartmentSelect}
 								onDoubleClick={handleCompartmentDoubleClick}
 								onDragStart={handleCompartmentDragStart}

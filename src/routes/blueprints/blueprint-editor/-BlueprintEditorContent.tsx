@@ -447,10 +447,11 @@ export function BlueprintEditorContent() {
 		});
 
 	const handleDeleteDrawers = useCallback(
-		async (drawerIds: string[]) => {
+		async (drawerIds: string[], force?: boolean) => {
 			await deleteDrawersWithHistory({
 				drawerIds,
 				drawers,
+				force,
 				getRequiredAuthContext,
 				deleteDrawer,
 				pushHistoryEntry,
@@ -481,10 +482,11 @@ export function BlueprintEditorContent() {
 	);
 
 	const handleDeleteCompartment = useCallback(
-		async (compartmentId: string) => {
+		async (compartmentId: string, force?: boolean) => {
 			const ok = await deleteCompartmentWithHistory({
 				compartmentId,
 				drawers,
+				force,
 				getRequiredAuthContext,
 				deleteCompartment,
 				setGridForDrawer,
@@ -522,7 +524,6 @@ export function BlueprintEditorContent() {
 			const didSplit = await splitDrawerWithHistory({
 				split,
 				drawers,
-				compartmentsWithInventory,
 				isLockedByMe,
 				getRequiredAuthContext,
 				createCompartment,
@@ -532,11 +533,10 @@ export function BlueprintEditorContent() {
 				toast,
 			});
 			if (didSplit) {
-				setTool("select");
+				// Tool persistence: keep the split tool active for repeated use
 			}
 		},
 		[
-			compartmentsWithInventory,
 			createCompartment,
 			drawers,
 			getRequiredAuthContext,
@@ -661,9 +661,23 @@ export function BlueprintEditorContent() {
 		setShowDeleteDrawerDialog(false);
 	}, [pendingDeleteDrawerIds, handleDeleteDrawers]);
 
+	const forceDeleteDrawer = useCallback(async () => {
+		if (pendingDeleteDrawerIds.length === 0) return;
+		await handleDeleteDrawers(pendingDeleteDrawerIds, true);
+		setPendingDeleteDrawerIds([]);
+		setShowDeleteDrawerDialog(false);
+	}, [pendingDeleteDrawerIds, handleDeleteDrawers]);
+
 	const confirmDeleteCompartment = useCallback(async () => {
 		if (!pendingDeleteCompartmentId) return;
 		await handleDeleteCompartment(pendingDeleteCompartmentId);
+		setPendingDeleteCompartmentId(null);
+		setShowDeleteCompartmentDialog(false);
+	}, [pendingDeleteCompartmentId, handleDeleteCompartment]);
+
+	const forceDeleteCompartment = useCallback(async () => {
+		if (!pendingDeleteCompartmentId) return;
+		await handleDeleteCompartment(pendingDeleteCompartmentId, true);
 		setPendingDeleteCompartmentId(null);
 		setShowDeleteCompartmentDialog(false);
 	}, [pendingDeleteCompartmentId, handleDeleteCompartment]);
@@ -818,12 +832,14 @@ export function BlueprintEditorContent() {
 				if (!open) setPendingDeleteDrawerIds([]);
 			}}
 			onConfirmDeleteDrawers={confirmDeleteDrawer}
+			onForceDeleteDrawers={forceDeleteDrawer}
 			onOpenDeleteCompartment={(compartmentId) => {
 				setPendingDeleteCompartmentId(compartmentId);
 				setShowDeleteCompartmentDialog(true);
 			}}
 			onCloseDeleteCompartment={setShowDeleteCompartmentDialog}
 			onConfirmDeleteCompartment={confirmDeleteCompartment}
+			onForceDeleteCompartment={forceDeleteCompartment}
 			onDrawerLabelDraftChange={setDrawerLabelDraft}
 			onCompartmentLabelDraftChange={setCompartmentLabelDraft}
 			onSaveDrawerLabel={() => {

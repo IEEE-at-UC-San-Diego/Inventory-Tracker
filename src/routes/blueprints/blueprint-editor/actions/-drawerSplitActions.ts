@@ -17,7 +17,6 @@ interface SplitDrawerWithHistoryArgs {
 		targetCompartmentId?: string | null;
 	};
 	drawers: DrawerWithCompartments[];
-	compartmentsWithInventory: Map<string, number>;
 	isLockedByMe: boolean;
 	getRequiredAuthContext: () => Promise<AuthContext>;
 	createCompartment: DrawerMutationFns["createCompartment"];
@@ -30,7 +29,6 @@ interface SplitDrawerWithHistoryArgs {
 export async function splitDrawerWithHistory({
 	split,
 	drawers,
-	compartmentsWithInventory,
 	isLockedByMe,
 	getRequiredAuthContext,
 	createCompartment,
@@ -96,17 +94,7 @@ export async function splitDrawerWithHistory({
 					height: drawer.height,
 				};
 
-		if (target._id) {
-			const qty = compartmentsWithInventory.get(target._id) ?? 0;
-			if (qty > 0) {
-				toast.error(
-					"Can't split a compartment that contains inventory. Move inventory out first.",
-				);
-				return false;
-			}
-		}
-
-		if (split.orientation === "vertical") {
+			if (split.orientation === "vertical") {
 			const leftEdge = target.x - target.width / 2;
 			const rightEdge = target.x + target.width / 2;
 			const leftW = position - leftEdge;

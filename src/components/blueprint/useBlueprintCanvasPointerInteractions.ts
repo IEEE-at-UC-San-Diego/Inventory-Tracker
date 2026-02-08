@@ -241,6 +241,7 @@ export function useBlueprintCanvasPointerInteractions({
 			}
 
 			if (tool === "split" && isLockedByMe && world) {
+				// Prefer hoverSplit drawer, then selected drawer, then drawer under pointer
 				const drawer =
 					(hoverSplit
 						? (drawers.find((d) => d._id === hoverSplit.drawerId) ?? null)
@@ -249,7 +250,16 @@ export function useBlueprintCanvasPointerInteractions({
 							: findDrawerAtWorldPoint(world)) ?? null;
 				if (!drawer) return;
 
-				const hoveredComp = findCompartmentAtWorldPoint(drawer, world);
+				// Use a slightly expanded hit-test to be more forgiving near edges
+				let hoveredComp = findCompartmentAtWorldPoint(drawer, world);
+				if (!hoveredComp && drawer.compartments.length > 0) {
+					// Try snapped position as fallback
+					const snappedPt = {
+						x: snapToGrid(world.x),
+						y: snapToGrid(world.y),
+					};
+					hoveredComp = findCompartmentAtWorldPoint(drawer, snappedPt);
+				}
 				if (drawer.compartments.length > 0 && !hoveredComp) {
 					return;
 				}
@@ -267,14 +277,8 @@ export function useBlueprintCanvasPointerInteractions({
 					halfH,
 				);
 
-				const position =
-					splitOrientation === "vertical"
-						? hoverSplit?.orientation === splitOrientation
-							? hoverSplit.position
-							: localX
-						: hoverSplit?.orientation === splitOrientation
-							? hoverSplit.position
-							: localY;
+				// Always use the computed local position from the actual click point
+				const position = splitOrientation === "vertical" ? localX : localY;
 
 				setDraftSplit({
 					drawerId: drawer._id,
@@ -593,7 +597,14 @@ export function useBlueprintCanvasPointerInteractions({
 					if (!drawer) {
 						setHoverSplitIfChanged(null);
 					} else {
-						const hoveredComp = findCompartmentAtWorldPoint(drawer, world);
+						let hoveredComp = findCompartmentAtWorldPoint(drawer, world);
+						if (!hoveredComp && drawer.compartments.length > 0) {
+							const snappedPt = {
+								x: snapToGrid(world.x),
+								y: snapToGrid(world.y),
+							};
+							hoveredComp = findCompartmentAtWorldPoint(drawer, snappedPt);
+						}
 						if (drawer.compartments.length > 0 && !hoveredComp) {
 							setHoverSplitIfChanged(null);
 							return;
