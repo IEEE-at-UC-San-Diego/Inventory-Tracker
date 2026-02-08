@@ -52,6 +52,28 @@ export interface DraftResize {
 	currentY: number;
 	currentWidth: number;
 	currentHeight: number;
+	/** Initial mouse world position to compute deltas from */
+	mouseStartX: number;
+	mouseStartY: number;
+	/** Whether the current resize dimensions are valid (meets min size, no overlap) */
+	isValid: boolean;
+}
+
+export interface DraftDividerMove {
+	dividerId: string;
+	handle: "start" | "end" | "line";
+	startX: number;
+	startY: number;
+	currentX: number;
+	currentY: number;
+	/** For "line" handle: original x1,y1,x2,y2 of the divider */
+	origX1?: number;
+	origY1?: number;
+	origX2?: number;
+	origY2?: number;
+	/** For "line" handle: initial mouse world position */
+	mouseStartX?: number;
+	mouseStartY?: number;
 }
 
 export interface SelectionBox {
@@ -118,6 +140,7 @@ export interface UseBlueprintCanvasPointerInteractionsParams {
 		x2: number;
 		y2: number;
 	}) => void;
+	onUpdateDivider?: (dividerId: string, updates: { x1: number; y1: number; x2: number; y2: number }) => void;
 }
 
 export interface UseBlueprintCanvasPointerInteractionsResult {
@@ -131,6 +154,7 @@ export interface UseBlueprintCanvasPointerInteractionsResult {
 	>;
 	draftResize: DraftResize | null;
 	draftDivider: DraftDivider | null;
+	draftDividerMove: DraftDividerMove | null;
 	selectionBox: SelectionBox | null;
 	drawerPositionOverrides: Record<string, { x: number; y: number }> | null;
 	invalidDrop: boolean;

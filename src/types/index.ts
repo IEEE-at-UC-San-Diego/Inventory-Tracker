@@ -323,6 +323,7 @@ export interface CanvasBounds {
 export type SelectedElement =
 	| { type: "drawer"; id: string; data: Drawer }
 	| { type: "compartment"; id: string; data: Compartment; drawerId: string }
+	| { type: "divider"; id: string; data: Divider }
 	| null;
 
 export type CanvasMode = "view" | "edit";

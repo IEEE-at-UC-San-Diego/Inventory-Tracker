@@ -112,6 +112,8 @@ export function BlueprintEditorContent() {
 	);
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const createDividerMutation = useMutation((api as any).dividers.mutations.create);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const updateDividerMutation = useMutation((api as any).dividers.mutations.update);
 
 	const blueprintData = useQuery(
 		api.blueprints.queries.getWithHierarchy,
@@ -594,9 +596,9 @@ export function BlueprintEditorContent() {
 	);
 
 	const handleCreateDivider = useCallback(
-		(divider: { x1: number; y1: number; x2: number; y2: number }) => {
-			const authCtx = getRequiredAuthContext();
-			void createDividerMutation({
+		async (divider: { x1: number; y1: number; x2: number; y2: number }) => {
+			const authCtx = await getRequiredAuthContext();
+			await createDividerMutation({
 				authContext: authCtx,
 				blueprintId: blueprintId as Id<"blueprints">,
 				x1: divider.x1,
@@ -607,6 +609,19 @@ export function BlueprintEditorContent() {
 			setHasChanges(true);
 		},
 		[blueprintId, createDividerMutation, getRequiredAuthContext],
+	);
+
+	const handleUpdateDivider = useCallback(
+		async (dividerId: string, updates: { x1: number; y1: number; x2: number; y2: number }) => {
+			const authCtx = await getRequiredAuthContext();
+			await updateDividerMutation({
+				authContext: authCtx,
+				dividerId: dividerId as Id<"dividers">,
+				...updates,
+			});
+			setHasChanges(true);
+		},
+		[updateDividerMutation, getRequiredAuthContext],
 	);
 
 	const handleUpdateCompartmentWithHistory = useCallback(
@@ -752,6 +767,7 @@ export function BlueprintEditorContent() {
 			onUpdateCompartment={handleUpdateCompartmentWithHistory}
 			onResizeDrawer={handleResizeDrawer}
 			onCreateDivider={handleCreateDivider}
+			onUpdateDivider={handleUpdateDivider}
 			onViewportChange={handleViewportChange}
 			onToolChange={setTool}
 			onZoomIn={handleZoomIn}

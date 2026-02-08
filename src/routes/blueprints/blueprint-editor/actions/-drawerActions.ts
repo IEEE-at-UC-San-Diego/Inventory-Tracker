@@ -299,57 +299,201 @@ export async function updateDrawerWithHistory({
 			});
 		}
 
-		if (willScaleCompartments) {
-			const scaleX = newW / drawer.width;
-			const scaleY = newH / drawer.height;
+		if (willScaleCompartments && drawer.compartments.length > 0) {
+			const halfW = newW / 2;
+			const halfH = newH / 2;
+
+			// Detect grid structure by finding unique column/row boundaries
+			// Compartment coordinates are relative to drawer center
+			const SNAP_TOLERANCE = 2;
+			const snapGroup = (values: number[]) => {
+				const sorted = [...values].sort((a, b) => a - b);
+				const groups: number[] = [];
+				for (const v of sorted) {
+					if (groups.length === 0 || Math.abs(v - groups[groups.length - 1]) > SNAP_TOLERANCE) {
+						groups.push(v);
+					}
+				}
+				return groups;
+			};
+
+			// Collect left edges and top edges of compartments in drawer-local coords
+			const leftEdges = drawer.compartments.map((c) => c.x - c.width / 2);
+			const topEdges = drawer.compartments.map((c) => c.y - c.height / 2);
+			const rightEdges = drawer.compartments.map((c) => c.x + c.width / 2);
+			const bottomEdges = drawer.compartments.map((c) => c.y + c.height / 2);
+
+			// Find unique column start positions and row start positions
+			const colStarts = snapGroup(leftEdges);
+			const rowStarts = snapGroup(topEdges);
+
+			// For each column, find its right edge (max right edge of compartments starting in that column)
+			const colEnds: number[] = colStarts.map((cs) => {
+				let maxRight = cs + DRAWER_GRID_SIZE;
+				for (let k = 0; k < drawer.compartments.length; k++) {
+					if (Math.abs(leftEdges[k] - cs) <= SNAP_TOLERANCE) {
+						maxRight = Math.max(maxRight, rightEdges[k]);
+					}
+				}
+				return maxRight;
+			});
+
+			// For each row, find its bottom edge
+			const rowEnds: number[] = rowStarts.map((rs) => {
+				let maxBottom = rs + DRAWER_GRID_SIZE;
+				for (let k = 0; k < drawer.compartments.length; k++) {
+					if (Math.abs(topEdges[k] - rs) <= SNAP_TOLERANCE) {
+						maxBottom = Math.max(maxBottom, bottomEdges[k]);
+					}
+				}
+				return maxBottom;
+			});
+
+			// Compute proportional widths for each column and heights for each row
+			const totalOldW = drawer.width;
+			const totalOldH = drawer.height;
+			const colWidths = colStarts.map((cs, i) => colEnds[i] - cs);
+			const rowHeights = rowStarts.map((rs, i) => rowEnds[i] - rs);
+			const colWidthSum = colWidths.reduce((a, b) => a + b, 0);
+			const rowHeightSum = rowHeights.reduce((a, b) => a + b, 0);
+
+			// Distribute new drawer dimensions across columns/rows proportionally
+			// Each column gets at least DRAWER_GRID_SIZE
+			const newColWidths = colWidths.map((w) =>
+				Math.max(DRAWER_GRID_SIZE, Math.floor((w / (colWidthSum || totalOldW)) * newW / DRAWER_GRID_SIZE) * DRAWER_GRID_SIZE),
+			);
+			const newRowHeights = rowHeights.map((h) =>
+				Math.max(DRAWER_GRID_SIZE, Math.floor((h / (rowHeightSum || totalOldH)) * newH / DRAWER_GRID_SIZE) * DRAWER_GRID_SIZE),
+			);
+
+			// Distribute any remaining space to the last column/row
+			const usedW = newColWidths.reduce((a, b) => a + b, 0);
+			const usedH = newRowHeights.reduce((a, b) => a + b, 0);
+			if (newColWidths.length > 0) {
+				newColWidths[newColWidths.length - 1] += newW - usedW;
+			}
+			if (newRowHeights.length > 0) {
+				newRowHeights[newRowHeights.length - 1] += newH - usedH;
+			}
+
+			// Compute new column start positions (left edges in new drawer-local coords)
+			const newColStarts: number[] = [];
+			let cx = -halfW;
+			for (const w of newColWidths) {
+				newColStarts.push(cx);
+				cx += w;
+			}
+			const newRowStarts: number[] = [];
+			let cy = -halfH;
+			for (const h of newRowHeights) {
+				newRowStarts.push(cy);
+				cy += h;
+			}
+
+			// Map each compartment to its grid cell and compute new position/size
+			const scaled: Array<{
+				comp: Compartment;
+				x: number;
+				y: number;
+				width: number;
+				height: number;
+			}> = [];
+
 			for (const comp of drawer.compartments) {
-				const scaledW = Math.max(
-					DRAWER_GRID_SIZE,
-					snapToGrid(comp.width * scaleX),
-				);
-				const scaledH = Math.max(
-					DRAWER_GRID_SIZE,
-					snapToGrid(comp.height * scaleY),
-				);
-				const scaledX = comp.x * scaleX;
-				const scaledY = comp.y * scaleY;
+				const compLeft = comp.x - comp.width / 2;
+				const compTop = comp.y - comp.height / 2;
 
-				const absCenterX = (updates.x ?? drawer.x) + scaledX;
-				const absCenterY = (updates.y ?? drawer.y) + scaledY;
-				const snappedAbsX = snapCenterToGridEdges(absCenterX, scaledW);
-				const snappedAbsY = snapCenterToGridEdges(absCenterY, scaledH);
-				const finalRelX = snappedAbsX - (updates.x ?? drawer.x);
-				const finalRelY = snappedAbsY - (updates.y ?? drawer.y);
+				// Find which column and row this compartment belongs to
+				let colIdx = 0;
+				for (let k = 0; k < colStarts.length; k++) {
+					if (Math.abs(compLeft - colStarts[k]) <= SNAP_TOLERANCE) {
+						colIdx = k;
+						break;
+					}
+				}
+				let rowIdx = 0;
+				for (let k = 0; k < rowStarts.length; k++) {
+					if (Math.abs(compTop - rowStarts[k]) <= SNAP_TOLERANCE) {
+						rowIdx = k;
+						break;
+					}
+				}
 
-				const halfW = newW / 2;
-				const halfH = newH / 2;
-				const halfCW = scaledW / 2;
-				const halfCH = scaledH / 2;
+				// Determine how many columns/rows this compartment spans
+				const compRight = comp.x + comp.width / 2;
+				const compBottom = comp.y + comp.height / 2;
+				let colSpan = 1;
+				for (let k = colIdx + 1; k < colStarts.length; k++) {
+					if (colStarts[k] < compRight - SNAP_TOLERANCE) {
+						colSpan++;
+					} else {
+						break;
+					}
+				}
+				let rowSpan = 1;
+				for (let k = rowIdx + 1; k < rowStarts.length; k++) {
+					if (rowStarts[k] < compBottom - SNAP_TOLERANCE) {
+						rowSpan++;
+					} else {
+						break;
+					}
+				}
+
+				// Compute new size from spanned columns/rows
+				let newCompW = 0;
+				for (let k = colIdx; k < colIdx + colSpan && k < newColWidths.length; k++) {
+					newCompW += newColWidths[k];
+				}
+				let newCompH = 0;
+				for (let k = rowIdx; k < rowIdx + rowSpan && k < newRowHeights.length; k++) {
+					newCompH += newRowHeights[k];
+				}
+				newCompW = Math.max(DRAWER_GRID_SIZE, newCompW);
+				newCompH = Math.max(DRAWER_GRID_SIZE, newCompH);
+
+				// Compute new center position
+				const newLeft = newColStarts[colIdx] ?? -halfW;
+				const newTop = newRowStarts[rowIdx] ?? -halfH;
+				const newCenterX = newLeft + newCompW / 2;
+				const newCenterY = newTop + newCompH / 2;
+
+				// Clamp within drawer bounds
 				const clampedX = Math.max(
-					-halfW + halfCW,
-					Math.min(halfW - halfCW, finalRelX),
+					-halfW + newCompW / 2,
+					Math.min(halfW - newCompW / 2, newCenterX),
 				);
 				const clampedY = Math.max(
-					-halfH + halfCH,
-					Math.min(halfH - halfCH, finalRelY),
+					-halfH + newCompH / 2,
+					Math.min(halfH - newCompH / 2, newCenterY),
 				);
 
-				const compPrev: Partial<Compartment> = {
-					x: comp.x,
-					y: comp.y,
-					width: comp.width,
-					height: comp.height,
-				};
-				const compNext: Partial<Compartment> = {
+				scaled.push({
+					comp,
 					x: clampedX,
 					y: clampedY,
-					width: scaledW,
-					height: scaledH,
+					width: newCompW,
+					height: newCompH,
+				});
+			}
+
+			// Persist all compartment updates
+			for (const entry of scaled) {
+				const compPrev: Partial<Compartment> = {
+					x: entry.comp.x,
+					y: entry.comp.y,
+					width: entry.comp.width,
+					height: entry.comp.height,
+				};
+				const compNext: Partial<Compartment> = {
+					x: entry.x,
+					y: entry.y,
+					width: entry.width,
+					height: entry.height,
 				};
 
 				await updateCompartment({
 					authContext: context,
-					compartmentId: comp._id as Id<"compartments">,
+					compartmentId: entry.comp._id as Id<"compartments">,
 					x: compNext.x,
 					y: compNext.y,
 					width: compNext.width,
@@ -358,7 +502,7 @@ export async function updateDrawerWithHistory({
 
 				steps.push({
 					type: "updateCompartment",
-					compartmentId: comp._id,
+					compartmentId: entry.comp._id,
 					prev: compPrev,
 					next: compNext,
 				});

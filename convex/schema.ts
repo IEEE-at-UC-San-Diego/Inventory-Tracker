@@ -70,6 +70,7 @@ export default defineSchema({
     archived: v.boolean(),
     orgId: v.id('organizations'),
     unit: v.string(), // Unit of measurement (e.g., "pcs", "meters", "kg")
+    tags: v.optional(v.array(v.string())), // Tags for categorization
     createdAt: v.number(),
     updatedAt: v.number(),
   })

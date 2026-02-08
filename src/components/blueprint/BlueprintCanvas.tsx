@@ -10,6 +10,7 @@ import type React from "react";
 import type {
 	CanvasMode,
 	Compartment,
+	Divider,
 	Drawer,
 	DrawerWithCompartments,
 	SelectedElement,
@@ -71,6 +72,7 @@ interface BlueprintCanvasProps {
 		x2: number;
 		y2: number;
 	}) => void;
+	onUpdateDivider?: (dividerId: string, updates: { x1: number; y1: number; x2: number; y2: number }) => void;
 	onViewportChange?: (viewport: Viewport) => void;
 	onSplitOrientationChange?: (
 		orientation: "vertical" | "horizontal",
@@ -124,6 +126,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		onUpdateCompartment,
 		onResizeDrawer,
 		onCreateDivider,
+		onUpdateDivider,
 		onViewportChange,
 		onSplitOrientationChange,
 		toggleSplitOrientationRef,
@@ -324,6 +327,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		setSplitOrientation,
 		draftResize,
 		draftDivider,
+		draftDividerMove,
 		selectionBox,
 		drawerPositionOverrides,
 		invalidDrop,
@@ -354,6 +358,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		onUpdateDrawers,
 		onResizeDrawer,
 		onCreateDivider,
+		onUpdateDivider,
 	});
 
 	useEffect(() => {
@@ -375,6 +380,16 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			onSelectionChange({
 				selectedElement: { type: "drawer", id: drawer._id, data: drawer },
 				selectedDrawerIds: [drawer._id],
+			});
+		},
+		[onSelectionChange],
+	);
+
+	const handleDividerSelect = useCallback(
+		(dividerId: string, divider: { _id: string; x1: number; y1: number; x2: number; y2: number; thickness: number }) => {
+			onSelectionChange({
+				selectedElement: { type: "divider", id: dividerId, data: divider as Divider },
+				selectedDrawerIds: [],
 			});
 		},
 		[onSelectionChange],
@@ -472,6 +487,8 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			hoverSplit={hoverSplit}
 			draftSplit={draftSplit}
 			draftDivider={draftDivider}
+			draftDividerMove={draftDividerMove}
+			draftResize={draftResize}
 			dragState={dragState}
 			dragHover={dragHover}
 			dragOverlays={dragOverlays}
@@ -481,6 +498,7 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			handleMouseMove={handleMouseMove}
 			handleMouseUp={handleMouseUp}
 			handleDrawerSelect={handleDrawerSelect}
+			handleDividerSelect={handleDividerSelect}
 			handleCompartmentSelect={handleCompartmentSelect}
 			handleCompartmentDoubleClick={handleCompartmentDoubleClick}
 			handleCompartmentDragStart={handleCompartmentDragStart}

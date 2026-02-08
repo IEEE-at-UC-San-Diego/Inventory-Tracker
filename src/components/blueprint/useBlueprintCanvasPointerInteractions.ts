@@ -2,6 +2,7 @@ import type { KonvaEventObject, Node as KonvaNode } from "konva/lib/Node";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
 	DraftDivider,
+	DraftDividerMove,
 	DraftDrawer,
 	DraftResize,
 	DraftSplit,
@@ -36,6 +37,7 @@ export function useBlueprintCanvasPointerInteractions({
 	onUpdateDrawers,
 	onResizeDrawer,
 	onCreateDivider,
+	onUpdateDivider,
 }: UseBlueprintCanvasPointerInteractionsParams): UseBlueprintCanvasPointerInteractionsResult {
 	const [isPanning, setIsPanning] = useState(false);
 	const lastPointerPosition = useRef<{ x: number; y: number } | null>(null);
@@ -53,6 +55,7 @@ export function useBlueprintCanvasPointerInteractions({
 
 	const [draftResize, setDraftResize] = useState<DraftResize | null>(null);
 	const [draftDivider, setDraftDivider] = useState<DraftDivider | null>(null);
+	const [draftDividerMove, setDraftDividerMove] = useState<DraftDividerMove | null>(null);
 	const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
 
 	const movingSelectionRef = useRef<{
@@ -164,6 +167,24 @@ export function useBlueprintCanvasPointerInteractions({
 			return drawerId ?? null;
 		},
 		[getDrawerNodeFromEvent],
+	);
+
+	const getDividerMoveFromEvent = useCallback(
+		(e: KonvaEventObject<MouseEvent>): { dividerId: string; handle: "start" | "end" | "line" } | null => {
+			const target = e.target as KonvaNode;
+			const name = target.name?.() ?? "";
+			if (!name.startsWith("divider-move-")) return null;
+			const rest = name.slice("divider-move-".length);
+			// Format: "{handle}-{dividerId}" where handle is start/end/line
+			const firstDash = rest.indexOf("-");
+			if (firstDash === -1) return null;
+			const handle = rest.slice(0, firstDash) as "start" | "end" | "line";
+			if (handle !== "start" && handle !== "end" && handle !== "line") return null;
+			const dividerId = rest.slice(firstDash + 1);
+			if (!dividerId) return null;
+			return { dividerId, handle };
+		},
+		[],
 	);
 
 	const handleWheel = useCallback(
@@ -291,7 +312,50 @@ export function useBlueprintCanvasPointerInteractions({
 							currentY: drawer.y,
 							currentWidth: drawer.width,
 							currentHeight: drawer.height,
+							mouseStartX: world.x,
+							mouseStartY: world.y,
+							isValid: true,
 						});
+						lastPointerPosition.current = {
+							x: e.evt.clientX,
+							y: e.evt.clientY,
+						};
+						return;
+					}
+				}
+
+				// Handle divider endpoint/line dragging
+				const dividerMoveInfo = getDividerMoveFromEvent(e);
+				if (dividerMoveInfo && selectedElement?.type === "divider" && selectedElement.id === dividerMoveInfo.dividerId) {
+					const divider = selectedElement.data;
+					if (divider) {
+						if (dividerMoveInfo.handle === "line") {
+							setDraftDividerMove({
+								dividerId: divider._id,
+								handle: "line",
+								startX: divider.x1,
+								startY: divider.y1,
+								currentX: divider.x1,
+								currentY: divider.y1,
+								origX1: divider.x1,
+								origY1: divider.y1,
+								origX2: divider.x2,
+								origY2: divider.y2,
+								mouseStartX: world.x,
+								mouseStartY: world.y,
+							});
+						} else {
+							const startX = dividerMoveInfo.handle === "start" ? divider.x1 : divider.x2;
+							const startY = dividerMoveInfo.handle === "start" ? divider.y1 : divider.y2;
+							setDraftDividerMove({
+								dividerId: divider._id,
+								handle: dividerMoveInfo.handle,
+								startX,
+								startY,
+								currentX: startX,
+								currentY: startY,
+							});
+						}
 						lastPointerPosition.current = {
 							x: e.evt.clientX,
 							y: e.evt.clientY,
@@ -358,6 +422,7 @@ export function useBlueprintCanvasPointerInteractions({
 			drawers,
 			findCompartmentAtWorldPoint,
 			findDrawerAtWorldPoint,
+			getDividerMoveFromEvent,
 			getDrawerIdFromEvent,
 			getResizeHandleFromEvent,
 			getWorldPointer,
@@ -435,8 +500,9 @@ export function useBlueprintCanvasPointerInteractions({
 				if (!drawer) return;
 
 				const handle = draftResize.handle;
-				const rawDx = world.x - draftResize.startX;
-				const rawDy = world.y - draftResize.startY;
+				// Compute delta from initial mouse position, not drawer center
+				const mouseDx = world.x - draftResize.mouseStartX;
+				const mouseDy = world.y - draftResize.mouseStartY;
 
 				let newX = draftResize.startX;
 				let newY = draftResize.startY;
@@ -446,20 +512,52 @@ export function useBlueprintCanvasPointerInteractions({
 				const minSize = gridSize;
 
 				if (handle.includes("e")) {
-					newW = Math.max(minSize, snapToGrid(draftResize.startWidth + rawDx * 2));
+					newW = Math.max(minSize, snapToGrid(draftResize.startWidth + mouseDx * 2));
 				}
 				if (handle.includes("w")) {
-					newW = Math.max(minSize, snapToGrid(draftResize.startWidth - rawDx * 2));
+					newW = Math.max(minSize, snapToGrid(draftResize.startWidth - mouseDx * 2));
 				}
 				if (handle.includes("s")) {
-					newH = Math.max(minSize, snapToGrid(draftResize.startHeight + rawDy * 2));
+					newH = Math.max(minSize, snapToGrid(draftResize.startHeight + mouseDy * 2));
 				}
 				if (handle.includes("n")) {
-					newH = Math.max(minSize, snapToGrid(draftResize.startHeight - rawDy * 2));
+					newH = Math.max(minSize, snapToGrid(draftResize.startHeight - mouseDy * 2));
 				}
 
 				newX = snapCenterToGridEdges(draftResize.startX, newW);
 				newY = snapCenterToGridEdges(draftResize.startY, newH);
+
+				// Compute minimum dimensions based on compartment grid
+				// Each compartment must remain at least gridSize after proportional scaling
+				let minW = gridSize;
+				let minH = gridSize;
+				if (drawer.compartments && drawer.compartments.length > 0) {
+					const smallestCompW = Math.min(...drawer.compartments.map((c) => c.width));
+					const smallestCompH = Math.min(...drawer.compartments.map((c) => c.height));
+					if (smallestCompW > 0) {
+						minW = Math.max(minW, snapToGrid(drawer.width * (gridSize / smallestCompW)) || gridSize);
+					}
+					if (smallestCompH > 0) {
+						minH = Math.max(minH, snapToGrid(drawer.height * (gridSize / smallestCompH)) || gridSize);
+					}
+				}
+
+				const tooSmall = newW < minW || newH < minH;
+
+				// Check for overlap with other drawers
+				const halfNewW = newW / 2;
+				const halfNewH = newH / 2;
+				const overlapsOther = drawers.some((other) => {
+					if (other._id === draftResize.drawerId) return false;
+					const halfOW = other.width / 2;
+					const halfOH = other.height / 2;
+					return (
+						Math.abs(newX - other.x) < halfNewW + halfOW &&
+						Math.abs(newY - other.y) < halfNewH + halfOH
+					);
+				});
+
+				const isValid = !tooSmall && !overlapsOther;
 
 				setDraftResize((prev) => {
 					if (!prev) return prev;
@@ -469,6 +567,7 @@ export function useBlueprintCanvasPointerInteractions({
 						currentY: newY,
 						currentWidth: newW,
 						currentHeight: newH,
+						isValid,
 					};
 				});
 				return;
@@ -534,6 +633,20 @@ export function useBlueprintCanvasPointerInteractions({
 						...prev,
 						endX: snapToGrid(world.x),
 						endY: snapToGrid(world.y),
+					};
+				});
+				return;
+			}
+
+			if (draftDividerMove) {
+				const world = getWorldPointer();
+				if (!world) return;
+				setDraftDividerMove((prev) => {
+					if (!prev) return prev;
+					return {
+						...prev,
+						currentX: snapToGrid(world.x),
+						currentY: snapToGrid(world.y),
 					};
 				});
 				return;
@@ -608,6 +721,7 @@ export function useBlueprintCanvasPointerInteractions({
 		[
 			checkBulkMoveCollision,
 			draftDivider,
+			draftDividerMove,
 			draftDrawer,
 			draftResize,
 			draftSplit,
@@ -697,7 +811,8 @@ export function useBlueprintCanvasPointerInteractions({
 				resize.currentWidth !== resize.startWidth ||
 				resize.currentHeight !== resize.startHeight;
 
-			if (changed && onResizeDrawer) {
+			// Only commit if the resize is valid (meets min size, no overlap)
+			if (changed && resize.isValid && onResizeDrawer) {
 				onResizeDrawer(resize.drawerId, {
 					x: resize.currentX,
 					y: resize.currentY,
@@ -788,13 +903,48 @@ export function useBlueprintCanvasPointerInteractions({
 			const dy = divider.endY - divider.startY;
 			const length = Math.sqrt(dx * dx + dy * dy);
 
-			if (length >= gridSize) {
+			// Only create if user actually dragged (not just clicked)
+			if (length > 0) {
 				onCreateDivider?.({
 					x1: divider.startX,
 					y1: divider.startY,
 					x2: divider.endX,
 					y2: divider.endY,
 				});
+			}
+
+			panCandidate.current = null;
+			setIsPanning(false);
+			lastPointerPosition.current = null;
+			return;
+		}
+
+		if (draftDividerMove && isLockedByMe) {
+			const move = draftDividerMove;
+			setDraftDividerMove(null);
+
+			const changed = move.currentX !== move.startX || move.currentY !== move.startY;
+
+			if (changed && onUpdateDivider) {
+				if (move.handle === "line" && move.origX1 != null && move.origY1 != null && move.origX2 != null && move.origY2 != null && move.mouseStartX != null && move.mouseStartY != null) {
+					const dx = move.currentX - move.mouseStartX;
+					const dy = move.currentY - move.mouseStartY;
+					onUpdateDivider(move.dividerId, {
+						x1: snapToGrid(move.origX1 + dx),
+						y1: snapToGrid(move.origY1 + dy),
+						x2: snapToGrid(move.origX2 + dx),
+						y2: snapToGrid(move.origY2 + dy),
+					});
+				} else if (selectedElement?.type === "divider" && selectedElement.id === move.dividerId) {
+					const divider = selectedElement.data;
+					const updates = {
+						x1: move.handle === "start" ? move.currentX : divider.x1,
+						y1: move.handle === "start" ? move.currentY : divider.y1,
+						x2: move.handle === "end" ? move.currentX : divider.x2,
+						y2: move.handle === "end" ? move.currentY : divider.y2,
+					};
+					onUpdateDivider(move.dividerId, updates);
+				}
 			}
 
 			panCandidate.current = null;
@@ -813,6 +963,7 @@ export function useBlueprintCanvasPointerInteractions({
 	}, [
 		checkBulkMoveCollision,
 		draftDivider,
+		draftDividerMove,
 		draftDrawer,
 		draftResize,
 		draftSplit,
@@ -827,7 +978,10 @@ export function useBlueprintCanvasPointerInteractions({
 		onSelectionChange,
 		onSplitDrawerFromTool,
 		onUpdateDrawers,
+		onUpdateDivider,
 		selectionBox,
+		selectedElement,
+		snapToGrid,
 		tool,
 	]);
 
@@ -840,6 +994,7 @@ export function useBlueprintCanvasPointerInteractions({
 		setSplitOrientation,
 		draftResize,
 		draftDivider,
+		draftDividerMove,
 		selectionBox,
 		drawerPositionOverrides,
 		invalidDrop,

@@ -2,7 +2,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type { Stage as KonvaStage } from "konva/lib/Stage";
 import type React from "react";
 import { useMemo } from "react";
-import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { Group, Layer, Line, Rect, Stage, Text, Circle } from "react-konva";
 import type {
 	CanvasMode,
 	Compartment,
@@ -16,7 +16,9 @@ import { CompartmentShape } from "./CompartmentShape";
 import { DrawerShape } from "./DrawerShape";
 import type {
 	DraftDivider,
+	DraftDividerMove,
 	DraftDrawer,
+	DraftResize,
 	DraftSplit,
 	SelectionBox,
 } from "./useBlueprintCanvasPointerInteractions.types";
@@ -52,6 +54,8 @@ interface BlueprintCanvasStageProps {
 	hoverSplit: DraftSplit | null;
 	draftSplit: DraftSplit | null;
 	draftDivider: DraftDivider | null;
+	draftDividerMove: DraftDividerMove | null;
+	draftResize: DraftResize | null;
 	dragState: {
 		compartmentId: string;
 		fromDrawerId: string;
@@ -70,6 +74,7 @@ interface BlueprintCanvasStageProps {
 	handleMouseMove: (e: KonvaEventObject<MouseEvent>) => void;
 	handleMouseUp: () => void;
 	handleDrawerSelect: (drawer: Drawer) => void;
+	handleDividerSelect: (dividerId: string, divider: { _id: string; x1: number; y1: number; x2: number; y2: number; thickness: number }) => void;
 	handleCompartmentSelect: (compartment: Compartment, drawerId: string) => void;
 	handleCompartmentDoubleClick: (
 		compartment: Compartment,
@@ -177,6 +182,8 @@ export function BlueprintCanvasStage({
 	hoverSplit,
 	draftSplit,
 	draftDivider,
+	draftDividerMove,
+	draftResize,
 	dragState,
 	dragHover,
 	dragOverlays,
@@ -186,6 +193,7 @@ export function BlueprintCanvasStage({
 	handleMouseMove,
 	handleMouseUp,
 	handleDrawerSelect,
+	handleDividerSelect,
 	handleCompartmentSelect,
 	handleCompartmentDoubleClick,
 	handleCompartmentDragStart,
@@ -193,6 +201,10 @@ export function BlueprintCanvasStage({
 	handleCompartmentDragEnd,
 	handleCompartmentTransformEnd,
 }: BlueprintCanvasStageProps) {
+	const isDividerSelected = (dividerId: string) =>
+		selectedElement?.type === "divider" && selectedElement.id === dividerId;
+
+	const isSelectTool = tool === "select";
 	const performanceMode = isPanning || dragState !== null;
 	const showLabels = !isPanning && viewport.zoom >= 0.5;
 
@@ -314,16 +326,83 @@ export function BlueprintCanvasStage({
 						/>
 					)}
 
-					{dividers?.map((divider) => (
-						<Line
-							key={`divider-${divider._id}`}
-							points={[divider.x1, divider.y1, divider.x2, divider.y2]}
-							stroke="#6b7280"
-							strokeWidth={divider.thickness}
-							lineCap="round"
-							listening={false}
-						/>
-					))}
+					{dividers?.map((divider) => {
+						const isSelected = isDividerSelected(divider._id);
+						const isEditable = mode === "edit" && isLockedByMe && tool === "select";
+						// Apply draftDividerMove overrides for visual feedback during drag
+						let renderX1 = divider.x1;
+						let renderY1 = divider.y1;
+						let renderX2 = divider.x2;
+						let renderY2 = divider.y2;
+						if (draftDividerMove && draftDividerMove.dividerId === divider._id) {
+							if (draftDividerMove.handle === "start") {
+								renderX1 = draftDividerMove.currentX;
+								renderY1 = draftDividerMove.currentY;
+							} else if (draftDividerMove.handle === "end") {
+								renderX2 = draftDividerMove.currentX;
+								renderY2 = draftDividerMove.currentY;
+							} else if (draftDividerMove.handle === "line" && draftDividerMove.origX1 != null && draftDividerMove.origY1 != null && draftDividerMove.origX2 != null && draftDividerMove.origY2 != null && draftDividerMove.mouseStartX != null && draftDividerMove.mouseStartY != null) {
+								const dx = draftDividerMove.currentX - draftDividerMove.mouseStartX;
+								const dy = draftDividerMove.currentY - draftDividerMove.mouseStartY;
+								renderX1 = draftDividerMove.origX1 + dx;
+								renderY1 = draftDividerMove.origY1 + dy;
+								renderX2 = draftDividerMove.origX2 + dx;
+								renderY2 = draftDividerMove.origY2 + dy;
+							}
+						}
+						return (
+							<Group key={`divider-${divider._id}`}>
+								{/* Draggable line hit area for whole-line movement */}
+								{isSelected && isEditable && (
+									<Line
+										name={`divider-move-line-${divider._id}`}
+										points={[renderX1, renderY1, renderX2, renderY2]}
+										stroke="transparent"
+										strokeWidth={Math.max(16, divider.thickness + 10)}
+										lineCap="round"
+										listening={true}
+										hitStrokeWidth={Math.max(20, divider.thickness + 14)}
+									/>
+								)}
+								<Line
+									points={[renderX1, renderY1, renderX2, renderY2]}
+									stroke={isSelected ? "#0891b2" : "#6b7280"}
+									strokeWidth={Math.max(6, divider.thickness)}
+									lineCap="round"
+									listening={isSelectTool}
+									onClick={() => handleDividerSelect?.(divider._id, divider)}
+									onTap={() => handleDividerSelect?.(divider._id, divider)}
+								/>
+								{/* Draggable endpoints for selected dividers */}
+								{isSelected && isEditable && (
+									<>
+										{/* Start point */}
+										<Circle
+											name={`divider-move-start-${divider._id}`}
+											x={renderX1}
+											y={renderY1}
+											radius={8}
+											fill="white"
+											stroke="#0891b2"
+											strokeWidth={2}
+											listening={true}
+										/>
+										{/* End point */}
+										<Circle
+											name={`divider-move-end-${divider._id}`}
+											x={renderX2}
+											y={renderY2}
+											radius={8}
+											fill="white"
+											stroke="#0891b2"
+											strokeWidth={2}
+											listening={true}
+										/>
+									</>
+								)}
+							</Group>
+						);
+					})}
 
 					{drawersForRender.map((drawer) => (
 						<DrawerShape
@@ -347,8 +426,10 @@ export function BlueprintCanvasStage({
 						/>
 					))}
 
-					{drawersForRender.map((drawer) =>
-						drawer.compartments.map((compartment) => (
+					{drawersForRender.map((drawer) => {
+						// Hide compartments for the drawer being resized
+						if (draftResize && draftResize.drawerId === drawer._id) return null;
+						return drawer.compartments.map((compartment) => (
 							<CompartmentShape
 								key={`${drawer._id}:${compartment._id}`}
 								compartment={compartment}
@@ -381,8 +462,8 @@ export function BlueprintCanvasStage({
 								onDragEnd={handleCompartmentDragEnd}
 								onTransformEnd={handleCompartmentTransformEnd}
 							/>
-						)),
-					)}
+						));
+					})}
 
 					{dragOverlays?.origin && (
 						<Rect
@@ -452,6 +533,75 @@ export function BlueprintCanvasStage({
 							);
 						})()}
 
+					{/* Dual-outline resize visualization */}
+					{draftResize && (() => {
+						const sizeChanged =
+							draftResize.currentWidth !== draftResize.startWidth ||
+							draftResize.currentHeight !== draftResize.startHeight;
+						if (!sizeChanged) return null;
+						const outlineStroke = draftResize.isValid
+							? "rgba(59,130,246,0.9)"
+							: "rgba(239,68,68,0.9)";
+						const labelBg = draftResize.isValid
+							? "rgba(30,41,59,0.85)"
+							: "rgba(185,28,28,0.9)";
+						return (
+							<>
+								{/* Original size ghost outline with distinct background */}
+								<Rect
+									x={draftResize.startX - draftResize.startWidth / 2}
+									y={draftResize.startY - draftResize.startHeight / 2}
+									width={draftResize.startWidth}
+									height={draftResize.startHeight}
+									fill="rgba(148,163,184,0.15)"
+									stroke="rgba(148,163,184,0.6)"
+									strokeWidth={2}
+									dash={[6, 4]}
+									cornerRadius={4}
+									listening={false}
+								/>
+								{/* New size outline — red when invalid */}
+								<Rect
+									x={draftResize.currentX - draftResize.currentWidth / 2}
+									y={draftResize.currentY - draftResize.currentHeight / 2}
+									width={draftResize.currentWidth}
+									height={draftResize.currentHeight}
+									fill="transparent"
+									stroke={outlineStroke}
+									strokeWidth={2}
+									cornerRadius={4}
+									listening={false}
+								/>
+								{/* Dimension label */}
+								<Group
+									x={draftResize.currentX}
+									y={draftResize.currentY + draftResize.currentHeight / 2 + 12}
+								>
+									<Rect
+										x={-40}
+										y={0}
+										width={80}
+										height={20}
+										fill={labelBg}
+										cornerRadius={4}
+										listening={false}
+									/>
+									<Text
+										x={-40}
+										y={4}
+										width={80}
+										align="center"
+										text={`${draftResize.currentWidth} × ${draftResize.currentHeight}`}
+										fontSize={11}
+										fontFamily="monospace"
+										fill="white"
+										listening={false}
+									/>
+								</Group>
+							</>
+						);
+					})()}
+
 					{draftDivider && (
 						<Line
 							points={[
@@ -461,7 +611,7 @@ export function BlueprintCanvasStage({
 								draftDivider.endY,
 							]}
 							stroke="rgba(107,114,128,0.9)"
-							strokeWidth={4}
+							strokeWidth={8}
 							lineCap="round"
 							listening={false}
 						/>

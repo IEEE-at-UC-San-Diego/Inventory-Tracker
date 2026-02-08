@@ -80,6 +80,7 @@ export function BlueprintEditorView({
 	onUpdateCompartment,
 	onResizeDrawer,
 	onCreateDivider,
+	onUpdateDivider,
 	onViewportChange,
 	onToolChange,
 	onZoomIn,
@@ -141,6 +142,7 @@ export function BlueprintEditorView({
 					onUpdateCompartment={onUpdateCompartment}
 					onResizeDrawer={onResizeDrawer}
 					onCreateDivider={onCreateDivider}
+					onUpdateDivider={onUpdateDivider}
 					onViewportChange={onViewportChange}
 					onSplitOrientationChange={onSplitOrientationSync}
 					toggleSplitOrientationRef={toggleSplitOrientationRef}

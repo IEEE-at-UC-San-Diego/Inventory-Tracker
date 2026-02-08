@@ -34,7 +34,7 @@ export const create = mutation({
       y1: args.y1,
       x2: args.x2,
       y2: args.y2,
-      thickness: args.thickness ?? 4,
+      thickness: args.thickness ?? 8,
       createdAt: now,
       updatedAt: now,
     })

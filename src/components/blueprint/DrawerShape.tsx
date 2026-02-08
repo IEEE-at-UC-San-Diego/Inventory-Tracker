@@ -20,29 +20,25 @@ interface DrawerShapeProps {
 	onSelect: (drawer: Drawer) => void;
 }
 
-const HANDLE_SIZE = 10;
+const HANDLE_SIZE = 14;
 
 const RESIZE_HANDLES = [
 	{ handle: "nw" },
-	{ handle: "n" },
 	{ handle: "ne" },
-	{ handle: "e" },
 	{ handle: "se" },
-	{ handle: "s" },
 	{ handle: "sw" },
-	{ handle: "w" },
 ] as const;
 
 const DRAWER_COLORS = {
 	default: {
 		fill: "#e0f2fe", // cyan-100
 		stroke: "#0ea5e9", // cyan-500
-		strokeWidth: 2,
+		strokeWidth: 3,
 	},
 	selected: {
 		fill: "#dbeafe", // blue-100
 		stroke: "#3b82f6", // blue-500 - more prominent primary color
-		strokeWidth: 4,
+		strokeWidth: 5,
 	},
 	locked: {
 		fill: "#fef3c7", // amber-100
@@ -235,7 +231,7 @@ export const DrawerShape = memo(function DrawerShape({
 				<Group>
 					<Rect
 						x={-40}
-						y={-drawer.height / 2 - 24}
+						y={-drawer.height / 2 - 30}
 						width={80}
 						height={18}
 						fill="#dbeafe"
@@ -245,8 +241,10 @@ export const DrawerShape = memo(function DrawerShape({
 						perfectDrawEnabled={false}
 					/>
 					<Text
-						x={-26}
-						y={-drawer.height / 2 - 20}
+						x={-40}
+						y={-drawer.height / 2 - 27}
+						width={80}
+						align="center"
 						text="DRAG"
 						fontSize={10}
 						fontStyle="bold"
@@ -256,7 +254,7 @@ export const DrawerShape = memo(function DrawerShape({
 				</Group>
 			)}
 
-			{/* Resize handles - 8 handles (4 corners + 4 edge midpoints) */}
+			{/* Resize handles - 4 corner handles only */}
 			{isSelected && isEditable && (
 				<>
 					{RESIZE_HANDLES.map((h) => {
@@ -282,7 +280,7 @@ export const DrawerShape = memo(function DrawerShape({
 								height={HANDLE_SIZE}
 								fill="white"
 								stroke="#3b82f6"
-								strokeWidth={1.5}
+								strokeWidth={2.5}
 								cornerRadius={1}
 								perfectDrawEnabled={false}
 							/>
@@ -290,6 +288,7 @@ export const DrawerShape = memo(function DrawerShape({
 					})}
 				</>
 			)}
+
 		</Group>
 	);
 });
