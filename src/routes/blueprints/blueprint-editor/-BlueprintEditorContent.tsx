@@ -33,6 +33,11 @@ import {
 	updateDrawersBulkWithHistory,
 	updateDrawerWithHistory,
 } from "./actions/-drawerActions";
+import {
+	createDividerWithHistory,
+	deleteDividerWithHistory,
+	updateDividerWithHistory,
+} from "./actions/-dividerActions";
 import { splitDrawerWithHistory } from "./actions/-drawerSplitActions";
 
 export function BlueprintEditorContent() {
@@ -179,6 +184,9 @@ export function BlueprintEditorContent() {
 		[],
 	);
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const deleteDividerMutation = useMutation((api as any).dividers.mutations.deleteDivider);
+
 	const historyMutations = useMemo(
 		() =>
 			buildHistoryMutations({
@@ -189,6 +197,10 @@ export function BlueprintEditorContent() {
 				updateCompartment,
 				deleteCompartment,
 				updateBlueprint,
+				createDivider: createDividerMutation,
+				updateDivider: updateDividerMutation,
+				deleteDivider: deleteDividerMutation,
+				setGridForDrawer,
 			}),
 		[
 			createCompartment,
@@ -198,6 +210,10 @@ export function BlueprintEditorContent() {
 			updateBlueprint,
 			updateCompartment,
 			updateDrawer,
+			createDividerMutation,
+			updateDividerMutation,
+			deleteDividerMutation,
+			setGridForDrawer,
 		],
 	);
 
@@ -357,6 +373,7 @@ export function BlueprintEditorContent() {
 		setGridForDrawer,
 		setHasChanges,
 		toast,
+		pushHistoryEntry,
 	});
 
 	useEffect(() => {
@@ -599,31 +616,49 @@ export function BlueprintEditorContent() {
 
 	const handleCreateDivider = useCallback(
 		async (divider: { x1: number; y1: number; x2: number; y2: number }) => {
-			const authCtx = await getRequiredAuthContext();
-			await createDividerMutation({
-				authContext: authCtx,
+			await createDividerWithHistory({
+				dividerData: divider,
 				blueprintId: blueprintId as Id<"blueprints">,
-				x1: divider.x1,
-				y1: divider.y1,
-				x2: divider.x2,
-				y2: divider.y2,
+				getRequiredAuthContext,
+				createDivider: createDividerMutation,
+				pushHistoryEntry,
+				setHasChanges,
+				toast,
 			});
-			setHasChanges(true);
 		},
-		[blueprintId, createDividerMutation, getRequiredAuthContext],
+		[blueprintId, createDividerMutation, getRequiredAuthContext, pushHistoryEntry, toast],
 	);
 
 	const handleUpdateDivider = useCallback(
 		async (dividerId: string, updates: { x1: number; y1: number; x2: number; y2: number }) => {
-			const authCtx = await getRequiredAuthContext();
-			await updateDividerMutation({
-				authContext: authCtx,
-				dividerId: dividerId as Id<"dividers">,
-				...updates,
+			await updateDividerWithHistory({
+				dividerId,
+				updates,
+				dividers,
+				getRequiredAuthContext,
+				updateDivider: updateDividerMutation,
+				pushHistoryEntry,
+				setHasChanges,
+				toast,
 			});
-			setHasChanges(true);
 		},
-		[updateDividerMutation, getRequiredAuthContext],
+		[dividers, updateDividerMutation, getRequiredAuthContext, pushHistoryEntry, toast],
+	);
+
+	const handleDeleteDivider = useCallback(
+		async (dividerId: string) => {
+			await deleteDividerWithHistory({
+				dividerId,
+				dividers,
+				blueprintId: blueprintId as Id<"blueprints">,
+				getRequiredAuthContext,
+				deleteDivider: deleteDividerMutation,
+				pushHistoryEntry,
+				setHasChanges,
+				toast,
+			});
+		},
+		[blueprintId, dividers, deleteDividerMutation, getRequiredAuthContext, pushHistoryEntry, toast],
 	);
 
 	const handleUpdateCompartmentWithHistory = useCallback(
@@ -784,6 +819,7 @@ export function BlueprintEditorContent() {
 			onResizeDrawer={handleResizeDrawer}
 			onCreateDivider={handleCreateDivider}
 			onUpdateDivider={handleUpdateDivider}
+			onDeleteDivider={handleDeleteDivider}
 			onViewportChange={handleViewportChange}
 			onToolChange={setTool}
 			onZoomIn={handleZoomIn}

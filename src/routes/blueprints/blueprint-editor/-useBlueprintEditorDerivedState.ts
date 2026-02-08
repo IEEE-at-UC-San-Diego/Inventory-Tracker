@@ -12,6 +12,7 @@ import type {
 	DrawerWithCompartments,
 	SelectedElement,
 } from "@/types";
+import type { HistoryStep } from "@/hooks/useBlueprintHistory.types";
 import type { AuthContext } from "@/types/auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -58,6 +59,12 @@ interface UseBlueprintEditorDerivedStateParams {
 	}) => Promise<boolean | undefined>;
 	setHasChanges: (value: boolean) => void;
 	toast: ToastLike;
+	pushHistoryEntry: (entry: {
+		label: string;
+		requiresLock: boolean;
+		steps: HistoryStep[];
+		timestamp: number;
+	}) => void;
 }
 
 interface UseBlueprintEditorDerivedStateReturn {
@@ -103,6 +110,7 @@ export function useBlueprintEditorDerivedState({
 	setGridForDrawer,
 	setHasChanges,
 	toast,
+	pushHistoryEntry,
 }: UseBlueprintEditorDerivedStateParams): UseBlueprintEditorDerivedStateReturn {
 	const [canvasSize, setCanvasSize] = useState(() => ({
 		width: typeof window !== "undefined" ? window.innerWidth : 800,
@@ -230,6 +238,23 @@ export function useBlueprintEditorDerivedState({
 	const applyGrid = useCallback(
 		async (rows: number, cols: number) => {
 			if (!selectedDrawer) return;
+
+			// Snapshot compartments before the grid operation
+			const beforeCompartments = selectedDrawer.compartments.map((c) => ({
+				_id: c._id,
+				drawerId: c.drawerId,
+				x: c.x,
+				y: c.y,
+				width: c.width,
+				height: c.height,
+				rotation: c.rotation,
+				zIndex: c.zIndex,
+				label: c.label,
+			}));
+			const beforeGridRows = selectedDrawer.gridRows;
+			const beforeGridCols = selectedDrawer.gridCols;
+			const beforeCompIds = new Set(beforeCompartments.map((c) => c._id));
+
 			const context = await getRequiredAuthContext();
 			await setGridForDrawer({
 				authContext: context,
@@ -237,11 +262,61 @@ export function useBlueprintEditorDerivedState({
 				rows,
 				cols,
 			});
+
+			// Wait briefly for Convex reactivity to update drawers
+			// Then snapshot the after-state from the updated drawer data
+			// We use a small delay to let the reactive query update
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			// Find the updated drawer from the drawers array
+			const updatedDrawer = drawers.find((d) => d._id === selectedDrawer._id);
+			const afterCompartments = (updatedDrawer?.compartments ?? []).map((c) => ({
+				_id: c._id,
+				drawerId: c.drawerId,
+				x: c.x,
+				y: c.y,
+				width: c.width,
+				height: c.height,
+				rotation: c.rotation,
+				zIndex: c.zIndex,
+				label: c.label,
+			}));
+			const afterCompIds = new Set(afterCompartments.map((c) => c._id));
+
+			const deletedCompartments = beforeCompartments.filter(
+				(c) => !afterCompIds.has(c._id),
+			);
+			const createdCompartments = afterCompartments.filter(
+				(c) => !beforeCompIds.has(c._id),
+			);
+
+			pushHistoryEntry({
+				label: `Set grid ${rows}×${cols}`,
+				requiresLock: true,
+				steps: [
+					{
+						type: "setGrid",
+						drawerId: selectedDrawer._id,
+						beforeGridRows,
+						beforeGridCols,
+						afterGridRows: rows,
+						afterGridCols: cols,
+						beforeCompartments,
+						afterCompartments,
+						deletedCompartments,
+						createdCompartments,
+					},
+				],
+				timestamp: Date.now(),
+			});
+
 			setHasChanges(true);
 			toast.success("Grid updated");
 		},
 		[
+			drawers,
 			getRequiredAuthContext,
+			pushHistoryEntry,
 			selectedDrawer,
 			setGridForDrawer,
 			setHasChanges,

@@ -81,6 +81,7 @@ export function BlueprintEditorView({
 	onResizeDrawer,
 	onCreateDivider,
 	onUpdateDivider,
+	onDeleteDivider: _onDeleteDivider,
 	onViewportChange,
 	onToolChange,
 	onZoomIn,

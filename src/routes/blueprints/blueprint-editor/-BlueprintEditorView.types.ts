@@ -104,6 +104,7 @@ export interface BlueprintEditorViewProps {
 		y2: number;
 	}) => void;
 	onUpdateDivider: (dividerId: string, updates: { x1: number; y1: number; x2: number; y2: number }) => void;
+	onDeleteDivider: (dividerId: string) => void;
 	onViewportChange: (viewport: { zoom: number; x: number; y: number }) => void;
 	onToolChange: (tool: BlueprintTool) => void;
 	onZoomIn: () => void;

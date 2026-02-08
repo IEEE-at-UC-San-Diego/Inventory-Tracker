@@ -13,7 +13,9 @@ import type { AuthContext } from "@/types/auth";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
 	type CompartmentSnapshot,
+	type DividerSnapshot,
 	type DrawerSnapshot,
+	type GridOperationSnapshot,
 	type HistoryChange,
 	type HistoryEntry,
 	type HistoryState,
@@ -469,6 +471,160 @@ export function useBlueprintHistory(
 					});
 					return;
 				}
+
+				case "createDivider": {
+					const snapshot = change.after as DividerSnapshot;
+					if (direction === "undo") {
+						const physicalId = getPhysicalId(mapping, change.logicalId);
+						if (!physicalId) return;
+						await currentMutations.deleteDivider({
+							authContext,
+							dividerId: physicalId as Id<"dividers">,
+						});
+						removeIdMapping(mapping, change.logicalId);
+						return;
+					}
+
+					const newDividerId = await currentMutations.createDivider({
+						authContext,
+						blueprintId,
+						x1: snapshot.x1,
+						y1: snapshot.y1,
+						x2: snapshot.x2,
+						y2: snapshot.y2,
+						thickness: snapshot.thickness,
+					});
+					registerIdMapping(mapping, change.logicalId, newDividerId);
+					return;
+				}
+
+				case "deleteDivider": {
+					const snapshot = change.before as DividerSnapshot;
+					if (direction === "undo") {
+						const newDividerId = await currentMutations.createDivider({
+							authContext,
+							blueprintId,
+							x1: snapshot.x1,
+							y1: snapshot.y1,
+							x2: snapshot.x2,
+							y2: snapshot.y2,
+							thickness: snapshot.thickness,
+						});
+						registerIdMapping(mapping, change.logicalId, newDividerId);
+						return;
+					}
+
+					const physicalId = getPhysicalId(mapping, change.logicalId);
+					if (!physicalId) return;
+					await currentMutations.deleteDivider({
+						authContext,
+						dividerId: physicalId as Id<"dividers">,
+					});
+					removeIdMapping(mapping, change.logicalId);
+					return;
+				}
+
+				case "updateDivider": {
+					const physicalId = getPhysicalId(mapping, change.logicalId);
+					if (!physicalId) return;
+
+					const patch =
+						direction === "undo"
+							? (change.before as Record<string, unknown>)
+							: (change.after as Record<string, unknown>);
+
+					await currentMutations.updateDivider({
+						authContext,
+						dividerId: physicalId as Id<"dividers">,
+						...(compactPatch(patch) as {
+							x1?: number;
+							y1?: number;
+							x2?: number;
+							y2?: number;
+							thickness?: number;
+						}),
+					});
+					return;
+				}
+
+				case "setGrid": {
+					const gridSnapshot = change.before as GridOperationSnapshot;
+					const drawerPhysicalId = getPhysicalId(
+						mapping,
+						gridSnapshot.drawerLogicalId,
+					);
+					if (!drawerPhysicalId) return;
+
+					if (direction === "undo") {
+						// Delete compartments that were created by the grid operation
+						for (const comp of gridSnapshot.createdCompartments) {
+							const compPhysicalId = getPhysicalId(mapping, comp.logicalId);
+							if (compPhysicalId) {
+								await currentMutations.deleteCompartment({
+									authContext,
+									compartmentId: compPhysicalId as Id<"compartments">,
+								});
+								removeIdMapping(mapping, comp.logicalId);
+							}
+						}
+
+						// Recreate compartments that were deleted by the grid operation
+						for (const comp of gridSnapshot.deletedCompartments) {
+							const newCompId = await currentMutations.createCompartment({
+								authContext,
+								drawerId: drawerPhysicalId as Id<"drawers">,
+								x: comp.x,
+								y: comp.y,
+								width: comp.width,
+								height: comp.height,
+								rotation: comp.rotation,
+								zIndex: comp.zIndex,
+								label: comp.label,
+							});
+							registerIdMapping(mapping, comp.logicalId, newCompId);
+						}
+
+						// Restore all surviving compartments to their before-state positions
+						for (const comp of gridSnapshot.beforeCompartments) {
+							const compPhysicalId = getPhysicalId(mapping, comp.logicalId);
+							if (compPhysicalId) {
+								await currentMutations.updateCompartment({
+									authContext,
+									compartmentId: compPhysicalId as Id<"compartments">,
+									x: comp.x,
+									y: comp.y,
+									width: comp.width,
+									height: comp.height,
+									rotation: comp.rotation,
+									zIndex: comp.zIndex,
+								});
+							}
+						}
+
+						// Restore drawer grid dimensions
+						if (
+							gridSnapshot.beforeGridRows !== undefined &&
+							gridSnapshot.beforeGridCols !== undefined
+						) {
+							await currentMutations.updateDrawer({
+								authContext,
+								drawerId: drawerPhysicalId as Id<"drawers">,
+								gridRows: gridSnapshot.beforeGridRows,
+								gridCols: gridSnapshot.beforeGridCols,
+							});
+						}
+					} else {
+						// Redo: re-apply the grid operation via setGridForDrawer
+						await currentMutations.setGridForDrawer({
+							authContext,
+							drawerId: drawerPhysicalId as Id<"drawers">,
+							rows: gridSnapshot.afterGridRows,
+							cols: gridSnapshot.afterGridCols,
+						});
+					}
+					return;
+				}
+
 				case "bulkUpdate": {
 					// Bulk changes are flattened into atomic updates before they reach apply.
 					return;

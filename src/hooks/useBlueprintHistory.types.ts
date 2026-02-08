@@ -71,6 +71,49 @@ export type HistoryStep =
 			blueprintId: string;
 			prevName: string;
 			nextName: string;
+	  }
+	| {
+			type: "createDivider";
+			blueprintId: string;
+			dividerId: string;
+			args: {
+				x1: number;
+				y1: number;
+				x2: number;
+				y2: number;
+				thickness?: number;
+			};
+	  }
+	| {
+			type: "deleteDivider";
+			dividerId: string;
+			snapshot: {
+				_id: string;
+				blueprintId: string;
+				x1: number;
+				y1: number;
+				x2: number;
+				y2: number;
+				thickness: number;
+			};
+	  }
+	| {
+			type: "updateDivider";
+			dividerId: string;
+			prev: { x1: number; y1: number; x2: number; y2: number; thickness?: number };
+			next: { x1: number; y1: number; x2: number; y2: number; thickness?: number };
+	  }
+	| {
+			type: "setGrid";
+			drawerId: string;
+			beforeGridRows?: number;
+			beforeGridCols?: number;
+			afterGridRows: number;
+			afterGridCols: number;
+			beforeCompartments: Array<{ _id: string; drawerId: string; x: number; y: number; width: number; height: number; rotation: number; zIndex: number; label?: string }>;
+			afterCompartments: Array<{ _id: string; drawerId: string; x: number; y: number; width: number; height: number; rotation: number; zIndex: number; label?: string }>;
+			deletedCompartments: Array<{ _id: string; drawerId: string; x: number; y: number; width: number; height: number; rotation: number; zIndex: number; label?: string }>;
+			createdCompartments: Array<{ _id: string; drawerId: string; x: number; y: number; width: number; height: number; rotation: number; zIndex: number; label?: string }>;
 	  };
 
 export interface LegacyHistoryEntry {
@@ -150,6 +193,34 @@ export interface HistoryDependencies {
 			authContext: AuthContext;
 			blueprintId: Id<"blueprints">;
 			name: string;
+		}) => Promise<boolean | void>;
+		createDivider: (args: {
+			authContext: AuthContext;
+			blueprintId: Id<"blueprints">;
+			x1: number;
+			y1: number;
+			x2: number;
+			y2: number;
+			thickness?: number;
+		}) => Promise<Id<"dividers">>;
+		updateDivider: (args: {
+			authContext: AuthContext;
+			dividerId: Id<"dividers">;
+			x1?: number;
+			y1?: number;
+			x2?: number;
+			y2?: number;
+			thickness?: number;
+		}) => Promise<boolean | void>;
+		deleteDivider: (args: {
+			authContext: AuthContext;
+			dividerId: Id<"dividers">;
+		}) => Promise<boolean | void>;
+		setGridForDrawer: (args: {
+			authContext: AuthContext;
+			drawerId: Id<"drawers">;
+			rows: number;
+			cols: number;
 		}) => Promise<boolean | void>;
 	};
 	blueprintId: Id<"blueprints">;

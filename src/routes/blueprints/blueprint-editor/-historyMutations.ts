@@ -64,6 +64,34 @@ interface HistoryMutationsInput {
 		blueprintId: Id<"blueprints">;
 		name: string;
 	}) => Promise<boolean | void>;
+	createDivider: (args: {
+		authContext: AuthContext;
+		blueprintId: Id<"blueprints">;
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+		thickness?: number;
+	}) => Promise<Id<"dividers">>;
+	updateDivider: (args: {
+		authContext: AuthContext;
+		dividerId: Id<"dividers">;
+		x1?: number;
+		y1?: number;
+		x2?: number;
+		y2?: number;
+		thickness?: number;
+	}) => Promise<boolean | void>;
+	deleteDivider: (args: {
+		authContext: AuthContext;
+		dividerId: Id<"dividers">;
+	}) => Promise<boolean | void>;
+	setGridForDrawer: (args: {
+		authContext: AuthContext;
+		drawerId: Id<"drawers">;
+		rows: number;
+		cols: number;
+	}) => Promise<boolean | void>;
 }
 
 export function buildHistoryMutations({
@@ -74,6 +102,10 @@ export function buildHistoryMutations({
 	updateCompartment,
 	deleteCompartment,
 	updateBlueprint,
+	createDivider,
+	updateDivider,
+	deleteDivider,
+	setGridForDrawer,
 }: HistoryMutationsInput) {
 	return {
 		createDrawer: async (args: {
@@ -152,5 +184,41 @@ export function buildHistoryMutations({
 	}) => {
 		await updateBlueprint(args);
 	},
+		createDivider: async (args: {
+			authContext: AuthContext;
+			blueprintId: Id<"blueprints">;
+			x1: number;
+			y1: number;
+			x2: number;
+			y2: number;
+			thickness?: number;
+		}) => {
+			return await createDivider(args);
+		},
+		updateDivider: async (args: {
+			authContext: AuthContext;
+			dividerId: Id<"dividers">;
+			x1?: number;
+			y1?: number;
+			x2?: number;
+			y2?: number;
+			thickness?: number;
+		}) => {
+			await updateDivider(args);
+		},
+		deleteDivider: async (args: {
+			authContext: AuthContext;
+			dividerId: Id<"dividers">;
+		}) => {
+			await deleteDivider(args);
+		},
+		setGridForDrawer: async (args: {
+			authContext: AuthContext;
+			drawerId: Id<"drawers">;
+			rows: number;
+			cols: number;
+		}) => {
+			await setGridForDrawer(args);
+		},
 	};
 }

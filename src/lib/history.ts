@@ -64,6 +64,30 @@ export interface CompartmentSnapshot {
 	label?: string;
 }
 
+/** Complete snapshot of a divider line */
+export interface DividerSnapshot {
+	logicalId: LogicalId;
+	blueprintId: string;
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+	thickness: number;
+}
+
+/** Snapshot of a grid operation (before/after full compartment state) */
+export interface GridOperationSnapshot {
+	drawerLogicalId: LogicalId;
+	beforeGridRows?: number;
+	beforeGridCols?: number;
+	afterGridRows: number;
+	afterGridCols: number;
+	beforeCompartments: CompartmentSnapshot[];
+	afterCompartments: CompartmentSnapshot[];
+	deletedCompartments: CompartmentSnapshot[];
+	createdCompartments: CompartmentSnapshot[];
+}
+
 /** Complete snapshot of blueprint state for history */
 export interface BlueprintStateSnapshot {
 	name: string;
@@ -79,7 +103,11 @@ export type HistoryOperationType =
 	| "deleteCompartment"
 	| "updateCompartment"
 	| "bulkUpdate"
-	| "updateBlueprintName";
+	| "updateBlueprintName"
+	| "createDivider"
+	| "deleteDivider"
+	| "updateDivider"
+	| "setGrid";
 
 /** A single atomic change within a history entry */
 export interface HistoryChange {
@@ -88,7 +116,7 @@ export interface HistoryChange {
 	/** Logical ID of the affected entity */
 	logicalId: LogicalId;
 	/** Entity type */
-	entityType: "drawer" | "compartment" | "blueprint";
+	entityType: "drawer" | "compartment" | "blueprint" | "divider";
 	/** State before the change (for undo) */
 	before: unknown;
 	/** State after the change (for redo) */
@@ -278,7 +306,7 @@ export function createCompartmentSnapshot(
  */
 export function createSelectionSnapshot(
 	selectedDrawerIds: string[],
-	selectedElement: { type: "drawer" | "compartment"; id: string } | null,
+	selectedElement: { type: "drawer" | "compartment" | "divider"; id: string } | null,
 	mapping: IdMapping,
 	viewport?: { zoom: number; x: number; y: number },
 ): SelectionSnapshot {
@@ -512,6 +540,50 @@ export class HistoryEntryBuilder {
 			entityType: "blueprint",
 			before,
 			after,
+		});
+	}
+
+	addDividerCreate(snapshot: DividerSnapshot, logicalId: LogicalId): this {
+		return this.addChange({
+			type: "createDivider",
+			logicalId,
+			entityType: "divider",
+			before: null,
+			after: snapshot,
+		});
+	}
+
+	addDividerDelete(snapshot: DividerSnapshot, logicalId: LogicalId): this {
+		return this.addChange({
+			type: "deleteDivider",
+			logicalId,
+			entityType: "divider",
+			before: snapshot,
+			after: null,
+		});
+	}
+
+	addDividerUpdate(
+		logicalId: LogicalId,
+		before: Partial<DividerSnapshot>,
+		after: Partial<DividerSnapshot>,
+	): this {
+		return this.addChange({
+			type: "updateDivider",
+			logicalId,
+			entityType: "divider",
+			before,
+			after,
+		});
+	}
+
+	addGridOperation(snapshot: GridOperationSnapshot): this {
+		return this.addChange({
+			type: "setGrid",
+			logicalId: snapshot.drawerLogicalId,
+			entityType: "drawer",
+			before: snapshot,
+			after: snapshot,
 		});
 	}
 

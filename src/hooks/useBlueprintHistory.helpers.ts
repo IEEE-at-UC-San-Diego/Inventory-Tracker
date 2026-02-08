@@ -1,6 +1,8 @@
 import type {
 	CompartmentSnapshot,
+	DividerSnapshot,
 	DrawerSnapshot,
+	GridOperationSnapshot,
 	HistoryChange,
 	HistoryEntry,
 	HistoryState,
@@ -261,6 +263,101 @@ export function convertLegacyStepToChanges(
 					entityType: "blueprint",
 					before: step.prevName,
 					after: step.nextName,
+				},
+			];
+		}
+
+		case "createDivider": {
+			const logicalId = ensureLogicalId(step.dividerId);
+			const after: DividerSnapshot = {
+				logicalId,
+				blueprintId: step.blueprintId,
+				x1: step.args.x1,
+				y1: step.args.y1,
+				x2: step.args.x2,
+				y2: step.args.y2,
+				thickness: step.args.thickness ?? 8,
+			};
+			return [
+				{
+					type: "createDivider",
+					logicalId,
+					entityType: "divider",
+					before: null,
+					after,
+				},
+			];
+		}
+
+		case "deleteDivider": {
+			const logicalId = ensureLogicalId(step.dividerId);
+			const before: DividerSnapshot = {
+				logicalId,
+				blueprintId: step.snapshot.blueprintId,
+				x1: step.snapshot.x1,
+				y1: step.snapshot.y1,
+				x2: step.snapshot.x2,
+				y2: step.snapshot.y2,
+				thickness: step.snapshot.thickness,
+			};
+			return [
+				{
+					type: "deleteDivider",
+					logicalId,
+					entityType: "divider",
+					before,
+					after: null,
+				},
+			];
+		}
+
+		case "updateDivider": {
+			const logicalId = ensureLogicalId(step.dividerId);
+			return [
+				{
+					type: "updateDivider",
+					logicalId,
+					entityType: "divider",
+					before: compactPatch(step.prev as Record<string, unknown>),
+					after: compactPatch(step.next as Record<string, unknown>),
+				},
+			];
+		}
+
+		case "setGrid": {
+			const drawerLogicalId = ensureLogicalId(step.drawerId);
+
+			const toCompSnapshot = (c: { _id: string; drawerId: string; x: number; y: number; width: number; height: number; rotation: number; zIndex: number; label?: string }): CompartmentSnapshot => ({
+				logicalId: ensureLogicalId(c._id),
+				parentDrawerLogicalId: ensureLogicalId(c.drawerId),
+				x: c.x,
+				y: c.y,
+				width: c.width,
+				height: c.height,
+				rotation: c.rotation,
+				zIndex: c.zIndex,
+				label: c.label,
+			});
+
+			const gridSnapshot: GridOperationSnapshot = {
+				drawerLogicalId,
+				beforeGridRows: step.beforeGridRows,
+				beforeGridCols: step.beforeGridCols,
+				afterGridRows: step.afterGridRows,
+				afterGridCols: step.afterGridCols,
+				beforeCompartments: step.beforeCompartments.map(toCompSnapshot),
+				afterCompartments: step.afterCompartments.map(toCompSnapshot),
+				deletedCompartments: step.deletedCompartments.map(toCompSnapshot),
+				createdCompartments: step.createdCompartments.map(toCompSnapshot),
+			};
+
+			return [
+				{
+					type: "setGrid",
+					logicalId: drawerLogicalId,
+					entityType: "drawer",
+					before: gridSnapshot,
+					after: gridSnapshot,
 				},
 			];
 		}
