@@ -26,6 +26,14 @@ export interface BlueprintEditorViewProps {
 	zoomLevel: number;
 	highlightedCompartmentIds: string[];
 	compartmentsWithInventory: Map<string, number>;
+	dividers: Array<{
+		_id: string;
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+		thickness: number;
+	}>;
 	isInspectorOpen: boolean;
 	isEditingName: boolean;
 	nameValue: string;
@@ -54,6 +62,10 @@ export interface BlueprintEditorViewProps {
 	zoomToLocationRef: React.MutableRefObject<
 		((x: number, y: number, w?: number, h?: number) => void) | null
 	>;
+	splitOrientation: "vertical" | "horizontal";
+	onSplitOrientationChange: () => void;
+	onSplitOrientationSync: (orientation: "vertical" | "horizontal") => void;
+	toggleSplitOrientationRef: React.MutableRefObject<(() => void) | null>;
 	onSelectionChange: (next: {
 		selectedElement: SelectedElement;
 		selectedDrawerIds: string[];
@@ -81,6 +93,16 @@ export interface BlueprintEditorViewProps {
 		compartmentId: string,
 		updates: Partial<Compartment>,
 	) => Promise<void>;
+	onResizeDrawer: (
+		drawerId: string,
+		updates: { x: number; y: number; width: number; height: number },
+	) => void;
+	onCreateDivider: (divider: {
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+	}) => void;
 	onViewportChange: (viewport: { zoom: number; x: number; y: number }) => void;
 	onToolChange: (tool: BlueprintTool) => void;
 	onZoomIn: () => void;

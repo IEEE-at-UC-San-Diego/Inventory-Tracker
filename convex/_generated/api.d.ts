@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as auth_helpers from "../auth_helpers.js";
+import type * as auth_role_utils from "../auth_role_utils.js";
 import type * as blueprint_revisions_mutations from "../blueprint_revisions/mutations.js";
 import type * as blueprint_revisions_queries from "../blueprint_revisions/queries.js";
 import type * as blueprints_mutations from "../blueprints/mutations.js";
@@ -17,6 +18,8 @@ import type * as blueprints_queries from "../blueprints/queries.js";
 import type * as compartments_mutations from "../compartments/mutations.js";
 import type * as compartments_queries from "../compartments/queries.js";
 import type * as crons from "../crons.js";
+import type * as dividers_mutations from "../dividers/mutations.js";
+import type * as dividers_queries from "../dividers/queries.js";
 import type * as drawer_background_images_mutations from "../drawer_background_images/mutations.js";
 import type * as drawers_mutations from "../drawers/mutations.js";
 import type * as drawers_queries from "../drawers/queries.js";
@@ -45,6 +48,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   auth_helpers: typeof auth_helpers;
+  auth_role_utils: typeof auth_role_utils;
   "blueprint_revisions/mutations": typeof blueprint_revisions_mutations;
   "blueprint_revisions/queries": typeof blueprint_revisions_queries;
   "blueprints/mutations": typeof blueprints_mutations;
@@ -52,6 +56,8 @@ declare const fullApi: ApiFromModules<{
   "compartments/mutations": typeof compartments_mutations;
   "compartments/queries": typeof compartments_queries;
   crons: typeof crons;
+  "dividers/mutations": typeof dividers_mutations;
+  "dividers/queries": typeof dividers_queries;
   "drawer_background_images/mutations": typeof drawer_background_images_mutations;
   "drawers/mutations": typeof drawers_mutations;
   "drawers/queries": typeof drawers_queries;

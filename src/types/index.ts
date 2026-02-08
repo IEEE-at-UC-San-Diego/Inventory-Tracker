@@ -116,6 +116,18 @@ export interface Drawer {
 	updatedAt: number;
 }
 
+export interface Divider {
+	_id: string;
+	blueprintId: string;
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+	thickness: number;
+	createdAt: number;
+	updatedAt: number;
+}
+
 export interface DrawerBackgroundImage {
 	_id: string;
 	drawerId: string;

@@ -1,8 +1,11 @@
 import type { KonvaEventObject, Node as KonvaNode } from "konva/lib/Node";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+	DraftDivider,
 	DraftDrawer,
+	DraftResize,
 	DraftSplit,
+	ResizeHandle,
 	SelectionBox,
 	UseBlueprintCanvasPointerInteractionsParams,
 	UseBlueprintCanvasPointerInteractionsResult,
@@ -31,6 +34,8 @@ export function useBlueprintCanvasPointerInteractions({
 	onCreateDrawerFromTool,
 	onSplitDrawerFromTool,
 	onUpdateDrawers,
+	onResizeDrawer,
+	onCreateDivider,
 }: UseBlueprintCanvasPointerInteractionsParams): UseBlueprintCanvasPointerInteractionsResult {
 	const [isPanning, setIsPanning] = useState(false);
 	const lastPointerPosition = useRef<{ x: number; y: number } | null>(null);
@@ -46,6 +51,8 @@ export function useBlueprintCanvasPointerInteractions({
 		"vertical" | "horizontal"
 	>("vertical");
 
+	const [draftResize, setDraftResize] = useState<DraftResize | null>(null);
+	const [draftDivider, setDraftDivider] = useState<DraftDivider | null>(null);
 	const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
 
 	const movingSelectionRef = useRef<{
@@ -124,6 +131,22 @@ export function useBlueprintCanvasPointerInteractions({
 		[snapToGrid],
 	);
 
+	const getResizeHandleFromEvent = useCallback(
+		(
+			e: KonvaEventObject<MouseEvent>,
+		): { drawerId: string; handle: ResizeHandle } | null => {
+			const target = e.target as KonvaNode;
+			const name = target.name?.() ?? "";
+			if (!name.startsWith("resize-")) return null;
+			const handle = name.replace("resize-", "") as ResizeHandle;
+			const drawerNode = target.findAncestor(".drawer", false);
+			const drawerId = drawerNode?.getAttr("drawerId") as string | undefined;
+			if (!drawerId) return null;
+			return { drawerId, handle };
+		},
+		[],
+	);
+
 	const getDrawerNodeFromEvent = useCallback(
 		(e: KonvaEventObject<MouseEvent>) => {
 			const target = e.target as KonvaNode;
@@ -181,6 +204,13 @@ export function useBlueprintCanvasPointerInteractions({
 
 			if (e.evt.button !== 0) return;
 			const world = getWorldPointer();
+
+			if (tool === "divider" && isLockedByMe && isStage && world) {
+				const startX = snapToGrid(world.x);
+				const startY = snapToGrid(world.y);
+				setDraftDivider({ startX, startY, endX: startX, endY: startY });
+				return;
+			}
 
 			if (tool === "drawer" && isLockedByMe && isStage && world) {
 				const startX = snapToGrid(world.x);
@@ -245,6 +275,32 @@ export function useBlueprintCanvasPointerInteractions({
 				return;
 			}
 
+			if (tool === "select" && world && mode === "edit" && isLockedByMe) {
+				const resizeInfo = getResizeHandleFromEvent(e);
+				if (resizeInfo) {
+					const drawer = drawers.find((d) => d._id === resizeInfo.drawerId);
+					if (drawer) {
+						setDraftResize({
+							drawerId: drawer._id,
+							handle: resizeInfo.handle,
+							startX: drawer.x,
+							startY: drawer.y,
+							startWidth: drawer.width,
+							startHeight: drawer.height,
+							currentX: drawer.x,
+							currentY: drawer.y,
+							currentWidth: drawer.width,
+							currentHeight: drawer.height,
+						});
+						lastPointerPosition.current = {
+							x: e.evt.clientX,
+							y: e.evt.clientY,
+						};
+						return;
+					}
+				}
+			}
+
 			if (tool === "select" && world) {
 				const drawerId = getDrawerIdFromEvent(e);
 
@@ -303,6 +359,7 @@ export function useBlueprintCanvasPointerInteractions({
 			findCompartmentAtWorldPoint,
 			findDrawerAtWorldPoint,
 			getDrawerIdFromEvent,
+			getResizeHandleFromEvent,
 			getWorldPointer,
 			hoverSplit,
 			isLockedByMe,
@@ -371,6 +428,52 @@ export function useBlueprintCanvasPointerInteractions({
 				return;
 			}
 
+			if (draftResize) {
+				const world = getWorldPointer();
+				if (!world) return;
+				const drawer = drawers.find((d) => d._id === draftResize.drawerId);
+				if (!drawer) return;
+
+				const handle = draftResize.handle;
+				const rawDx = world.x - draftResize.startX;
+				const rawDy = world.y - draftResize.startY;
+
+				let newX = draftResize.startX;
+				let newY = draftResize.startY;
+				let newW = draftResize.startWidth;
+				let newH = draftResize.startHeight;
+
+				const minSize = gridSize;
+
+				if (handle.includes("e")) {
+					newW = Math.max(minSize, snapToGrid(draftResize.startWidth + rawDx * 2));
+				}
+				if (handle.includes("w")) {
+					newW = Math.max(minSize, snapToGrid(draftResize.startWidth - rawDx * 2));
+				}
+				if (handle.includes("s")) {
+					newH = Math.max(minSize, snapToGrid(draftResize.startHeight + rawDy * 2));
+				}
+				if (handle.includes("n")) {
+					newH = Math.max(minSize, snapToGrid(draftResize.startHeight - rawDy * 2));
+				}
+
+				newX = snapCenterToGridEdges(draftResize.startX, newW);
+				newY = snapCenterToGridEdges(draftResize.startY, newH);
+
+				setDraftResize((prev) => {
+					if (!prev) return prev;
+					return {
+						...prev,
+						currentX: newX,
+						currentY: newY,
+						currentWidth: newW,
+						currentHeight: newH,
+					};
+				});
+				return;
+			}
+
 			if (
 				tool === "split" &&
 				isLockedByMe &&
@@ -420,6 +523,20 @@ export function useBlueprintCanvasPointerInteractions({
 				}
 			} else if (hoverSplit) {
 				setHoverSplitIfChanged(null);
+			}
+
+			if (draftDivider) {
+				const world = getWorldPointer();
+				if (!world) return;
+				setDraftDivider((prev) => {
+					if (!prev) return prev;
+					return {
+						...prev,
+						endX: snapToGrid(world.x),
+						endY: snapToGrid(world.y),
+					};
+				});
+				return;
 			}
 
 			if (draftDrawer) {
@@ -490,13 +607,16 @@ export function useBlueprintCanvasPointerInteractions({
 		},
 		[
 			checkBulkMoveCollision,
+			draftDivider,
 			draftDrawer,
+			draftResize,
 			draftSplit,
 			dragStateActive,
 			drawers,
 			findCompartmentAtWorldPoint,
 			findDrawerAtWorldPoint,
 			getWorldPointer,
+			gridSize,
 			hoverSplit,
 			isLockedByMe,
 			isPanning,
@@ -560,6 +680,29 @@ export function useBlueprintCanvasPointerInteractions({
 				onSelectionChange({
 					selectedElement: null,
 					selectedDrawerIds: nextSelected,
+				});
+			}
+
+			panCandidate.current = null;
+			setIsPanning(false);
+			lastPointerPosition.current = null;
+			return;
+		}
+
+		if (draftResize && isLockedByMe) {
+			const resize = draftResize;
+			setDraftResize(null);
+
+			const changed =
+				resize.currentWidth !== resize.startWidth ||
+				resize.currentHeight !== resize.startHeight;
+
+			if (changed && onResizeDrawer) {
+				onResizeDrawer(resize.drawerId, {
+					x: resize.currentX,
+					y: resize.currentY,
+					width: resize.currentWidth,
+					height: resize.currentHeight,
 				});
 			}
 
@@ -637,6 +780,29 @@ export function useBlueprintCanvasPointerInteractions({
 			return;
 		}
 
+		if (draftDivider && isLockedByMe) {
+			const divider = draftDivider;
+			setDraftDivider(null);
+
+			const dx = divider.endX - divider.startX;
+			const dy = divider.endY - divider.startY;
+			const length = Math.sqrt(dx * dx + dy * dy);
+
+			if (length >= gridSize) {
+				onCreateDivider?.({
+					x1: divider.startX,
+					y1: divider.startY,
+					x2: divider.endX,
+					y2: divider.endY,
+				});
+			}
+
+			panCandidate.current = null;
+			setIsPanning(false);
+			lastPointerPosition.current = null;
+			return;
+		}
+
 		if (clickCandidate.current && !isPanning && tool !== "pan") {
 			onSelectionChange({ selectedElement: null, selectedDrawerIds: [] });
 		}
@@ -646,14 +812,18 @@ export function useBlueprintCanvasPointerInteractions({
 		lastPointerPosition.current = null;
 	}, [
 		checkBulkMoveCollision,
+		draftDivider,
 		draftDrawer,
+		draftResize,
 		draftSplit,
 		drawerPositionOverrides,
 		drawers,
 		gridSize,
 		isLockedByMe,
 		isPanning,
+		onCreateDivider,
 		onCreateDrawerFromTool,
+		onResizeDrawer,
 		onSelectionChange,
 		onSplitDrawerFromTool,
 		onUpdateDrawers,
@@ -667,6 +837,9 @@ export function useBlueprintCanvasPointerInteractions({
 		draftSplit,
 		hoverSplit,
 		splitOrientation,
+		setSplitOrientation,
+		draftResize,
+		draftDivider,
 		selectionBox,
 		drawerPositionOverrides,
 		invalidDrop,

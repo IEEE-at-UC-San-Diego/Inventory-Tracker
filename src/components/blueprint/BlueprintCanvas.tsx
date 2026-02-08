@@ -61,7 +61,21 @@ interface BlueprintCanvasProps {
 		compartmentId: string,
 		updates: Partial<Compartment>,
 	) => void;
+	onResizeDrawer?: (
+		drawerId: string,
+		updates: { x: number; y: number; width: number; height: number },
+	) => void;
+	onCreateDivider?: (divider: {
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+	}) => void;
 	onViewportChange?: (viewport: Viewport) => void;
+	onSplitOrientationChange?: (
+		orientation: "vertical" | "horizontal",
+	) => void;
+	toggleSplitOrientationRef?: React.MutableRefObject<(() => void) | null>;
 	zoomInRef?: React.MutableRefObject<(() => void) | null>;
 	zoomOutRef?: React.MutableRefObject<(() => void) | null>;
 	zoomToFitRef?: React.MutableRefObject<(() => void) | null>;
@@ -76,6 +90,14 @@ interface BlueprintCanvasProps {
 		| null
 	>;
 	compartmentsWithInventory?: Map<string, number>;
+	dividers?: Array<{
+		_id: string;
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+		thickness: number;
+	}>;
 }
 
 const GRID_SIZE = 50;
@@ -100,13 +122,18 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		onSwapCompartments,
 		onUpdateDrawers,
 		onUpdateCompartment,
+		onResizeDrawer,
+		onCreateDivider,
 		onViewportChange,
+		onSplitOrientationChange,
+		toggleSplitOrientationRef,
 		zoomInRef,
 		zoomOutRef,
 		zoomToFitRef,
 		resetViewRef,
 		zoomToLocationRef,
 		compartmentsWithInventory,
+		dividers,
 	}: BlueprintCanvasProps,
 	_ref,
 ) {
@@ -293,6 +320,10 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		draftDrawer,
 		draftSplit,
 		hoverSplit,
+		splitOrientation,
+		setSplitOrientation,
+		draftResize,
+		draftDivider,
 		selectionBox,
 		drawerPositionOverrides,
 		invalidDrop,
@@ -321,7 +352,23 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 		onCreateDrawerFromTool,
 		onSplitDrawerFromTool,
 		onUpdateDrawers,
+		onResizeDrawer,
+		onCreateDivider,
 	});
+
+	useEffect(() => {
+		onSplitOrientationChange?.(splitOrientation);
+	}, [splitOrientation, onSplitOrientationChange]);
+
+	useEffect(() => {
+		if (toggleSplitOrientationRef) {
+			toggleSplitOrientationRef.current = () => {
+				setSplitOrientation((prev) =>
+					prev === "vertical" ? "horizontal" : "vertical",
+				);
+			};
+		}
+	}, [setSplitOrientation, toggleSplitOrientationRef]);
 
 	const handleDrawerSelect = useCallback(
 		(drawer: Drawer) => {
@@ -378,12 +425,27 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 	}, [drawers]);
 
 	const drawersForRender = useMemo(() => {
-		if (!drawerPositionOverrides) return sortedDrawers;
-		return sortedDrawers.map((drawer) => {
-			const override = drawerPositionOverrides[drawer._id];
-			return override ? { ...drawer, x: override.x, y: override.y } : drawer;
-		});
-	}, [drawerPositionOverrides, sortedDrawers]);
+		let result = sortedDrawers;
+		if (drawerPositionOverrides) {
+			result = result.map((drawer) => {
+				const override = drawerPositionOverrides[drawer._id];
+				return override ? { ...drawer, x: override.x, y: override.y } : drawer;
+			});
+		}
+		if (draftResize) {
+			result = result.map((drawer) => {
+				if (drawer._id !== draftResize.drawerId) return drawer;
+				return {
+					...drawer,
+					x: draftResize.currentX,
+					y: draftResize.currentY,
+					width: draftResize.currentWidth,
+					height: draftResize.currentHeight,
+				};
+			});
+		}
+		return result;
+	}, [drawerPositionOverrides, draftResize, sortedDrawers]);
 
 	return (
 		<BlueprintCanvasStage
@@ -403,11 +465,13 @@ export const BlueprintCanvas = forwardRef(function BlueprintCanvas(
 			selectedElement={selectedElement}
 			selectedDrawerIdSet={selectedDrawerIdSet}
 			highlightedCompartmentIds={highlightedCompartmentIds}
+			dividers={dividers}
 			invalidDrop={invalidDrop}
 			selectionBox={selectionBox}
 			draftDrawer={draftDrawer}
 			hoverSplit={hoverSplit}
 			draftSplit={draftSplit}
+			draftDivider={draftDivider}
 			dragState={dragState}
 			dragHover={dragHover}
 			dragOverlays={dragOverlays}

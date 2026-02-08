@@ -110,6 +110,8 @@ export function BlueprintEditorContent() {
 	const createRevision = useMutation(
 		api.blueprint_revisions.mutations.createRevision,
 	);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const createDividerMutation = useMutation((api as any).dividers.mutations.create);
 
 	const blueprintData = useQuery(
 		api.blueprints.queries.getWithHierarchy,
@@ -123,6 +125,25 @@ export function BlueprintEditorContent() {
 		authContext ? { authContext, includeDetails: false } : undefined,
 		{ enabled: !!authContext && !isLoading },
 	);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const dividersData = useQuery(
+		(api as any).dividers.queries.listByBlueprint,
+		authContext
+			? { authContext, blueprintId: blueprintId as Id<"blueprints"> }
+			: undefined,
+		{ enabled: !!authContext && !isLoading },
+	);
+	const dividers = useMemo(() => {
+		return (dividersData ?? []) as Array<{
+			_id: string;
+			x1: number;
+			y1: number;
+			x2: number;
+			y2: number;
+			thickness: number;
+		}>;
+	}, [dividersData]);
+
 	const partCompartmentsQuery = useQuery(
 		api.compartments.queries.findByPart,
 		authContext && search.partId
@@ -280,6 +301,21 @@ export function BlueprintEditorContent() {
 	>(null);
 	const hasAppliedInitialViewRef = useRef(false);
 	const lastBlueprintIdRef = useRef<string | null>(null);
+	const toggleSplitOrientationRef = useRef<(() => void) | null>(null);
+	const [splitOrientation, setSplitOrientationLocal] = useState<
+		"vertical" | "horizontal"
+	>("vertical");
+
+	const handleSplitOrientationSync = useCallback(
+		(orientation: "vertical" | "horizontal") => {
+			setSplitOrientationLocal(orientation);
+		},
+		[],
+	);
+
+	const handleSplitOrientationChange = useCallback(() => {
+		toggleSplitOrientationRef.current?.();
+	}, []);
 
 	const {
 		canvasSize,
@@ -547,6 +583,32 @@ export function BlueprintEditorContent() {
 		],
 	);
 
+	const handleResizeDrawer = useCallback(
+		(
+			drawerId: string,
+			updates: { x: number; y: number; width: number; height: number },
+		) => {
+			void handleUpdateDrawerWithHistory(drawerId, updates);
+		},
+		[handleUpdateDrawerWithHistory],
+	);
+
+	const handleCreateDivider = useCallback(
+		(divider: { x1: number; y1: number; x2: number; y2: number }) => {
+			const authCtx = getRequiredAuthContext();
+			void createDividerMutation({
+				authContext: authCtx,
+				blueprintId: blueprintId as Id<"blueprints">,
+				x1: divider.x1,
+				y1: divider.y1,
+				x2: divider.x2,
+				y2: divider.y2,
+			});
+			setHasChanges(true);
+		},
+		[blueprintId, createDividerMutation, getRequiredAuthContext],
+	);
+
 	const handleUpdateCompartmentWithHistory = useCallback(
 		async (compartmentId: string, updates: Partial<Compartment>) => {
 			await updateCompartmentWithHistory({
@@ -651,6 +713,7 @@ export function BlueprintEditorContent() {
 			zoomLevel={zoomLevel}
 			highlightedCompartmentIds={highlightedCompartmentIds}
 			compartmentsWithInventory={compartmentsWithInventory}
+			dividers={dividers}
 			isInspectorOpen={isInspectorOpen}
 			isEditingName={isEditingName}
 			nameValue={nameValue}
@@ -677,12 +740,18 @@ export function BlueprintEditorContent() {
 			zoomToFitRef={zoomToFitRef}
 			resetViewRef={resetViewRef}
 			zoomToLocationRef={zoomToLocationRef}
+			splitOrientation={splitOrientation}
+			onSplitOrientationChange={handleSplitOrientationChange}
+			onSplitOrientationSync={handleSplitOrientationSync}
+			toggleSplitOrientationRef={toggleSplitOrientationRef}
 			onSelectionChange={applySelection}
 			onCreateDrawerFromTool={handleCreateDrawer}
 			onSplitDrawerFromTool={handleSplitDrawer}
 			onSwapCompartments={handleSwapCompartments}
 			onUpdateDrawers={handleUpdateDrawersBulkWithHistory}
 			onUpdateCompartment={handleUpdateCompartmentWithHistory}
+			onResizeDrawer={handleResizeDrawer}
+			onCreateDivider={handleCreateDivider}
 			onViewportChange={handleViewportChange}
 			onToolChange={setTool}
 			onZoomIn={handleZoomIn}

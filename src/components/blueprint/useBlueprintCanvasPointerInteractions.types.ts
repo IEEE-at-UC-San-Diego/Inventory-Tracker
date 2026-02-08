@@ -24,6 +24,36 @@ export interface DraftSplit {
 	targetCompartmentId?: string | null;
 }
 
+export type ResizeHandle =
+	| "nw"
+	| "n"
+	| "ne"
+	| "e"
+	| "se"
+	| "s"
+	| "sw"
+	| "w";
+
+export interface DraftDivider {
+	startX: number;
+	startY: number;
+	endX: number;
+	endY: number;
+}
+
+export interface DraftResize {
+	drawerId: string;
+	handle: ResizeHandle;
+	startX: number;
+	startY: number;
+	startWidth: number;
+	startHeight: number;
+	currentX: number;
+	currentY: number;
+	currentWidth: number;
+	currentHeight: number;
+}
+
 export interface SelectionBox {
 	startClientX: number;
 	startClientY: number;
@@ -78,6 +108,16 @@ export interface UseBlueprintCanvasPointerInteractionsParams {
 	onUpdateDrawers?: (
 		updates: Array<{ drawerId: string; x: number; y: number }>,
 	) => void;
+	onResizeDrawer?: (
+		drawerId: string,
+		updates: { x: number; y: number; width: number; height: number },
+	) => void;
+	onCreateDivider?: (divider: {
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+	}) => void;
 }
 
 export interface UseBlueprintCanvasPointerInteractionsResult {
@@ -86,6 +126,11 @@ export interface UseBlueprintCanvasPointerInteractionsResult {
 	draftSplit: DraftSplit | null;
 	hoverSplit: DraftSplit | null;
 	splitOrientation: "vertical" | "horizontal";
+	setSplitOrientation: React.Dispatch<
+		React.SetStateAction<"vertical" | "horizontal">
+	>;
+	draftResize: DraftResize | null;
+	draftDivider: DraftDivider | null;
 	selectionBox: SelectionBox | null;
 	drawerPositionOverrides: Record<string, { x: number; y: number }> | null;
 	invalidDrop: boolean;

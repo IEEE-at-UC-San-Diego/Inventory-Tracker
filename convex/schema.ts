@@ -204,6 +204,22 @@ export default defineSchema({
     .index('by_timestamp', ['timestamp']),
 
   /**
+   * Dividers - cosmetic lines drawn on blueprints (purely visual, no compartments)
+   */
+  dividers: defineTable({
+    blueprintId: v.id('blueprints'),
+    x1: v.number(),
+    y1: v.number(),
+    x2: v.number(),
+    y2: v.number(),
+    thickness: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_blueprintId', ['blueprintId'])
+    .index('by_updatedAt', ['updatedAt']),
+
+  /**
    * Blueprint Revisions - version history for undo/rollback
    */
   blueprintRevisions: defineTable({

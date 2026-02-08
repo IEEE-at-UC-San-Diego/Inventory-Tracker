@@ -41,6 +41,7 @@ export function BlueprintEditorView({
 	zoomLevel,
 	highlightedCompartmentIds,
 	compartmentsWithInventory,
+	dividers,
 	isInspectorOpen,
 	isEditingName,
 	nameValue,
@@ -67,12 +68,18 @@ export function BlueprintEditorView({
 	zoomToFitRef,
 	resetViewRef,
 	zoomToLocationRef,
+	splitOrientation,
+	onSplitOrientationChange,
+	onSplitOrientationSync,
+	toggleSplitOrientationRef,
 	onSelectionChange,
 	onCreateDrawerFromTool,
 	onSplitDrawerFromTool,
 	onSwapCompartments,
 	onUpdateDrawers,
 	onUpdateCompartment,
+	onResizeDrawer,
+	onCreateDivider,
 	onViewportChange,
 	onToolChange,
 	onZoomIn,
@@ -132,7 +139,11 @@ export function BlueprintEditorView({
 					onSwapCompartments={onSwapCompartments}
 					onUpdateDrawers={onUpdateDrawers}
 					onUpdateCompartment={onUpdateCompartment}
+					onResizeDrawer={onResizeDrawer}
+					onCreateDivider={onCreateDivider}
 					onViewportChange={onViewportChange}
+					onSplitOrientationChange={onSplitOrientationSync}
+					toggleSplitOrientationRef={toggleSplitOrientationRef}
 					zoomInRef={zoomInRef}
 					zoomOutRef={zoomOutRef}
 					zoomToFitRef={zoomToFitRef}
@@ -140,6 +151,7 @@ export function BlueprintEditorView({
 					zoomToLocationRef={zoomToLocationRef}
 					compartmentsWithInventory={compartmentsWithInventory}
 					highlightedCompartmentIds={highlightedCompartmentIds}
+					dividers={dividers}
 				/>
 
 				<BlueprintControls
@@ -151,6 +163,8 @@ export function BlueprintEditorView({
 					onResetView={onResetView}
 					zoomLevel={zoomLevel}
 					canEditTools={isLockedByMe}
+					splitOrientation={splitOrientation}
+					onSplitOrientationChange={onSplitOrientationChange}
 				/>
 
 				<div className="absolute top-4 left-4 right-4 z-20 pointer-events-none">

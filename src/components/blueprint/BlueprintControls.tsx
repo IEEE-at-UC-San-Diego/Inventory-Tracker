@@ -1,16 +1,18 @@
 import {
 	Hand,
 	Maximize,
+	Minus,
 	MousePointer2,
 	RotateCcw,
 	Square,
 	SquareSplitHorizontal,
+	SquareSplitVertical,
 	ZoomIn,
 	ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export type BlueprintTool = "select" | "pan" | "drawer" | "split";
+export type BlueprintTool = "select" | "pan" | "drawer" | "split" | "divider";
 
 interface BlueprintControlsProps {
 	tool: BlueprintTool;
@@ -21,6 +23,8 @@ interface BlueprintControlsProps {
 	onResetView: () => void;
 	zoomLevel?: number;
 	canEditTools?: boolean;
+	splitOrientation?: "vertical" | "horizontal";
+	onSplitOrientationChange?: () => void;
 }
 
 export function BlueprintControls({
@@ -32,6 +36,8 @@ export function BlueprintControls({
 	onResetView,
 	zoomLevel = 100,
 	canEditTools = false,
+	splitOrientation = "vertical",
+	onSplitOrientationChange,
 }: BlueprintControlsProps) {
 	return (
 		<div className="absolute bottom-6 left-6 z-10">
@@ -75,6 +81,31 @@ export function BlueprintControls({
 						title="Split Drawer (draw a divider line)"
 					>
 						<SquareSplitHorizontal className="w-4 h-4" />
+					</Button>
+					{tool === "split" && canEditTools && (
+						<Button
+							variant="outline"
+							size="icon"
+							onClick={onSplitOrientationChange}
+							className="h-9 w-9"
+							title={`Split: ${splitOrientation} (R to toggle)`}
+						>
+							{splitOrientation === "vertical" ? (
+								<SquareSplitVertical className="w-4 h-4" />
+							) : (
+								<SquareSplitHorizontal className="w-4 h-4" />
+							)}
+						</Button>
+					)}
+					<Button
+						variant={tool === "divider" ? "default" : "ghost"}
+						size="icon"
+						onClick={() => onToolChange("divider")}
+						className="h-9 w-9"
+						disabled={!canEditTools}
+						title="Draw Divider (cosmetic line)"
+					>
+						<Minus className="w-4 h-4" strokeWidth={3} />
 					</Button>
 				</div>
 

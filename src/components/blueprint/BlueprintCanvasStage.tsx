@@ -15,6 +15,7 @@ import type { BlueprintTool } from "./BlueprintControls";
 import { CompartmentShape } from "./CompartmentShape";
 import { DrawerShape } from "./DrawerShape";
 import type {
+	DraftDivider,
 	DraftDrawer,
 	DraftSplit,
 	SelectionBox,
@@ -37,11 +38,20 @@ interface BlueprintCanvasStageProps {
 	selectedElement: SelectedElement;
 	selectedDrawerIdSet: Set<string>;
 	highlightedCompartmentIds?: string[];
+	dividers?: Array<{
+		_id: string;
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+		thickness: number;
+	}>;
 	invalidDrop: boolean;
 	selectionBox: SelectionBox | null;
 	draftDrawer: DraftDrawer | null;
 	hoverSplit: DraftSplit | null;
 	draftSplit: DraftSplit | null;
+	draftDivider: DraftDivider | null;
 	dragState: {
 		compartmentId: string;
 		fromDrawerId: string;
@@ -160,11 +170,13 @@ export function BlueprintCanvasStage({
 	selectedElement,
 	selectedDrawerIdSet,
 	highlightedCompartmentIds,
+	dividers,
 	invalidDrop,
 	selectionBox,
 	draftDrawer,
 	hoverSplit,
 	draftSplit,
+	draftDivider,
 	dragState,
 	dragHover,
 	dragOverlays,
@@ -302,6 +314,17 @@ export function BlueprintCanvasStage({
 						/>
 					)}
 
+					{dividers?.map((divider) => (
+						<Line
+							key={`divider-${divider._id}`}
+							points={[divider.x1, divider.y1, divider.x2, divider.y2]}
+							stroke="#6b7280"
+							strokeWidth={divider.thickness}
+							lineCap="round"
+							listening={false}
+						/>
+					))}
+
 					{drawersForRender.map((drawer) => (
 						<DrawerShape
 							key={drawer._id}
@@ -428,6 +451,21 @@ export function BlueprintCanvasStage({
 								[10, 6],
 							);
 						})()}
+
+					{draftDivider && (
+						<Line
+							points={[
+								draftDivider.startX,
+								draftDivider.startY,
+								draftDivider.endX,
+								draftDivider.endY,
+							]}
+							stroke="rgba(107,114,128,0.9)"
+							strokeWidth={4}
+							lineCap="round"
+							listening={false}
+						/>
+					)}
 				</Layer>
 
 				<Layer listening={false}>
