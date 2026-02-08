@@ -42,11 +42,6 @@ export function hasRoleForUser(user: User | null, role: UserRole): boolean {
 		return false;
 	}
 	const normalizedUserRole = normalizeRole(user.role);
-	console.log("[useAuth] hasRole:", {
-		userRole: user.role,
-		normalizedUserRole,
-		requiredRole: role,
-	});
 	return hasMinimumRole(normalizedUserRole, role);
 }
 
@@ -55,17 +50,8 @@ export function hasPermissionForUser(
 	permission: string,
 ): boolean {
 	if (!user || !user.scopes) {
-		console.log(
-			"[useAuth] hasPermission: no scopes available, returning false",
-		);
 		return false;
 	}
 
-	const hasScope = user.scopes.includes(permission);
-	console.log("[useAuth] hasPermission:", {
-		permission,
-		hasScope,
-		availableScopes: user.scopes,
-	});
-	return hasScope;
+	return user.scopes.includes(permission);
 }

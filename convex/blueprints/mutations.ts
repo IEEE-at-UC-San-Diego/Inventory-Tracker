@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { authContextSchema } from '../types/auth'
 
 // Lock expiration time in milliseconds (5 minutes)
@@ -49,16 +48,13 @@ export const create = mutation({
   },
   returns: v.id('blueprints'),
   handler: async (ctx, args): Promise<Id<'blueprints'>> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'blueprints:create')
 
     const now = Date.now()
 
     const blueprintId = await ctx.db.insert('blueprints', {
       name: args.name,
-      orgId,
+      orgId: user.orgId,
       lockedBy: undefined,
       lockTimestamp: undefined,
       createdAt: now,
@@ -81,10 +77,7 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-	const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-	// Require General Officers or higher role
-	await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+	await requirePermission(ctx, args.authContext, 'blueprints:update')
 
     await ctx.db.patch(args.blueprintId, {
       name: args.name,
@@ -106,10 +99,8 @@ export const deleteBlueprint = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'blueprints:delete')
+    const orgId = user.orgId
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 
@@ -177,10 +168,8 @@ export const acquireLock = mutation({
     lockedBy: v.optional(v.id('users')),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'blueprints:lock')
+    const orgId = userContext.user.orgId
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 
@@ -240,10 +229,8 @@ export const releaseLock = mutation({
     message: v.string(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'blueprints:unlock')
+    const orgId = userContext.user.orgId
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 
@@ -292,10 +279,8 @@ export const forceReleaseLock = mutation({
     previousHolder: v.optional(v.id('users')),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-	// Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'blueprints:unlock')
+    const orgId = user.orgId
 
     const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
 

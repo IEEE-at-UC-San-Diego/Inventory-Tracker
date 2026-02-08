@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -22,10 +21,8 @@ export const create = mutation({
   },
   returns: v.id('parts'),
   handler: async (ctx, args): Promise<Id<'parts'>> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'parts:create')
+    const orgId = user.orgId
 
     const trimmedSku = args.sku.trim()
     if (!trimmedSku) {
@@ -82,10 +79,8 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'parts:update')
+    const orgId = user.orgId
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -141,10 +136,8 @@ export const archive = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'parts:archive')
+    const orgId = user.orgId
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -188,10 +181,8 @@ export const unarchive = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'parts:unarchive')
+    const orgId = user.orgId
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -223,10 +214,8 @@ export const remove = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'parts:delete')
+    const orgId = user.orgId
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {
@@ -268,10 +257,8 @@ export const updateImage = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'parts:update')
+    const orgId = user.orgId
 
     const part = await ctx.db.get(args.partId)
     if (!part || part.orgId !== orgId) {

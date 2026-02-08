@@ -2,6 +2,13 @@ import { useLogto } from "@logto/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
+import { clearLogtoStorage } from "../hooks/useAuth.helpers";
+import {
+	clearAuthContext,
+	clearConvexUser,
+	clearTokenExpiresAt,
+} from "../lib/auth";
+import { authLog } from "../lib/authLogger";
 
 export const Route = createFileRoute("/logout")({
 	component: LogoutPage,
@@ -15,25 +22,16 @@ function LogoutPage() {
 	useEffect(() => {
 		const performLogout = async () => {
 			try {
-				// Clear local storage
-				if (typeof window !== "undefined") {
-					try {
-						localStorage.clear();
-					} catch {
-						// Ignore storage errors
-					}
-
-					try {
-						sessionStorage.clear();
-					} catch {
-						// Ignore storage errors
-					}
-				}
+				// Clear auth-specific storage only
+				clearConvexUser();
+				clearAuthContext();
+				clearTokenExpiresAt();
+				clearLogtoStorage();
 
 				// Sign out from Logto and redirect to login page
 				await logtoSignOut(`${window.location.origin}/login`);
 			} catch (error) {
-				console.error("[logout] Error during logout:", error);
+				authLog.error("Error during logout:", error);
 				// Even if Logto logout fails, redirect to login
 				window.location.href = "/login";
 			}

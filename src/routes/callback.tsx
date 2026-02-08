@@ -5,18 +5,16 @@ import {
 	useSearch,
 } from "@tanstack/react-router";
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LogtoTokenClaims, LogtoUserInfo } from "../lib/auth";
 import {
-	AUTH_UPDATED_EVENT,
 	dispatchAuthUpdatedEvent,
-	getAuthContext,
-	getConvexUser,
 	setAuthContext,
 	setConvexUser,
 	setTokenExpiresAt,
 	verifyLogtoToken,
 } from "../lib/auth";
+import { authLog } from "../lib/authLogger";
 
 // API resource must match LogtoAuthProvider config to get JWT access tokens
 const apiResource =
@@ -27,13 +25,15 @@ export const Route = createFileRoute("/callback")({
 });
 
 function CallbackPage() {
-	const { isLoading, error } = useHandleSignInCallback();
+	const { isLoading: callbackLoading, error: callbackError } =
+		useHandleSignInCallback();
 	const navigate = useNavigate();
 	const search = useSearch({ from: "/callback" });
 	const [status, setStatus] = useState<"processing" | "success" | "error">(
 		"processing",
 	);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const verifyStartedRef = useRef(false);
 
 	const {
 		getAccessToken,
@@ -42,131 +42,77 @@ function CallbackPage() {
 		isAuthenticated: logtoAuthenticated,
 	} = useLogto();
 
+	// Handle Logto callback errors
 	useEffect(() => {
-		const handleCallback = async () => {
-			const waitForAuthProviderHydration = async () => {
-				if (typeof window === "undefined") {
-					dispatchAuthUpdatedEvent();
-					return;
-				}
+		if (callbackError) {
+			setStatus("error");
+			setErrorMessage(callbackError.message || "Authentication failed");
+			const id = window.setTimeout(() => navigate({ to: "/login" }), 3000);
+			return () => window.clearTimeout(id);
+		}
+	}, [callbackError, navigate]);
 
-				await new Promise<void>((resolve) => {
-					let resolved = false;
+	// Once Logto callback completes and user is authenticated, verify with backend
+	useEffect(() => {
+		// Wait for Logto SDK to finish processing the callback
+		if (callbackLoading || callbackError || !logtoAuthenticated) return;
+		// Only run once
+		if (verifyStartedRef.current) return;
+		verifyStartedRef.current = true;
 
-					const cleanup = () => {
-						if (resolved) return;
-						resolved = true;
-						window.removeEventListener(AUTH_UPDATED_EVENT, handleAuthUpdated);
-						window.clearTimeout(timeoutId);
-						resolve();
-					};
-
-					const handleAuthUpdated = () => {
-						cleanup();
-					};
-
-					window.addEventListener(AUTH_UPDATED_EVENT, handleAuthUpdated, {
-						once: true,
-					});
-
-					const timeoutId = window.setTimeout(() => {
-						cleanup();
-					}, 1500);
-
-					dispatchAuthUpdatedEvent();
-				});
-			};
-
+		const verifyAndRedirect = async () => {
 			try {
-				// Check for errors from Logto
-				if (error) {
+				const accessToken = await getAccessToken(apiResource);
+				const idTokenClaims = await getIdTokenClaims();
+				const userInfo = await fetchUserInfo();
+
+				if (!accessToken || !idTokenClaims) {
 					setStatus("error");
-					setErrorMessage(error.message || "Authentication failed");
+					setErrorMessage("Failed to retrieve authentication tokens");
 					setTimeout(() => navigate({ to: "/login" }), 3000);
 					return;
 				}
 
-				// If Logto callback is done, verify token with our backend
-				if (!isLoading && logtoAuthenticated) {
-					const accessToken = await getAccessToken(apiResource);
-					const idTokenClaims = await getIdTokenClaims();
-					const userInfo = await fetchUserInfo();
+				// Verify token with our backend and sync user to Convex
+				const result = await verifyLogtoToken(
+					accessToken,
+					idTokenClaims as unknown as LogtoTokenClaims,
+					userInfo as LogtoUserInfo,
+				);
 
-					if (!accessToken || !idTokenClaims) {
-						setStatus("error");
-						setErrorMessage("Failed to retrieve authentication tokens");
-						setTimeout(() => navigate({ to: "/login" }), 3000);
-						return;
+				authLog.debug("callback verifyLogtoToken result:", {
+					success: result.success,
+					hasUser: !!result.user,
+				});
+
+				if (result.success && result.user && result.authContext) {
+					// Persist auth state to localStorage
+					setConvexUser(result.user);
+					setAuthContext(result.authContext);
+					if (result.tokenExpiresAt) {
+						setTokenExpiresAt(result.tokenExpiresAt);
 					}
 
-					// Verify token with Convex backend and sync user
-					const result = await verifyLogtoToken(
-						accessToken,
-						idTokenClaims as unknown as LogtoTokenClaims,
-						userInfo as LogtoUserInfo,
-					);
+					// Notify AuthProvider to pick up the new state
+					dispatchAuthUpdatedEvent();
 
-					console.log("[callback] verifyLogtoToken SUCCESS:", {
-						hasUser: !!result.user,
-						hasAuthContext: !!result.authContext,
-						tokenExpiresAt: result.tokenExpiresAt,
-					});
+					setStatus("success");
 
-					if (result.success && result.user && result.authContext) {
-						// Store the user in local storage
-						setConvexUser(result.user);
-						console.log(
-							"[callback] Wrote user to localStorage:",
-							result.user._id,
-						);
+					// Small delay to let AuthProvider hydrate before navigating
+					await new Promise((r) => setTimeout(r, 100));
 
-						// Store auth context to trigger immediate state refresh
-						setAuthContext(result.authContext);
-						console.log(
-							"[callback] Wrote authContext to localStorage:",
-							result.authContext.userId,
-						);
-
-						// Store token expiration time
-						if (result.tokenExpiresAt) {
-							setTokenExpiresAt(result.tokenExpiresAt);
-							console.log("[callback] Wrote tokenExpiresAt to localStorage");
-						}
-
-						// Verify localStorage was written correctly
-						const verifyUser = getConvexUser();
-						const verifyAuthContext = getAuthContext();
-						console.log("[callback] Verified localStorage contents:", {
-							user: verifyUser
-								? { _id: verifyUser._id, role: verifyUser.role }
-								: undefined,
-							authContext: verifyAuthContext,
-						});
-
-						setStatus("success");
-
-						// Redirect to the original destination or dashboard
-						const redirectTo =
-							(search as { redirect?: string }).redirect || "/home";
-						await waitForAuthProviderHydration();
-						navigate({ to: redirectTo });
-					} else {
-						setStatus("error");
-						setErrorMessage(
-							result.error || "Failed to authenticate with backend",
-						);
-						setTimeout(() => navigate({ to: "/login" }), 3000);
-					}
-				}
-
-				// Callback finished but user is still unauthenticated.
-				// Without this branch, the page can remain on an infinite spinner.
-				if (!isLoading && !logtoAuthenticated) {
+					const redirectTo =
+						(search as { redirect?: string }).redirect || "/home";
+					navigate({ to: redirectTo });
+				} else {
 					setStatus("error");
-					setErrorMessage("Sign-in was not completed. Please try again.");
+					setErrorMessage(
+						result.error || "Failed to authenticate with backend",
+					);
 					setTimeout(() => navigate({ to: "/login" }), 3000);
 				}
 			} catch (err) {
+				authLog.error("callback verification error:", err);
 				setStatus("error");
 				setErrorMessage(
 					err instanceof Error ? err.message : "An unexpected error occurred",
@@ -175,10 +121,10 @@ function CallbackPage() {
 			}
 		};
 
-		handleCallback();
+		verifyAndRedirect();
 	}, [
-		isLoading,
-		error,
+		callbackLoading,
+		callbackError,
 		logtoAuthenticated,
 		navigate,
 		search,
@@ -187,10 +133,19 @@ function CallbackPage() {
 		fetchUserInfo,
 	]);
 
+	// Callback finished but user is still unauthenticated after Logto completed
 	useEffect(() => {
-		if (status !== "processing") {
-			return;
+		if (!callbackLoading && !callbackError && !logtoAuthenticated) {
+			setStatus("error");
+			setErrorMessage("Sign-in was not completed. Please try again.");
+			const id = window.setTimeout(() => navigate({ to: "/login" }), 3000);
+			return () => window.clearTimeout(id);
 		}
+	}, [callbackLoading, callbackError, logtoAuthenticated, navigate]);
+
+	// Safety timeout
+	useEffect(() => {
+		if (status !== "processing") return;
 
 		const timeoutId = window.setTimeout(() => {
 			setStatus("error");
@@ -198,9 +153,7 @@ function CallbackPage() {
 			navigate({ to: "/login" });
 		}, 20_000);
 
-		return () => {
-			window.clearTimeout(timeoutId);
-		};
+		return () => window.clearTimeout(timeoutId);
 	}, [status, navigate]);
 
 	return (

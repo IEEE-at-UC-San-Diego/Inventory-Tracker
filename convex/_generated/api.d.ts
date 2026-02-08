@@ -31,6 +31,7 @@ import type * as organizations_mutations from "../organizations/mutations.js";
 import type * as organizations_queries from "../organizations/queries.js";
 import type * as parts_mutations from "../parts/mutations.js";
 import type * as parts_queries from "../parts/queries.js";
+import type * as permissions from "../permissions.js";
 import type * as role_sync_queue_mutations from "../role_sync_queue/mutations.js";
 import type * as role_sync_queue_queries from "../role_sync_queue/queries.js";
 import type * as seed from "../seed.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   "organizations/queries": typeof organizations_queries;
   "parts/mutations": typeof parts_mutations;
   "parts/queries": typeof parts_queries;
+  permissions: typeof permissions;
   "role_sync_queue/mutations": typeof role_sync_queue_mutations;
   "role_sync_queue/queries": typeof role_sync_queue_queries;
   seed: typeof seed;

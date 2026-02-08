@@ -1,5 +1,5 @@
 import { LogtoProvider } from "@logto/react";
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 import {
 	type AuthContextValue,
 	AuthReactContext,
@@ -10,12 +10,6 @@ export function LogtoAuthProvider({ children }: { children: React.ReactNode }) {
 	const callbackUrl = `${import.meta.env.VITE_SITE_URL || "http://localhost:3000"}/callback`;
 	const apiResource =
 		import.meta.env.VITE_LOGTO_API_RESOURCE || "urn:inventory-tracker:api";
-
-	useEffect(() => {
-		console.log("[LogtoAuth] Redirect URI:", callbackUrl);
-		console.log("[LogtoAuth] VITE_SITE_URL:", import.meta.env.VITE_SITE_URL);
-		console.log("[LogtoAuth] API Resource:", apiResource);
-	}, []);
 
 	const config = {
 		...logtoAuthConfig,

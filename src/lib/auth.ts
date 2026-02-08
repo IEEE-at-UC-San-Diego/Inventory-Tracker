@@ -2,6 +2,7 @@ import type { LogtoConfig } from "@logto/react";
 import { createContext, useContext } from "react";
 import type { User, UserRole } from "@/types";
 import type { AuthContext } from "@/types/auth";
+import { authLog } from "./authLogger";
 
 /**
  * Logto Authentication Configuration
@@ -176,7 +177,7 @@ export function getAuthContext(): import("@/types/auth").AuthContext | null {
 		// Check if auth context is expired
 		const now = Date.now();
 		if (now - context.timestamp > AUTH_MAX_AGE) {
-			console.log("[getAuthContext] Stored auth context expired, clearing");
+			authLog.debug("stored auth context expired, clearing");
 			localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_CONTEXT);
 			return null;
 		}
@@ -293,7 +294,7 @@ export async function verifyLogtoToken(
 					error: `Token verification failed: ${response.status} ${response.statusText}`,
 				};
 			}
-			console.error("[verifyLogtoToken] API error:", {
+			authLog.error("verifyLogtoToken API error:", {
 				status: response.status,
 				error: errorData.error,
 			});
@@ -322,7 +323,7 @@ export async function verifyLogtoToken(
 		if (error instanceof DOMException && error.name === "AbortError") {
 			return { success: false, error: "Token verification timed out" };
 		}
-		console.error("[verifyLogtoToken] Network error:", error);
+		authLog.error("verifyLogtoToken network error:", error);
 		return {
 			success: false,
 			error:

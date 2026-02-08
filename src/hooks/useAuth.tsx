@@ -19,6 +19,7 @@ import {
 	setTokenExpiresAt,
 	verifyLogtoToken,
 } from "../lib/auth";
+import { authLog } from "../lib/authLogger";
 import {
 	clearLogtoStorage,
 	hasPermissionForUser,
@@ -73,39 +74,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		signOut,
 	};
 
-	const clearAllBrowserStorage = useCallback(() => {
-		if (typeof window === "undefined") {
-			return;
-		}
-
-		try {
-			window.localStorage.clear();
-		} catch {
-			// Ignore storage errors
-		}
-
-		try {
-			window.sessionStorage.clear();
-		} catch {
-			// Ignore storage errors
-		}
+	const clearAuthStorage = useCallback(() => {
+		clearConvexUser();
+		clearAuthContext();
+		clearTokenExpiresAt();
+		clearLogtoStorage();
 	}, []);
 
 	const forceLogoutDueToInvalidContext = useCallback(
 		async (message: string) => {
-			console.log("[useAuth]", message);
+			authLog.warn(message);
 			setHasAuthFailed(true);
 			setError("Session expired. Please sign in again.");
-			clearAllBrowserStorage();
-			clearConvexUser();
-			clearAuthContext();
-			clearTokenExpiresAt();
+			clearAuthStorage();
 			setUser(null);
 			setLogtoUser(null);
 			setAuthContextState(null);
-			await logtoFunctionsRef.current.signOut();
+			try {
+				await logtoFunctionsRef.current.signOut();
+			} catch {
+				// signOut may fail if session is already invalid
+			}
 		},
-		[clearAllBrowserStorage],
+		[clearAuthStorage],
 	);
 
 	const verifyAndRefreshAuthContext = useCallback(
@@ -117,70 +108,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			authContext?: AuthContextType;
 			error?: string;
 		}> => {
-			console.log(
-				"[useAuth] verifyAndRefreshAuthContext called with accessToken length:",
-				accessToken?.length,
-			);
+			authLog.debug("verifyAndRefreshAuthContext called");
 
 			try {
-				console.log("[useAuth] Calling verifyLogtoToken API...");
 				const result = await verifyLogtoToken(
 					accessToken,
 					{} as LogtoTokenClaims,
 					currentLogtoUser || ({} as LogtoUserInfo),
 				);
 
-				console.log("[useAuth] Token verification result:", {
-					success: result.success,
-					hasAuthContext: !!result.authContext,
-					hasUser: !!result.user,
-					hasTokenExpiresAt: !!result.tokenExpiresAt,
-					authContext: result.authContext
-						? { ...result.authContext, role: result.authContext.role }
-						: null,
-					user: result.user ? { ...result.user, role: result.user.role } : null,
-					tokenExpiresAt: result.tokenExpiresAt,
-				});
-
 				if (result.success && result.authContext) {
-					console.log(
-						"[useAuth] ✓ Token verification SUCCESS! Setting auth context from result",
-					);
+					authLog.debug("token verification succeeded");
 					setAuthContextState(result.authContext);
 					setAuthContext(result.authContext);
 
 					if (result.tokenExpiresAt) {
-						console.log("[useAuth] Setting token expiration from result");
 						setTokenExpiresAt(result.tokenExpiresAt);
 					}
 
 					if (result.user) {
-						console.log(
-							"[useAuth] Setting user from token verification:",
-							result.user,
-						);
 						setUser(result.user);
 						setConvexUser(result.user);
-					} else {
-						console.log("[useAuth] No user data in token verification result");
 					}
 
 					return { success: true, authContext: result.authContext };
-				} else {
-					console.log("[useAuth] Token verification failed or missing data:", {
-						success: result.success,
-						hasAuthContext: !!result.authContext,
-						hasUser: !!result.user,
-						hasTokenExpiresAt: !!result.tokenExpiresAt,
-						error: result.error,
-					});
-					return {
-						success: false,
-						error: result.error || "Failed to refresh auth context",
-					};
 				}
+
+				authLog.debug("token verification failed", result.error);
+				return {
+					success: false,
+					error: result.error || "Failed to refresh auth context",
+				};
 			} catch (err) {
-				console.error("[useAuth] Error in verifyAndRefreshAuthContext:", err);
+				authLog.error("verifyAndRefreshAuthContext error:", err);
 				const errorMsg = err instanceof Error ? err.message : "Unknown error";
 				setError(errorMsg);
 				return { success: false, error: errorMsg };
@@ -249,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (hasInitializedRef.current) return;
 
-		const initAuthFromStorage = async () => {
+		const initAuthFromStorage = () => {
 			try {
 				const storedUser = getConvexUser();
 				if (storedUser) {
@@ -258,17 +218,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 				const storedAuthContext = getAuthContext();
 				if (storedAuthContext) {
-					const ageMinutes = (Date.now() - storedAuthContext.timestamp) / 60000;
-					console.log("[useAuth] Restoring auth context:", {
-						userId: storedAuthContext.userId,
-						timestamp: new Date(storedAuthContext.timestamp).toISOString(),
-						age: `${Math.round(ageMinutes)} minutes old`,
-					});
+					authLog.debug("restoring auth context from storage");
 					setAuthContextState(storedAuthContext);
 				} else {
-					console.log(
-						"[useAuth] No valid auth context found (expired or missing)",
-					);
 					setAuthContextState(null);
 				}
 			} catch (err) {
@@ -310,33 +262,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		hasHydratedFromLogtoRef.current = true;
 
 		const hydrateFromLogto = async () => {
-			console.log(
-				"[useAuth] hydrateFromLogto STARTING. hasHydratedFromLogtoRef:",
-				hasHydratedFromLogtoRef.current,
-			);
+			authLog.debug("hydrateFromLogto starting");
+
+			// If the callback page already stored a fresh auth context, skip
+			// the expensive re-verification round-trip.
+			const storedUser = getConvexUser();
+			const storedAuthContext = getAuthContext();
+
+			if (storedUser && storedAuthContext) {
+				const ageMinutes = (Date.now() - storedAuthContext.timestamp) / 60000;
+				if (ageMinutes < AUTH_CONTEXT_REFRESH_THRESHOLD_MINUTES) {
+					authLog.debug(
+						"skipping re-verification, fresh context from callback",
+					);
+					if (!cancelled) {
+						setUser(storedUser);
+						setAuthContextState(storedAuthContext);
+						setIsLoading(false);
+					}
+
+					// Still fetch Logto user info in the background for profile data
+					try {
+						const userInfo =
+							(await logtoFunctionsRef.current.fetchUserInfo()) as LogtoUserInfo;
+						if (!cancelled) {
+							setLogtoUser(userInfo);
+						}
+					} catch {
+						// Non-critical, ignore
+					}
+					return;
+				}
+			}
+
 			setIsLoading(true);
 
 			try {
-				const storedUser = getConvexUser();
-				console.log(
-					"[useAuth] hydrateFromLogto - storedUser from localStorage:",
-					storedUser ? { _id: storedUser._id, role: storedUser.role } : null,
-				);
 				if (storedUser && !cancelled) {
 					setUser(storedUser);
 				}
-
-				const storedAuthContext = getAuthContext();
-				console.log(
-					"[useAuth] hydrateFromLogto - storedAuthContext from localStorage:",
-					storedAuthContext,
-				);
 				if (storedAuthContext && !cancelled) {
-					const ageMinutes = (Date.now() - storedAuthContext.timestamp) / 60000;
-					console.log("[useAuth] Local auth context age:", {
-						minutes: ageMinutes.toFixed(2),
-						refreshThreshold: AUTH_CONTEXT_REFRESH_THRESHOLD_MINUTES,
-					});
 					setAuthContextState(storedAuthContext);
 				}
 
@@ -349,13 +314,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					}
 				} catch (err) {
 					if (isLogtoRequestErrorLike(err)) {
-						console.log(
-							"[useAuth] Invalid user info token, clearing stale session:",
-							err instanceof Error ? err.message : String(err),
-						);
-						clearLogtoStorage();
+						authLog.warn("invalid user info token, clearing stale session");
 						await forceLogoutDueToInvalidContext(
-							"[useAuth] Cleared stale session after invalid user info token",
+							"Cleared stale session after invalid user info token",
 						);
 						return;
 					}
@@ -368,13 +329,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 						await logtoFunctionsRef.current.getAccessToken(apiResource);
 				} catch (err) {
 					if (isLogtoRequestErrorLike(err)) {
-						console.log(
-							"[useAuth] Invalid access token, clearing stale session:",
-							err instanceof Error ? err.message : String(err),
-						);
-						clearLogtoStorage();
+						authLog.warn("invalid access token, clearing stale session");
 						await forceLogoutDueToInvalidContext(
-							"[useAuth] Cleared stale session after invalid access token",
+							"Cleared stale session after invalid access token",
 						);
 						return;
 					}
@@ -382,37 +339,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				}
 
 				if (!accessToken) {
-					console.log(
-						"[useAuth] hydrateFromLogto - Missing access token, calling forceLogout",
-					);
 					await forceLogoutDueToInvalidContext(
-						"[useAuth] Missing access token after Logto auth - signing out",
+						"Missing access token after Logto auth",
 					);
 					return;
 				}
 
-				console.log(
-					"[useAuth] hydrateFromLogto - Calling verifyAndRefreshAuthContext with accessToken...",
-				);
 				const result = await verifyAndRefreshAuthContext(accessToken, userInfo);
-				console.log(
-					"[useAuth] hydrateFromLogto - verifyAndRefreshAuthContext result:",
-					{ success: result.success, error: result.error },
-				);
 				if (!result.success) {
-					console.log(
-						"[useAuth] hydrateFromLogto - verifyAndRefreshAuthContext FAILED, calling forceLogout",
-					);
 					await forceLogoutDueToInvalidContext(
-						`[useAuth] ${result.error || "Failed to refresh auth context"} - signing out`,
+						result.error || "Failed to refresh auth context",
 					);
 				} else {
-					console.log(
-						"[useAuth] hydrateFromLogto - verifyAndRefreshAuthContext SUCCEEDED",
-					);
+					authLog.debug("hydration succeeded");
 				}
 			} catch (err) {
-				console.log("[useAuth] hydrateFromLogto - EXCEPTION:", err);
+				authLog.error("hydrateFromLogto error:", err);
 				if (!cancelled) {
 					setError(
 						err instanceof Error ? err.message : "Failed to hydrate auth",
@@ -422,15 +364,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				}
 			} finally {
 				if (!cancelled) {
-					console.log(
-						"[useAuth] hydrateFromLogto - FINALLY block. hasHydratedFromLogtoRef was:",
-						hasHydratedFromLogtoRef.current,
-					);
 					setIsLoading(false);
-					console.log(
-						"[useAuth] hydrateFromLogto - COMPLETED. hasHydratedFromLogtoRef is now:",
-						hasHydratedFromLogtoRef.current,
-					);
 				}
 			}
 		};
@@ -461,74 +395,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}, [logtoAuthenticated, hasAuthFailed]);
 
 	useEffect(() => {
-		// Only check if authenticated and not loading
 		if (!logtoAuthenticated || logtoLoading) {
 			return;
 		}
 
 		const checkTokenExpiration = () => {
 			const tokenExpiresAt = getTokenExpiresAt();
-			if (!tokenExpiresAt) {
-				// No expiration time stored, skip check
-				return;
-			}
+			if (!tokenExpiresAt) return;
 
-			const now = Date.now();
-			const isExpired = now >= tokenExpiresAt;
-
-			console.log("[useAuth] Token expiration check:", {
-				tokenExpiresAt: new Date(tokenExpiresAt).toISOString(),
-				now: new Date(now).toISOString(),
-				isExpired,
-				expiresInMs: tokenExpiresAt - now,
-			});
-
-			if (isExpired) {
-				console.log("[useAuth] Token expired, signing out...");
-				forceLogoutDueToInvalidContext("[useAuth] Token expired - signing out");
+			if (Date.now() >= tokenExpiresAt) {
+				authLog.warn("token expired, signing out");
+				forceLogoutDueToInvalidContext("Token expired");
 			}
 		};
 
-		// Check immediately on mount
 		checkTokenExpiration();
 
-		// Set up periodic check every minute
-		const intervalId = setInterval(() => {
-			checkTokenExpiration();
-		}, 60 * 1000); // Check every minute
-
+		const intervalId = setInterval(checkTokenExpiration, 60 * 1000);
 		return () => clearInterval(intervalId);
 	}, [logtoAuthenticated, logtoLoading, forceLogoutDueToInvalidContext]);
 
 	useEffect(() => {
 		const handleAuthUpdated = () => {
-			console.log(
-				"[useAuth] AUTH_UPDATED_EVENT fired! hasHydratedFromLogtoRef:",
-				hasHydratedFromLogtoRef.current,
-			);
-			console.log("[useAuth] Re-reading localStorage...");
+			authLog.debug("AUTH_UPDATED_EVENT received");
 			const storedUser = getConvexUser();
 			const storedAuthContext = getAuthContext();
 
-			console.log("[useAuth] Re-read from localStorage:", {
-				user: storedUser
-					? { _id: storedUser._id, role: storedUser.role }
-					: null,
-				authContext: storedAuthContext,
-			});
-
 			if (storedUser) {
-				console.log(
-					"[useAuth] Setting user from event listener:",
-					storedUser._id,
-				);
 				setUser(storedUser);
 			}
 			if (storedAuthContext) {
-				console.log(
-					"[useAuth] Setting authContext from event listener:",
-					storedAuthContext.userId,
-				);
 				setAuthContextState(storedAuthContext);
 			}
 		};
@@ -552,14 +448,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	const signOutWithCleanup = useCallback(async () => {
 		try {
-			// Clear all local/session storage for this origin on sign out.
-			// This ensures we don't keep stale Logto tokens or any cached app state.
-			clearAllBrowserStorage();
-
-			// Also clear via helpers (in case storage.clear() is blocked).
-			clearConvexUser();
-			clearAuthContext();
-			clearTokenExpiresAt();
+			clearAuthStorage();
 			setUser(null);
 			setLogtoUser(null);
 			setAuthContextState(null);
@@ -570,24 +459,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Sign out failed");
 		}
-	}, [signOut, clearAllBrowserStorage]);
+	}, [signOut, clearAuthStorage]);
 
 	const forceRefreshAuthContext = useCallback(async (): Promise<void> => {
-		console.log("[useAuth] Forcing auth context refresh...");
+		authLog.debug("forcing auth context refresh");
 
-		// Clear cached auth context, user, and token expiration
 		clearAuthContext();
 		clearConvexUser();
 		clearTokenExpiresAt();
 		setAuthContextState(null);
 		setUser(null);
 
-		// If authenticated, re-verify token to get fresh context
 		if (logtoAuthenticated && !logtoLoading) {
-			const { getAccessToken, getIdTokenClaims } = logtoFunctionsRef.current;
 			try {
-				const accessToken = await getAccessToken(apiResource);
-				const idTokenClaims = await getIdTokenClaims();
+				const accessToken =
+					await logtoFunctionsRef.current.getAccessToken(apiResource);
+				const idTokenClaims =
+					await logtoFunctionsRef.current.getIdTokenClaims();
 
 				if (accessToken && idTokenClaims && logtoUser) {
 					const result = await verifyLogtoToken(
@@ -597,11 +485,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					);
 
 					if (result.success && result.authContext && result.user) {
-						console.log("[useAuth] Auth context refreshed successfully");
+						authLog.debug("auth context refreshed successfully");
 						setAuthContextState(result.authContext);
 						setUser(result.user);
 
-						// Store token expiration if provided
 						if (result.tokenExpiresAt) {
 							setTokenExpiresAt(result.tokenExpiresAt);
 						}
@@ -609,13 +496,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				}
 			} catch (error) {
 				if (isLogtoRequestErrorLike(error)) {
-					clearLogtoStorage();
 					await forceLogoutDueToInvalidContext(
-						"[useAuth] Logto session invalid during forced refresh",
+						"Logto session invalid during forced refresh",
 					);
 					return;
 				}
-				console.error("[useAuth] Failed to refresh auth context:", error);
+				authLog.error("failed to refresh auth context:", error);
 				setError(
 					error instanceof Error
 						? error.message
@@ -665,15 +551,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		forceRefreshAuthContext,
 	]);
 
-	// Debug: Log auth state changes (only when the value changes)
 	useEffect(() => {
-		const appIsAuthenticated = Boolean(user && authContext);
-		console.log("[useAuth] Auth context state changed:", {
-			isAuthenticated: appIsAuthenticated,
+		authLog.debug("auth state changed:", {
+			isAuthenticated: Boolean(user && authContext),
 			userId: user?._id,
-			logtoAuthenticated,
 		});
-	}, [user, authContext, logtoAuthenticated]);
+	}, [user, authContext]);
 
 	return (
 		<AuthReactContext.Provider value={value}>
