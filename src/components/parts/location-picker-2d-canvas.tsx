@@ -72,6 +72,7 @@ interface SimpleDrawerShapeProps {
 	isSelected: boolean;
 	isHighlighted: boolean;
 	compartmentCount: number;
+	clickable?: boolean;
 	onClick: () => void;
 }
 
@@ -80,6 +81,7 @@ function SimpleDrawerShape({
 	isSelected,
 	isHighlighted,
 	compartmentCount,
+	clickable = true,
 	onClick,
 }: SimpleDrawerShapeProps) {
 	const fill = isSelected ? "#bae6fd" : isHighlighted ? "#dcfce7" : "#e0f2fe";
@@ -99,11 +101,14 @@ function SimpleDrawerShape({
 			x={drawer.x}
 			y={drawer.y}
 			rotation={drawer.rotation}
-			onClick={handleClick}
+			onClick={clickable ? handleClick : undefined}
 			onTap={
-				handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void
+				clickable
+					? (handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void)
+					: undefined
 			}
-			cursor="pointer"
+			listening={clickable}
+			cursor={clickable ? "pointer" : "default"}
 		>
 			<Rect
 				x={-drawer.width / 2}
@@ -146,6 +151,7 @@ interface SimpleCompartmentShapeProps {
 	drawer: Drawer;
 	isSelected: boolean;
 	disabled?: boolean;
+	clickable?: boolean;
 	onClick: () => void;
 }
 
@@ -154,6 +160,7 @@ function SimpleCompartmentShape({
 	drawer,
 	isSelected,
 	disabled = false,
+	clickable = true,
 	onClick,
 }: SimpleCompartmentShapeProps) {
 	const [isPulseOn, setIsPulseOn] = useState(false);
@@ -188,11 +195,14 @@ function SimpleCompartmentShape({
 			x={absoluteX}
 			y={absoluteY}
 			rotation={drawer.rotation + compartment.rotation}
-			onClick={handleClick}
+			onClick={clickable ? handleClick : undefined}
 			onTap={
-				handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void
+				clickable
+					? (handleClick as unknown as (evt: KonvaEventObject<TouchEvent>) => void)
+					: undefined
 			}
-			cursor={disabled ? "not-allowed" : "pointer"}
+			listening={clickable}
+			cursor={disabled ? "not-allowed" : clickable ? "pointer" : "default"}
 		>
 			<Rect
 				x={-compartment.width / 2}
@@ -254,6 +264,7 @@ interface CanvasViewProps {
 	selectedDrawerId?: string;
 	selectedCompartmentId?: string;
 	disabledCompartmentIds?: string[];
+	readOnly?: boolean;
 	onDrawerClick: (drawer: Drawer) => void;
 	onCompartmentClick: (compartment: Compartment, drawer: Drawer) => void;
 }
@@ -265,10 +276,12 @@ export function CanvasView({
 	selectedDrawerId,
 	selectedCompartmentId,
 	disabledCompartmentIds,
+	readOnly = false,
 	onDrawerClick,
 	onCompartmentClick,
 }: CanvasViewProps) {
 	const stageRef = useRef<KonvaStage>(null);
+	const panAnimationFrameRef = useRef<number | null>(null);
 	const [viewport, setViewport] = useState<Viewport>(() =>
 		getDefaultViewport(width, height),
 	);
@@ -400,6 +413,15 @@ export function CanvasView({
 	}, []);
 
 	const handleMouseDown = useCallback((e: KonvaEventObject<MouseEvent>) => {
+		if (readOnly && e.evt.button === 0) {
+			setIsPanning(true);
+			lastPointerPosition.current = {
+				x: e.evt.clientX,
+				y: e.evt.clientY,
+			};
+			return;
+		}
+
 		if (
 			e.evt.button === 1 ||
 			e.evt.button === 2 ||
@@ -411,7 +433,7 @@ export function CanvasView({
 				y: e.evt.clientY,
 			};
 		}
-	}, []);
+	}, [readOnly]);
 
 	const handleMouseMove = useCallback(
 		(e: KonvaEventObject<MouseEvent>) => {
@@ -420,16 +442,23 @@ export function CanvasView({
 			const dx = e.evt.clientX - lastPointerPosition.current.x;
 			const dy = e.evt.clientY - lastPointerPosition.current.y;
 
-			setViewport((prev) => ({
-				...prev,
-				x: prev.x + dx,
-				y: prev.y + dy,
-			}));
-
 			lastPointerPosition.current = {
 				x: e.evt.clientX,
 				y: e.evt.clientY,
 			};
+
+			if (panAnimationFrameRef.current !== null) {
+				window.cancelAnimationFrame(panAnimationFrameRef.current);
+			}
+
+			panAnimationFrameRef.current = window.requestAnimationFrame(() => {
+				setViewport((prev) => ({
+					...prev,
+					x: prev.x + dx,
+					y: prev.y + dy,
+				}));
+				panAnimationFrameRef.current = null;
+			});
 		},
 		[isPanning],
 	);
@@ -437,6 +466,18 @@ export function CanvasView({
 	const handleMouseUp = useCallback(() => {
 		setIsPanning(false);
 		lastPointerPosition.current = null;
+		if (panAnimationFrameRef.current !== null) {
+			window.cancelAnimationFrame(panAnimationFrameRef.current);
+			panAnimationFrameRef.current = null;
+		}
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (panAnimationFrameRef.current !== null) {
+				window.cancelAnimationFrame(panAnimationFrameRef.current);
+			}
+		};
 	}, []);
 
 	const gridLines = useMemo(() => {
@@ -501,7 +542,11 @@ export function CanvasView({
 							isSelected={selectedDrawerId === drawer._id}
 							isHighlighted={false}
 							compartmentCount={drawer.compartments?.length || 0}
-							onClick={() => onDrawerClick(drawer)}
+							clickable={!readOnly}
+							onClick={() => {
+								if (readOnly) return;
+								onDrawerClick(drawer);
+							}}
 						/>
 					))}
 					{drawers.map((drawer) =>
@@ -512,8 +557,10 @@ export function CanvasView({
 								drawer={drawer}
 								isSelected={selectedCompartmentId === compartment._id}
 								disabled={disabledCompartmentIdSet.has(compartment._id)}
+								clickable={!readOnly}
 								onClick={() => {
-									if (disabledCompartmentIdSet.has(compartment._id)) return;
+									if (readOnly || disabledCompartmentIdSet.has(compartment._id))
+										return;
 									onCompartmentClick(compartment, drawer);
 								}}
 							/>
@@ -522,7 +569,9 @@ export function CanvasView({
 				</Layer>
 			</Stage>
 			<div className="absolute bottom-2 right-2 px-2 py-1 bg-white/80 rounded text-xs text-gray-500">
-				Scroll to zoom • Right-drag or Shift+drag to pan
+				{readOnly
+					? "Scroll to zoom • Drag to pan"
+					: "Scroll to zoom • Right-drag or Shift+drag to pan"}
 			</div>
 		</div>
 	);

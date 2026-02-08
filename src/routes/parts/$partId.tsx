@@ -11,8 +11,9 @@ import {
 	Plus,
 	Settings,
 	Trash2,
+	X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	AdminOnly,
 	EditorOnly,
@@ -52,11 +53,13 @@ export const Route = createFileRoute("/parts/$partId")({
 });
 
 function useElementSize<T extends HTMLElement>() {
-	const ref = useRef<T | null>(null);
+	const [element, setElement] = useState<T | null>(null);
 	const [size, setSize] = useState({ width: 0, height: 0 });
+	const ref = useCallback((node: T | null) => {
+		setElement(node);
+	}, []);
 
 	useEffect(() => {
-		const element = ref.current;
 		if (!element) return;
 
 		const measure = () => {
@@ -76,7 +79,7 @@ function useElementSize<T extends HTMLElement>() {
 			resizeObserver.disconnect();
 			window.removeEventListener("resize", measure);
 		};
-	}, []);
+	}, [element]);
 
 	return { ref, size };
 }
@@ -117,8 +120,11 @@ function PartDetailContent() {
 	const [showMove, setShowMove] = useState(false);
 	const [showAdjust, setShowAdjust] = useState(false);
 	const [selectedInventoryId, setSelectedInventoryId] = useState<string>();
+	const [isBlueprintExpanded, setIsBlueprintExpanded] = useState(false);
 
 	const { ref: previewRef, size: previewSize } =
+		useElementSize<HTMLDivElement>();
+	const { ref: expandedPreviewRef, size: expandedPreviewSize } =
 		useElementSize<HTMLDivElement>();
 
 	const partData = useQuery(
@@ -158,6 +164,15 @@ function PartDetailContent() {
 	);
 
 	const selectedBlueprintId = selectedInventoryItem?.blueprint?._id;
+
+	useEffect(() => {
+		if (!isBlueprintExpanded) return;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.body.style.overflow = previousOverflow;
+		};
+	}, [isBlueprintExpanded]);
 
 	const selectedBlueprintDrawers = useQuery(
 		api.drawers.queries.listByBlueprint,
@@ -487,22 +502,13 @@ function PartDetailContent() {
 								</div>
 								<div className="flex items-center gap-2">
 									{selectedInventoryItem?.blueprint?._id && (
-										<Button size="sm" variant="outline" asChild>
-											<Link
-												to="/blueprints/$blueprintId"
-												params={{
-													blueprintId: selectedInventoryItem.blueprint._id,
-												}}
-												search={{
-													partId,
-													drawerId: selectedInventoryItem.drawer?._id,
-													compartmentId: selectedInventoryItem.compartment?._id,
-													mode: undefined,
-												}}
-											>
-												<Grid3X3 className="h-4 w-4" />
-												Open
-											</Link>
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => setIsBlueprintExpanded(true)}
+										>
+											<Grid3X3 className="h-4 w-4" />
+											Expand
 										</Button>
 									)}
 								</div>
@@ -521,6 +527,7 @@ function PartDetailContent() {
 											selectedCompartmentId={
 												selectedInventoryItem.compartment?._id
 											}
+											readOnly
 											onDrawerClick={handlePreviewDrawerClick}
 											onCompartmentClick={handlePreviewCompartmentClick}
 										/>
@@ -533,6 +540,45 @@ function PartDetailContent() {
 								)}
 							</CardContent>
 						</Card>
+					</div>
+				</div>
+			)}
+			{isBlueprintExpanded && selectedInventoryItem && drawers.length > 0 && (
+				<div className="fixed inset-0 z-50 bg-black/50 p-4 sm:p-6">
+					<div className="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-white shadow-2xl">
+						<div className="flex items-center justify-between border-b px-4 py-3">
+							<div className="min-w-0">
+								<p className="truncate text-sm font-medium text-slate-900">
+									{selectedInventoryItem.blueprint?.name || "Unknown Blueprint"}{" "}
+									• {selectedInventoryItem.drawer?.label || "Unknown Drawer"} •{" "}
+									{selectedInventoryItem.compartment?.label ||
+										"Unknown Compartment"}
+								</p>
+								<p className="text-xs text-muted-foreground">
+									Read-only viewer
+								</p>
+							</div>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() => setIsBlueprintExpanded(false)}
+							>
+								<X className="h-4 w-4" />
+								Close
+							</Button>
+						</div>
+						<div ref={expandedPreviewRef} className="min-h-0 flex-1 bg-slate-50">
+							<CanvasView
+								width={Math.max(expandedPreviewSize.width, 320)}
+								height={Math.max(expandedPreviewSize.height, 320)}
+								drawers={drawers}
+								selectedDrawerId={selectedInventoryItem.drawer?._id}
+								selectedCompartmentId={selectedInventoryItem.compartment?._id}
+								readOnly
+								onDrawerClick={handlePreviewDrawerClick}
+								onCompartmentClick={handlePreviewCompartmentClick}
+							/>
+						</div>
 					</div>
 				</div>
 			)}
