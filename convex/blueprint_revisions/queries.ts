@@ -64,7 +64,7 @@ export const listRevisions = query({
 
     // Verify blueprint belongs to user's org
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return []
     }
 
@@ -160,7 +160,7 @@ export const getRevisionById = query({
     }
 
     const revision = await ctx.db.get(args.revisionId)
-    if (!revision || revision.orgId !== userContext.user.orgId) {
+    if (!revision) {
       return null
     }
 
@@ -244,7 +244,7 @@ export const getLatestRevision = query({
 
     // Verify blueprint belongs to user's org
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return null
     }
 
@@ -304,7 +304,7 @@ export const getRevisionCount = query({
 
     // Verify blueprint belongs to user's org
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return { count: 0, maxRevisions: 50, isNearLimit: false }
     }
 
@@ -378,7 +378,7 @@ export const previewRevision = query({
     }
 
     const revision = await ctx.db.get(args.revisionId)
-    if (!revision || revision.orgId !== userContext.user.orgId) {
+    if (!revision) {
       return null
     }
 

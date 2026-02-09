@@ -2,7 +2,6 @@ import { v } from 'convex/values'
 import { query } from '../_generated/server'
 import { Doc } from '../_generated/dataModel'
 import { getCurrentUser } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -42,11 +41,10 @@ export const list = query({
     })
   ),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await getCurrentUser(ctx, args.authContext)
 
     const inventoryItems = await ctx.db
       .query('inventory')
-      .withIndex('by_orgId', (q) => q.eq('orgId', orgId))
       .collect()
 
     if (!args.includeDetails) {
@@ -127,17 +125,6 @@ export const getByCompartment = query({
       return []
     }
 
-    // Get drawer to verify org access
-    const drawer = await ctx.db.get(compartment.drawerId)
-    if (!drawer) {
-      return []
-    }
-
-    const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
-      throw new Error('Access denied to this compartment')
-    }
-
     const inventoryItems = await ctx.db
       .query('inventory')
       .withIndex('by_compartmentId', (q) => q.eq('compartmentId', args.compartmentId))
@@ -213,10 +200,10 @@ export const getByPart = query({
       throw new Error('Unauthorized')
     }
 
-    // Verify part exists and belongs to org
+    // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== userContext.user.orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     const inventoryItems = await ctx.db
@@ -299,13 +286,12 @@ export const getLowStock = query({
     })
   ),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await getCurrentUser(ctx, args.authContext)
     const threshold = args.threshold ?? 5
 
-    // Get all inventory items for org
+    // Get all inventory items
     const inventoryItems = await ctx.db
       .query('inventory')
-      .withIndex('by_orgId', (q) => q.eq('orgId', orgId))
       .collect()
 
     // Filter for low stock
@@ -380,8 +366,8 @@ export const getAvailable = query({
     if (args.partId) {
       // Get inventory for specific part
       const part = await ctx.db.get(args.partId)
-      if (!part || part.orgId !== userContext.user.orgId) {
-        throw new Error('Part not found or access denied')
+      if (!part) {
+        throw new Error('Part not found')
       }
 
       inventoryItems = await ctx.db
@@ -389,10 +375,9 @@ export const getAvailable = query({
         .withIndex('by_partId', (q) => q.eq('partId', args.partId!))
         .collect()
     } else {
-      // Get all org inventory
+      // Get all inventory
       inventoryItems = await ctx.db
         .query('inventory')
-        .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
         .collect()
     }
 

@@ -2,8 +2,7 @@ import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import type { MutationCtx } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { verifyBlueprintLock } from '../blueprints/mutations'
 import { authContextSchema } from '../types/auth'
 
@@ -63,13 +62,10 @@ export const create = mutation({
   },
   returns: v.id('drawers'),
   handler: async (ctx, args): Promise<Id<'drawers'>> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'drawers:create')
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id)
 
     const now = Date.now()
 
@@ -132,10 +128,7 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'drawers:update')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -144,7 +137,7 @@ export const update = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const updates: Partial<Doc<'drawers'>> = {
       updatedAt: Date.now(),
@@ -198,10 +191,7 @@ export const deleteDrawer = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'drawers:delete')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -209,7 +199,7 @@ export const deleteDrawer = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     // Get all compartments for this drawer
     const compartments = await ctx.db
@@ -268,10 +258,7 @@ export const reorderZIndex = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'drawers:update')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -279,7 +266,7 @@ export const reorderZIndex = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const now = Date.now()
 
@@ -315,13 +302,10 @@ export const reorderMultiple = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'drawers:update')
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id)
 
     const now = Date.now()
 

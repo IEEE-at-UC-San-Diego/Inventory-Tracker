@@ -462,7 +462,7 @@ export const Route = createFileRoute("/api/verify-token")({
 					const authContext: AuthContext = {
 						userId: user._id,
 						logtoUserId: user.logtoUserId,
-						orgId: user.orgId,
+						orgId: user.orgId, // Still include for compatibility, but now optional in schema
 						role: user.role,
 						timestamp: Date.now(),
 					};

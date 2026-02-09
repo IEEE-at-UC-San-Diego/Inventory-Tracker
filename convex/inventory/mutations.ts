@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -40,35 +39,25 @@ async function createTransaction(
 }
 
 /**
- * Helper to verify compartment exists and belongs to the org
+ * Helper to verify compartment exists
  */
 async function verifyCompartmentAccess(
   ctx: {
     db: any
   },
   compartmentId: Id<'compartments'>,
-  orgId: Id<'organizations'>
+  _orgId?: Id<'organizations'>
 ): Promise<Doc<'compartments'>> {
   const compartment = await ctx.db.get('compartments', compartmentId)
   if (!compartment) {
     throw new Error('Compartment not found')
   }
 
-  const drawer = await ctx.db.get('drawers', compartment.drawerId)
-  if (!drawer) {
-    throw new Error('Drawer not found for compartment')
-  }
-
-  const blueprint = await ctx.db.get('blueprints', drawer.blueprintId)
-  if (!blueprint || blueprint.orgId !== orgId) {
-    throw new Error('Access denied to this compartment')
-  }
-
   return compartment
 }
 
 /**
- * Helper to verify part exists and belongs to the org
+ * Helper to verify part exists
  */
 async function verifyPartAccess(
   ctx: {
@@ -77,11 +66,11 @@ async function verifyPartAccess(
     }
   },
   partId: Id<'parts'>,
-  orgId: Id<'organizations'>
+  _orgId?: Id<'organizations'>
 ): Promise<Doc<'parts'>> {
   const part = await ctx.db.get('parts', partId)
-  if (!part || part.orgId !== orgId) {
-    throw new Error('Part not found or access denied')
+  if (!part) {
+    throw new Error('Part not found')
   }
 
   if (part.archived) {
@@ -110,19 +99,17 @@ export const checkIn = mutation({
     newQuantity: v.number(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'inventory:add')
+    const orgId = userContext.user.orgId
 
     // Validate quantity
     if (args.quantity <= 0) {
       throw new Error('Quantity must be positive')
     }
 
-    // Verify part and compartment belong to this org
-    await verifyPartAccess(ctx, args.partId, orgId)
-    await verifyCompartmentAccess(ctx, args.compartmentId, orgId)
+    // Verify part and compartment exist
+    await verifyPartAccess(ctx, args.partId)
+    await verifyCompartmentAccess(ctx, args.compartmentId)
 
     // Check for existing inventory record
     const existingInventory = await ctx.db
@@ -191,19 +178,17 @@ export const checkOut = mutation({
     newQuantity: v.number(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'inventory:remove')
+    const orgId = userContext.user.orgId
 
     // Validate quantity
     if (args.quantity <= 0) {
       throw new Error('Quantity must be positive')
     }
 
-    // Verify part and compartment belong to this org
-    await verifyPartAccess(ctx, args.partId, orgId)
-    await verifyCompartmentAccess(ctx, args.compartmentId, orgId)
+    // Verify part and compartment exist
+    await verifyPartAccess(ctx, args.partId)
+    await verifyCompartmentAccess(ctx, args.compartmentId)
 
     // Find existing inventory record
     const existingInventory = await ctx.db
@@ -269,10 +254,8 @@ export const move = mutation({
     destNewQuantity: v.number(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'inventory:move')
+    const orgId = userContext.user.orgId
 
     // Validate quantity
     if (args.quantity <= 0) {
@@ -284,10 +267,10 @@ export const move = mutation({
       throw new Error('Source and destination compartments must be different')
     }
 
-    // Verify part and compartments belong to this org
-    await verifyPartAccess(ctx, args.partId, orgId)
-    await verifyCompartmentAccess(ctx, args.sourceCompartmentId, orgId)
-    await verifyCompartmentAccess(ctx, args.destCompartmentId, orgId)
+    // Verify part and compartments exist
+    await verifyPartAccess(ctx, args.partId)
+    await verifyCompartmentAccess(ctx, args.sourceCompartmentId)
+    await verifyCompartmentAccess(ctx, args.destCompartmentId)
 
     // Find source inventory record
     const sourceInventory = await ctx.db
@@ -384,14 +367,12 @@ export const adjust = mutation({
     newQuantity: v.number(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    const userContext = await requirePermission(ctx, args.authContext, 'inventory:adjust')
+    const orgId = userContext.user.orgId
 
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-
-    // Verify part and compartment belong to this org
-    await verifyPartAccess(ctx, args.partId, orgId)
-    await verifyCompartmentAccess(ctx, args.compartmentId, orgId)
+    // Verify part and compartment exist
+    await verifyPartAccess(ctx, args.partId)
+    await verifyCompartmentAccess(ctx, args.compartmentId)
 
     // Find existing inventory record
     const existingInventory = await ctx.db
@@ -465,12 +446,12 @@ export const setQuantity = mutation({
     newQuantity: v.number(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'inventory:adjust')
+    const orgId = userContext.user.orgId
 
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     const inventory = await ctx.db

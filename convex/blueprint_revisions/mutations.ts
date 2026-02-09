@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Id } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { authContextSchema } from '../types/auth'
 
 // Maximum number of revisions to keep per blueprint
@@ -48,13 +47,12 @@ export const createRevision = mutation({
   },
   returns: v.id('blueprintRevisions'),
   handler: async (ctx, args): Promise<Id<'blueprintRevisions'>> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'revisions:create')
 
-    // Verify blueprint exists and belongs to org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     // Get the latest version number for this blueprint
@@ -74,7 +72,7 @@ export const createRevision = mutation({
       description: args.description,
       createdBy: userContext.user._id,
       createdAt: Date.now(),
-      orgId,
+      orgId: userContext.user.orgId,
     })
 
     // Clean up old revisions if we exceed the limit
@@ -110,15 +108,14 @@ export const restoreRevision = mutation({
     newRevisionId: v.optional(v.id('blueprintRevisions')),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'revisions:restore')
 
     // Get the revision to restore
     const revision = await ctx.db.get(args.revisionId)
-    if (!revision || revision.orgId !== orgId) {
+    if (!revision) {
       return {
         success: false,
-        message: 'Revision not found or access denied',
+        message: 'Revision not found',
       }
     }
 
@@ -200,7 +197,7 @@ export const restoreRevision = mutation({
       description: `Auto-backup before restoring to v${revision.version}`,
       createdBy: userContext.user._id,
       createdAt: Date.now(),
-      orgId,
+      orgId: userContext.user.orgId,
     })
 
     // Now, restore the revision by applying the saved state
@@ -284,7 +281,7 @@ export const restoreRevision = mutation({
       description: args.description || `Restored to version ${revision.version}`,
       createdBy: userContext.user._id,
       createdAt: Date.now(),
-      orgId,
+      orgId: userContext.user.orgId,
     })
 
     return {
@@ -306,12 +303,11 @@ export const deleteRevision = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    await requirePermission(ctx, args.authContext, 'revisions:create')
 
     const revision = await ctx.db.get(args.revisionId)
-    if (!revision || revision.orgId !== orgId) {
-      throw new Error('Revision not found or access denied')
+    if (!revision) {
+      throw new Error('Revision not found')
     }
 
     await ctx.db.delete(args.revisionId)
@@ -333,13 +329,12 @@ export const deleteAllRevisions = mutation({
     deletedCount: v.number(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    await requirePermission(ctx, args.authContext, 'revisions:create')
 
-    // Verify blueprint belongs to org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     // Get all revisions

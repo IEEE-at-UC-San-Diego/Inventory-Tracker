@@ -41,8 +41,8 @@ export const listByDrawer = query({
     }
 
     const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
-      throw new Error('Access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     const compartments = await ctx.db
@@ -108,10 +108,10 @@ export const listByBlueprint = query({
       throw new Error('Unauthorized')
     }
 
-    // Verify blueprint belongs to user's org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     // Get all drawers for this blueprint
@@ -265,7 +265,7 @@ export const get = query({
     }
 
     const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return null
     }
 
@@ -353,10 +353,10 @@ export const findByPart = query({
       throw new Error('Unauthorized')
     }
 
-    // Verify part exists and belongs to org
+    // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== userContext.user.orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     // Get inventory items for this part
@@ -377,7 +377,7 @@ export const findByPart = query({
           if (!drawer) return null
 
           const blueprint = await ctx.db.get(drawer.blueprintId)
-          if (!blueprint || blueprint.orgId !== userContext.user.orgId) return null
+          if (!blueprint) return null
 
           return {
             ...compartment,

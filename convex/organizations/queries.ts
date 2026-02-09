@@ -27,7 +27,7 @@ export const get = query({
     const org = await ctx.db.get(args.id)
 
     // Only return if user belongs to this org
-    if (!org || org._id !== userContext.user.orgId) {
+    if (!org || (userContext.user.orgId && org._id !== userContext.user.orgId)) {
       throw new Error('Organization not found or access denied')
     }
 
@@ -62,7 +62,7 @@ export const list = query({
       throw new Error('Unauthorized')
     }
 
-    const org = await ctx.db.get(userContext.user.orgId)
+    const org = userContext.user.orgId ? await ctx.db.get(userContext.user.orgId) : null
 
     if (!org) {
       return []

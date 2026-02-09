@@ -7,7 +7,7 @@ import { authContextSchema } from '../types/auth'
 /**
  * Create a new part
  * Requires General Officers role or higher
- * Validates unique SKU within organization
+ * Validates unique SKU globally
  */
 export const create = mutation({
   args: {
@@ -22,24 +22,21 @@ export const create = mutation({
   returns: v.id('parts'),
   handler: async (ctx, args): Promise<Id<'parts'>> => {
     const { user } = await requirePermission(ctx, args.authContext, 'parts:create')
-    const orgId = user.orgId
 
     const trimmedSku = args.sku.trim()
     if (!trimmedSku) {
       throw new Error('SKU is required')
     }
 
-    // Check for duplicate SKU in this organization
+    // Check for duplicate SKU globally
     const existingPart = await ctx.db
       .query('parts')
-      .withIndex('by_orgId_and_sku', (q) =>
-        q.eq('orgId', orgId).eq('sku', trimmedSku)
-      )
+      .withIndex('by_sku', (q) => q.eq('sku', trimmedSku))
       .unique()
 
     if (existingPart) {
       throw new Error(
-        `Part with SKU "${trimmedSku}" already exists in this organization`
+        `Part with SKU "${trimmedSku}" already exists`
       )
     }
 
@@ -52,7 +49,7 @@ export const create = mutation({
       description: args.description,
       imageId: args.imageId,
       archived: false,
-      orgId,
+      orgId: user.orgId!,
       unit: args.unit,
       createdAt: now,
       updatedAt: now,
@@ -79,15 +76,14 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const { user } = await requirePermission(ctx, args.authContext, 'parts:update')
-    const orgId = user.orgId
+    await requirePermission(ctx, args.authContext, 'parts:update')
 
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
-    // If updating SKU, check for uniqueness
+    // If updating SKU, check for uniqueness globally
     if (args.sku !== undefined && args.sku !== part.sku) {
       const trimmedSku = args.sku.trim()
       if (!trimmedSku) {
@@ -96,14 +92,12 @@ export const update = mutation({
 
       const existingPart = await ctx.db
         .query('parts')
-        .withIndex('by_orgId_and_sku', (q) =>
-          q.eq('orgId', orgId).eq('sku', trimmedSku)
-        )
+        .withIndex('by_sku', (q) => q.eq('sku', trimmedSku))
         .unique()
 
       if (existingPart && existingPart._id !== args.partId) {
         throw new Error(
-          `Part with SKU "${trimmedSku}" already exists in this organization`
+          `Part with SKU "${trimmedSku}" already exists`
         )
       }
     }
@@ -136,12 +130,11 @@ export const archive = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const { user } = await requirePermission(ctx, args.authContext, 'parts:archive')
-    const orgId = user.orgId
+    await requirePermission(ctx, args.authContext, 'parts:archive')
 
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     if (part.archived) {
@@ -181,12 +174,11 @@ export const unarchive = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const { user } = await requirePermission(ctx, args.authContext, 'parts:unarchive')
-    const orgId = user.orgId
+    await requirePermission(ctx, args.authContext, 'parts:unarchive')
 
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     if (!part.archived) {
@@ -214,12 +206,11 @@ export const remove = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const { user } = await requirePermission(ctx, args.authContext, 'parts:delete')
-    const orgId = user.orgId
+    await requirePermission(ctx, args.authContext, 'parts:delete')
 
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     // Check for any transactions referencing this part
@@ -257,12 +248,11 @@ export const updateImage = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const { user } = await requirePermission(ctx, args.authContext, 'parts:update')
-    const orgId = user.orgId
+    await requirePermission(ctx, args.authContext, 'parts:update')
 
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     // Delete old image if exists

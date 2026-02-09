@@ -36,11 +36,10 @@ export const list = query({
     })
   ),
   handler: async (ctx, args) => {
-    const userContext = await getCurrentUser(ctx, args.authContext)
+    await getCurrentUser(ctx, args.authContext)
 
     const blueprints = await ctx.db
       .query('blueprints')
-      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     // Enrich with lock status and user info
@@ -128,7 +127,7 @@ export const get = query({
     }
 
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return null
     }
 
@@ -226,7 +225,7 @@ export const getWithHierarchy = query({
     }
 
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return null
     }
 
@@ -290,7 +289,7 @@ export const getLockStatus = query({
     }
 
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return null
     }
 

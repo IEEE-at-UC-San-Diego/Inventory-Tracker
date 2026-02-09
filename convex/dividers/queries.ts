@@ -26,11 +26,11 @@ export const listByBlueprint = query({
     })
   ),
   handler: async (ctx, args) => {
-    const userContext = await getCurrentUser(ctx, args.authContext)
+    await getCurrentUser(ctx, args.authContext)
 
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     const dividers = await ctx.db

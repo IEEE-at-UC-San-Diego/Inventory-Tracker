@@ -7,7 +7,7 @@ import { v } from 'convex/values'
 export interface AuthContext {
   userId: string
   logtoUserId: string
-  orgId: string
+  orgId?: string // Made optional since org support is removed
   role: UserRole
   timestamp: number
 }
@@ -19,7 +19,7 @@ export interface AuthContext {
 export const authContextSchema = v.object({
   userId: v.string(),
   logtoUserId: v.string(),
-  orgId: v.string(),
+  orgId: v.optional(v.string()), // Made optional since org support is removed
   role: v.union(v.literal('Administrator'), v.literal('Executive Officers'), v.literal('General Officers'), v.literal('Member')),
   timestamp: v.number(),
 })

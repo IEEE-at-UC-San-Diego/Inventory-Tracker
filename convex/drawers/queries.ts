@@ -74,10 +74,10 @@ export const listByBlueprint = query({
       throw new Error('Unauthorized')
     }
 
-    // Verify blueprint exists and belongs to the org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     // Get all drawers for this blueprint, ordered by zIndex
@@ -187,9 +187,9 @@ export const get = query({
       return null
     }
 
-    // Verify blueprint belongs to user's org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
+    if (!blueprint) {
       return null
     }
 

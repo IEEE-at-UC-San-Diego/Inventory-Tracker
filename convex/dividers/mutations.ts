@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Id } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { verifyBlueprintLock } from '../blueprints/mutations'
 import { authContextSchema } from '../types/auth'
 
@@ -22,9 +21,8 @@ export const create = mutation({
   },
   returns: v.id('dividers'),
   handler: async (ctx, args): Promise<Id<'dividers'>> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-    await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id, orgId)
+    const userContext = await requirePermission(ctx, args.authContext, 'dividers:create')
+    await verifyBlueprintLock(ctx, args.blueprintId, userContext.user._id)
 
     const now = Date.now()
 
@@ -61,13 +59,12 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'dividers:update')
 
     const divider = await ctx.db.get(args.dividerId)
     if (!divider) return true
 
-    await verifyBlueprintLock(ctx, divider.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, divider.blueprintId, userContext.user._id)
 
     const now = Date.now()
     const updates: Record<string, number> = { updatedAt: now }
@@ -96,15 +93,14 @@ export const deleteDivider = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'dividers:delete')
 
     const divider = await ctx.db.get(args.dividerId)
     if (!divider) {
       throw new Error('Divider not found')
     }
 
-    await verifyBlueprintLock(ctx, divider.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, divider.blueprintId, userContext.user._id)
 
     const now = Date.now()
     await ctx.db.delete(args.dividerId)

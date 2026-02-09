@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { Id } from './_generated/dataModel'
-import { getCurrentOrgId } from './organization_helpers'
-import { requireOrgRole } from './auth_helpers'
+import { requirePermission } from './permissions'
 import { getCurrentUser } from './auth_helpers'
 import { authContextSchema } from './types/auth'
 
@@ -32,10 +31,7 @@ export const generateUploadUrl = mutation({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    await requirePermission(ctx, args.authContext, 'storage:upload')
 
     // Generate a generic upload URL (valid for 1 hour)
     const uploadUrl = await ctx.storage.generateUploadUrl()
@@ -60,19 +56,16 @@ export const generatePartImageUploadUrl = mutation({
     storageKey: v.string(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    const { user } = await requirePermission(ctx, args.authContext, 'storage:upload')
 
-    // Require General Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-
-    // Verify part belongs to this org
+    // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     // Generate storage key
-    const storageKey = generatePartImageKey(orgId, args.partId, args.fileName)
+    const storageKey = generatePartImageKey(user.orgId!, args.partId, args.fileName)
 
     // Generate upload URL (valid for 1 hour)
     const uploadUrl = await ctx.storage.generateUploadUrl()
@@ -94,15 +87,12 @@ export const confirmPartImageUpload = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await requirePermission(ctx, args.authContext, 'storage:upload')
 
-    // Require General Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-
-    // Verify part belongs to this org
+    // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     // Delete old image if exists
@@ -188,15 +178,12 @@ export const deletePartImage = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await requirePermission(ctx, args.authContext, 'storage:delete')
 
-    // Require General Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-
-    // Verify part belongs to this org
+    // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     // Delete the image from storage
@@ -284,19 +271,16 @@ export const generateBlueprintBackgroundUploadUrl = mutation({
     storageKey: v.string(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    const { user } = await requirePermission(ctx, args.authContext, 'storage:upload')
 
-    // Require General Officers or Administrator role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-
-    // Verify blueprint belongs to this org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     // Generate storage key
-    const storageKey = generateBlueprintBackgroundKey(orgId, args.blueprintId, args.fileName)
+    const storageKey = generateBlueprintBackgroundKey(user.orgId!, args.blueprintId, args.fileName)
 
     // Generate upload URL (valid for 1 hour)
     const uploadUrl = await ctx.storage.generateUploadUrl()
@@ -317,15 +301,12 @@ export const confirmBlueprintBackgroundUpload = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await requirePermission(ctx, args.authContext, 'storage:upload')
 
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-
-    // Verify blueprint belongs to this org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     // Delete old background image if exists
@@ -357,15 +338,12 @@ export const deleteBlueprintBackgroundImage = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await requirePermission(ctx, args.authContext, 'storage:delete')
 
-    // Require General Officers or higher role
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
-
-    // Verify blueprint belongs to this org
+    // Verify blueprint exists
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint || blueprint.orgId !== orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     // Delete the background image from storage
@@ -399,17 +377,16 @@ export const generateDrawerBackgroundUploadUrl = mutation({
     storageKey: v.string(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'storage:upload')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) throw new Error('Drawer not found')
     const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint || blueprint.orgId !== orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
-    const storageKey = generateDrawerBackgroundKey(orgId, blueprint._id, args.drawerId, args.fileName)
+    const storageKey = generateDrawerBackgroundKey(user.orgId!, blueprint._id, args.drawerId, args.fileName)
     const uploadUrl = await ctx.storage.generateUploadUrl()
     return { uploadUrl, storageKey }
   },
@@ -428,14 +405,13 @@ export const confirmDrawerBackgroundUpload = mutation({
   },
   returns: v.id('drawerBackgroundImages'),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const { user } = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const { user } = await requirePermission(ctx, args.authContext, 'storage:upload')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) throw new Error('Drawer not found')
     const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint || blueprint.orgId !== orgId) {
-      throw new Error('Blueprint not found or access denied')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     const now = Date.now()

@@ -2,7 +2,6 @@ import { v } from 'convex/values'
 import { query } from '../_generated/server'
 import { Doc } from '../_generated/dataModel'
 import { getCurrentUser } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -65,7 +64,7 @@ export const list = query({
     nextCursor: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await getCurrentUser(ctx, args.authContext)
     const limit = args.limit ?? 50
 
     // Get transactions ordered by timestamp (newest first)
@@ -76,14 +75,12 @@ export const list = query({
       const cursorTimestamp = parseInt(args.cursor, 10)
       transactions = await ctx.db
         .query('transactions')
-        .withIndex('by_orgId_and_timestamp', (q) =>
-          q.eq('orgId', orgId).lt('timestamp', cursorTimestamp)
-        )
+        .filter((q) => q.lt(q.field('timestamp'), cursorTimestamp))
+        .order('desc')
         .take(limit)
     } else {
       transactions = await ctx.db
         .query('transactions')
-        .withIndex('by_orgId_and_timestamp', (q) => q.eq('orgId', orgId))
         .order('desc')
         .take(limit)
     }
@@ -194,10 +191,10 @@ export const getByPart = query({
       throw new Error('Unauthorized')
     }
 
-    // Verify part belongs to org
+    // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part || part.orgId !== userContext.user.orgId) {
-      throw new Error('Part not found or access denied')
+    if (!part) {
+      throw new Error('Part not found')
     }
 
     const limit = args.limit ?? 50
@@ -303,10 +300,10 @@ export const getByUser = query({
       throw new Error('Unauthorized')
     }
 
-    // Verify target user belongs to same org
+    // Verify target user exists
     const targetUser = await ctx.db.get(args.userId)
-    if (!targetUser || targetUser.orgId !== userContext.user.orgId) {
-      throw new Error('User not found or access denied')
+    if (!targetUser) {
+      throw new Error('User not found')
     }
 
     const limit = args.limit ?? 50
@@ -317,14 +314,9 @@ export const getByUser = query({
       .order('desc')
       .take(limit)
 
-    // Filter to only show transactions from user's org
-    const orgTransactions = transactions.filter(
-      (t) => t.orgId === userContext.user.orgId
-    )
-
     // Enrich with part and compartment data
     const enrichedTransactions = await Promise.all(
-      orgTransactions.map(async (transaction) => {
+      transactions.map(async (transaction) => {
         const [part, sourceCompartment, destCompartment] = await Promise.all([
           ctx.db.get(transaction.partId),
           transaction.sourceCompartmentId
@@ -407,12 +399,15 @@ export const getByDateRange = query({
     })
   ),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await getCurrentUser(ctx, args.authContext)
 
     const transactions = await ctx.db
       .query('transactions')
-      .withIndex('by_orgId_and_timestamp', (q) =>
-        q.eq('orgId', orgId).gte('timestamp', args.startDate).lte('timestamp', args.endDate)
+      .filter((q) =>
+        q.and(
+          q.gte(q.field('timestamp'), args.startDate),
+          q.lte(q.field('timestamp'), args.endDate)
+        )
       )
       .collect()
 
@@ -514,8 +509,8 @@ export const getByCompartment = query({
     }
 
     const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint || blueprint.orgId !== userContext.user.orgId) {
-      throw new Error('Access denied to this compartment')
+    if (!blueprint) {
+      throw new Error('Blueprint not found')
     }
 
     const limit = args.limit ?? 50
@@ -607,11 +602,10 @@ export const getStats = query({
     }),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await getCurrentUser(ctx, args.authContext)
 
     const transactions = await ctx.db
       .query('transactions')
-      .withIndex('by_orgId', (q) => q.eq('orgId', orgId))
       .collect()
 
     const now = Date.now()

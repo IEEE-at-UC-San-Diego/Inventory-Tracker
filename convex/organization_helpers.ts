@@ -21,7 +21,7 @@ export async function withOrgScope<T extends Doc<any>>(
   ctx: QueryCtx,
   authContext: AuthContext,
   table: 'users' | 'parts' | 'blueprints' | 'inventory' | 'transactions',
-  indexName: string
+  _indexName: string
 ): Promise<{ items: T[]; userContext: UserContext }> {
   const userContext = await getCurrentUser(ctx, authContext)
 
@@ -29,14 +29,8 @@ export async function withOrgScope<T extends Doc<any>>(
     throw new Error('Unauthorized: User not authenticated')
   }
 
-  const orgId = userContext.user.orgId
-
-  // Build the query with org scoping
-  const queryBuilder = ctx.db.query(table).withIndex<'by_orgId'>(indexName as any, (q) =>
-    q.eq('orgId', orgId)
-  )
-
-  const items = await queryBuilder.collect()
+  // Org scoping removed — return all items globally
+  const items = await ctx.db.query(table).collect()
 
   return { items: items as T[], userContext }
 }
@@ -95,10 +89,9 @@ export const getOrgUsers = query({
       return [userContext.user]
     }
 
-    // Admins and Editors can see all org users
+    // Return all users globally
     const users = await ctx.db
       .query('users')
-      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     return users
@@ -132,14 +125,14 @@ export const inviteUser = mutation({
 
     const now = Date.now()
 
-    // Check if user already exists in this org
+    // Check if user already exists
     const existingUser = await ctx.db
       .query('users')
       .withIndex('by_email', (q) => q.eq('email', args.email))
       .unique()
 
-    if (existingUser && existingUser.orgId === userContext.user.orgId) {
-      throw new Error('User already exists in this organization')
+    if (existingUser) {
+      throw new Error('User already exists')
     }
 
     // Create the user with a placeholder logtoUserId
@@ -185,8 +178,8 @@ export const updateUserRole = mutation({
 
     // Get the target user
     const targetUser = await ctx.db.get('users', args.userId)
-    if (!targetUser || targetUser.orgId !== userContext.user.orgId) {
-      throw new Error('User not found in this organization')
+    if (!targetUser) {
+      throw new Error('User not found')
     }
 
     // Prevent changing your own role (use a different endpoint for self-changes)
@@ -198,7 +191,6 @@ export const updateUserRole = mutation({
     if (targetUser.role === 'Administrator' && args.newRole !== 'Administrator') {
       const admins = await ctx.db
         .query('users')
-        .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
         .filter((q) => q.eq(q.field('role'), 'Administrator'))
         .collect()
 
@@ -237,15 +229,14 @@ export const removeUser = mutation({
 
     // Get the target user
     const targetUser = await ctx.db.get('users', args.userId)
-    if (!targetUser || targetUser.orgId !== userContext.user.orgId) {
-      throw new Error('User not found in this organization')
+    if (!targetUser) {
+      throw new Error('User not found')
     }
 
     // Cannot remove the last Admin
     if (targetUser.role === 'Administrator') {
       const admins = await ctx.db
         .query('users')
-        .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
         .filter((q) => q.eq(q.field('role'), 'Administrator'))
         .collect()
 
@@ -274,13 +265,13 @@ export const getOrgStats = query({
     totalTransactions: v.number(),
   }),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
+    await getCurrentOrgId(ctx, args.authContext)
 
     const [parts, blueprints, inventory, transactions] = await Promise.all([
-      ctx.db.query('parts').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
-      ctx.db.query('blueprints').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
-      ctx.db.query('inventory').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
-      ctx.db.query('transactions').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
+      ctx.db.query('parts').collect(),
+      ctx.db.query('blueprints').collect(),
+      ctx.db.query('inventory').collect(),
+      ctx.db.query('transactions').collect(),
     ])
 
     return {

@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { verifyBlueprintLock } from '../blueprints/mutations'
 import { authContextSchema } from '../types/auth'
 
@@ -24,18 +23,12 @@ export const create = mutation({
   },
   returns: v.id('drawerBackgroundImages'),
   handler: async (ctx, args) => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(
-      ctx,
-      args.authContext,
-      orgId,
-      'General Officers'
-    )
+    const userContext = await requirePermission(ctx, args.authContext, 'drawerBackgroundImages:create')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) throw new Error('Drawer not found')
 
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const current = await ctx.db
       .query('drawerBackgroundImages')
@@ -82,20 +75,14 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(
-      ctx,
-      args.authContext,
-      orgId,
-      'General Officers'
-    )
+    const userContext = await requirePermission(ctx, args.authContext, 'drawerBackgroundImages:update')
 
     const image = await ctx.db.get(args.imageId)
     if (!image) throw new Error('Drawer background image not found')
     const drawer = await ctx.db.get(image.drawerId)
     if (!drawer) throw new Error('Drawer not found')
 
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const nextSnap = args.snapToGrid ?? image.snapToGrid
     const updates: Partial<Doc<'drawerBackgroundImages'>> = {
@@ -129,19 +116,13 @@ export const deleteImage = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(
-      ctx,
-      args.authContext,
-      orgId,
-      'General Officers'
-    )
+    const userContext = await requirePermission(ctx, args.authContext, 'drawerBackgroundImages:delete')
 
     const image = await ctx.db.get(args.imageId)
     if (!image) throw new Error('Drawer background image not found')
     const drawer = await ctx.db.get(image.drawerId)
     if (!drawer) throw new Error('Drawer not found')
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     try {
       await ctx.storage.delete(image.storageId)

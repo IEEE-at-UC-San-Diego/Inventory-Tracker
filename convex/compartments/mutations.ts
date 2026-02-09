@@ -1,8 +1,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
 import { Doc, Id } from '../_generated/dataModel'
-import { requireOrgRole } from '../auth_helpers'
-import { getCurrentOrgId } from '../organization_helpers'
+import { requirePermission } from '../permissions'
 import { verifyBlueprintLock } from '../blueprints/mutations'
 import { authContextSchema } from '../types/auth'
 
@@ -52,10 +51,7 @@ export const create = mutation({
   },
   returns: v.id('compartments'),
   handler: async (ctx, args): Promise<Id<'compartments'>> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'compartments:create')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -63,7 +59,7 @@ export const create = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const now = Date.now()
 
@@ -122,10 +118,7 @@ export const update = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'compartments:update')
 
     const compartment = await ctx.db.get(args.compartmentId)
     if (!compartment) {
@@ -148,7 +141,7 @@ export const update = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, toDrawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, toDrawer.blueprintId, userContext.user._id)
 
     const updates: Partial<Doc<'compartments'>> = {
       updatedAt: Date.now(),
@@ -191,10 +184,7 @@ export const deleteCompartment = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'compartments:delete')
 
     const compartment = await ctx.db.get(args.compartmentId)
     if (!compartment) {
@@ -209,7 +199,7 @@ export const deleteCompartment = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     // Check for inventory in compartment
     const inventory = await ctx.db
@@ -389,10 +379,7 @@ export const swap = mutation({
       return true
     }
 
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'compartments:update')
 
     const [a, b] = await Promise.all([
       ctx.db.get(args.aCompartmentId),
@@ -417,7 +404,7 @@ export const swap = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, aDrawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, aDrawer.blueprintId, userContext.user._id)
 
     const now = Date.now()
 
@@ -473,13 +460,7 @@ export const setGridForDrawer = mutation({
       throw new Error('Rows and columns must be positive')
     }
 
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-    const userContext = await requireOrgRole(
-      ctx,
-      args.authContext,
-      orgId,
-      'General Officers'
-    )
+    const userContext = await requirePermission(ctx, args.authContext, 'compartments:update')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -489,7 +470,7 @@ export const setGridForDrawer = mutation({
       throw new Error("Can't grid-layout a rotated drawer yet")
     }
 
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const compartments = await ctx.db
       .query('compartments')
@@ -644,10 +625,7 @@ export const reorderZIndex = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'compartments:update')
 
     const compartment = await ctx.db.get(args.compartmentId)
     if (!compartment) {
@@ -660,7 +638,7 @@ export const reorderZIndex = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const now = Date.now()
 
@@ -694,10 +672,7 @@ export const reorderMultiple = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const orgId = await getCurrentOrgId(ctx, args.authContext)
-
-    // Require General Officers or higher role
-    const userContext = await requireOrgRole(ctx, args.authContext, orgId, 'General Officers')
+    const userContext = await requirePermission(ctx, args.authContext, 'compartments:update')
 
     const drawer = await ctx.db.get(args.drawerId)
     if (!drawer) {
@@ -705,7 +680,7 @@ export const reorderMultiple = mutation({
     }
 
     // Verify user holds the lock on this blueprint
-    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id, orgId)
+    await verifyBlueprintLock(ctx, drawer.blueprintId, userContext.user._id)
 
     const now = Date.now()
 

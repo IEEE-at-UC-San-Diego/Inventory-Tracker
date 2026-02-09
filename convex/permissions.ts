@@ -1,7 +1,6 @@
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { AuthContext } from "./types/auth";
 import { getCurrentUser, type UserContext } from "./auth_helpers";
-import { getCurrentOrgId } from "./organization_helpers";
 import {
 	ROLE_VALUES,
 	ROLE_HIERARCHY,
@@ -291,14 +290,7 @@ export async function requirePermission(
 	authContext: AuthContext,
 	permission: Permission,
 ): Promise<UserContext> {
-	const orgId = await getCurrentOrgId(ctx, authContext);
 	const userContext = await getCurrentUser(ctx, authContext);
-
-	if (userContext.user.orgId !== orgId) {
-		throw new Error(
-			`Forbidden: User does not have access to organization ${orgId}`,
-		);
-	}
 
 	const role = normalizeRole(userContext.role);
 	if (!roleHasPermission(role, permission)) {

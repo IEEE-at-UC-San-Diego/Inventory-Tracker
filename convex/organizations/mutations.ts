@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import { mutation } from '../_generated/server'
-import { requireOrgRole } from '../auth_helpers'
+import { requirePermission } from '../permissions'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -21,7 +21,7 @@ export const update = mutation({
     createdAt: v.number(),
   }),
   handler: async (ctx, args) => {
-    await requireOrgRole(ctx, args.authContext, args.orgId, 'Administrator')
+    await requirePermission(ctx, args.authContext, 'organizations:update')
 
     // Get the current organization
     const org = await ctx.db.get('organizations', args.orgId)

@@ -62,11 +62,6 @@ async function validateAuthContext(
     throw new Error('Invalid auth context')
   }
 
-  // Verify orgId matches
-  if (user.orgId !== authContext.orgId) {
-    throw new Error('Auth context mismatch: organization ID')
-  }
-
   // Verify role matches
   if (user.role !== authContext.role) {
     throw new Error('Auth context mismatch: role')
@@ -97,18 +92,15 @@ export async function getCurrentUser(
 ): Promise<UserContext> {
   const user = await validateAuthContext(ctx, authContext, options)
 
-  // Get the user's organization
+  // Get the user's organization (optional, for backward compat)
   const org = await ctx.db.get('organizations', user.orgId)
-  if (!org) {
-    throw new Error('Organization not found')
-  }
 
   const role = normalizeRole(user.role)
   const roleLevel = ROLE_HIERARCHY[role] || 1
 
   return {
     user,
-    org,
+    org: org || ({ _id: user.orgId, _creationTime: 0, name: 'Shared', slug: 'shared', createdAt: 0 } as any),
     role,
     roleLevel,
   }
@@ -121,18 +113,11 @@ export async function getCurrentUser(
 export async function validateOrgAccess(
   ctx: QueryCtx | MutationCtx,
   authContext: AuthContext,
-  orgId: string,
+  _orgId: string,
   options?: AuthValidationOptions
 ): Promise<UserContext> {
-  const userContext = await getCurrentUser(ctx, authContext, options)
-
-  if (userContext.user.orgId !== orgId) {
-    throw new Error(
-      `Forbidden: User does not have access to organization ${orgId}`
-    )
-  }
-
-  return userContext
+  // Org access checks removed — all data is shared globally
+  return getCurrentUser(ctx, authContext, options)
 }
 
 /**
@@ -164,21 +149,17 @@ export async function requireRole(
 export async function requireOrgRole(
   ctx: QueryCtx | MutationCtx,
   authContext: AuthContext,
-  orgId: string,
+  _orgId: string,
   requiredRole: UserRole,
   options?: AuthValidationOptions
 ): Promise<UserContext> {
-  const userContext = await validateOrgAccess(
-    ctx,
-    authContext,
-    orgId,
-    options
-  )
+  // Org access checks removed — all data is shared globally
+  const userContext = await getCurrentUser(ctx, authContext, options)
 
   const requiredLevel = ROLE_HIERARCHY[requiredRole]
   if (userContext.roleLevel < requiredLevel) {
     throw new Error(
-      `Forbidden: User requires ${requiredRole} role or higher in this organization. Current role: ${userContext.role}`
+      `Forbidden: User requires ${requiredRole} role or higher. Current role: ${userContext.role}`
     )
   }
 

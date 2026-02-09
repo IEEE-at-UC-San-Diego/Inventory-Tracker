@@ -8,7 +8,7 @@ import { authContextSchema } from '../types/auth'
 const LOCK_EXPIRATION_MS = 5 * 60 * 1000
 
 /**
- * Helper to verify blueprint exists and belongs to the org
+ * Helper to verify blueprint exists
  */
 async function verifyBlueprintAccess(
   ctx: {
@@ -17,11 +17,11 @@ async function verifyBlueprintAccess(
     }
   },
   blueprintId: Id<'blueprints'>,
-  orgId: Id<'organizations'>
+  _orgId?: Id<'organizations'>
 ): Promise<Doc<'blueprints'>> {
   const blueprint = await ctx.db.get('blueprints', blueprintId)
-  if (!blueprint || blueprint.orgId !== orgId) {
-    throw new Error('Blueprint not found or access denied')
+  if (!blueprint) {
+    throw new Error('Blueprint not found')
   }
   return blueprint
 }
@@ -99,10 +99,9 @@ export const deleteBlueprint = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const { user } = await requirePermission(ctx, args.authContext, 'blueprints:delete')
-    const orgId = user.orgId
+    await requirePermission(ctx, args.authContext, 'blueprints:delete')
 
-    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
+    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId)
 
     // Get all drawers for this blueprint
     const drawers = await ctx.db
@@ -169,9 +168,8 @@ export const acquireLock = mutation({
   }),
   handler: async (ctx, args) => {
     const userContext = await requirePermission(ctx, args.authContext, 'blueprints:lock')
-    const orgId = userContext.user.orgId
 
-    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
+    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId)
 
     const now = Date.now()
 
@@ -230,9 +228,8 @@ export const releaseLock = mutation({
   }),
   handler: async (ctx, args) => {
     const userContext = await requirePermission(ctx, args.authContext, 'blueprints:unlock')
-    const orgId = userContext.user.orgId
 
-    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
+    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId)
 
     // Check if there's an active lock
     if (!isLockValid(blueprint)) {
@@ -279,10 +276,9 @@ export const forceReleaseLock = mutation({
     previousHolder: v.optional(v.id('users')),
   }),
   handler: async (ctx, args) => {
-    const { user } = await requirePermission(ctx, args.authContext, 'blueprints:unlock')
-    const orgId = user.orgId
+    await requirePermission(ctx, args.authContext, 'blueprints:unlock')
 
-    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId, orgId)
+    const blueprint = await verifyBlueprintAccess(ctx, args.blueprintId)
 
     const previousHolder = blueprint.lockedBy
 
@@ -313,9 +309,9 @@ export async function verifyBlueprintLock(
   },
   blueprintId: Id<'blueprints'>,
   userId: Id<'users'>,
-  orgId: Id<'organizations'>
+  _orgId?: Id<'organizations'>
 ): Promise<Doc<'blueprints'>> {
-  const blueprint = await verifyBlueprintAccess(ctx, blueprintId, orgId)
+  const blueprint = await verifyBlueprintAccess(ctx, blueprintId)
 
   if (!isLockValid(blueprint)) {
     throw new Error('Blueprint is not locked. Acquire lock before editing.')
