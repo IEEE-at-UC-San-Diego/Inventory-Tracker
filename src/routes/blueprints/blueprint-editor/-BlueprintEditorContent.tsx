@@ -576,7 +576,12 @@ export function BlueprintEditorContent() {
 		navigate({
 			to: "/blueprints/$blueprintId",
 			params: { blueprintId },
-			search: { partId: undefined, mode: undefined },
+			search: {
+				partId: undefined,
+				drawerId: undefined,
+				compartmentId: undefined,
+				mode: undefined,
+			},
 		});
 	}, [blueprintId, navigate]);
 

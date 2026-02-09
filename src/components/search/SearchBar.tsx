@@ -340,7 +340,12 @@ export function SearchBar({ onClose }: SearchBarProps) {
 															params={{
 																blueprintId: locations[0].blueprintId,
 															}}
-															search={{ partId: result._id, mode: undefined }}
+															search={{
+																partId: result._id,
+																drawerId: undefined,
+																compartmentId: undefined,
+																mode: undefined,
+															}}
 															onClick={(e) =>
 																handleZoomToLocation(
 																	e,
@@ -387,6 +392,8 @@ export function SearchBar({ onClose }: SearchBarProps) {
 																		}}
 																		search={{
 																			partId: result._id,
+																			drawerId: undefined,
+																			compartmentId: undefined,
 																			mode: undefined,
 																		}}
 																		onClick={(e) =>

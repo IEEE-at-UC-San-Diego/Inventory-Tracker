@@ -39,7 +39,12 @@ function NewBlueprintContent() {
 				navigate({
 					to: "/blueprints/$blueprintId",
 					params: { blueprintId: result },
-					search: { partId: undefined, mode: undefined },
+					search: {
+						partId: undefined,
+						drawerId: undefined,
+						compartmentId: undefined,
+						mode: undefined,
+					},
 				});
 			}
 		} catch (error) {

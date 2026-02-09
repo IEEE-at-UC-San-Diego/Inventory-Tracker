@@ -210,7 +210,12 @@ function BlueprintsContent() {
 													<Link
 														to="/blueprints/$blueprintId"
 														params={{ blueprintId: blueprint._id }}
-														search={{ mode: undefined, partId: undefined }}
+														search={{
+															mode: undefined,
+															partId: undefined,
+															drawerId: undefined,
+															compartmentId: undefined,
+														}}
 													>
 														<Folder className="h-3.5 w-3.5" />
 														Open
@@ -221,7 +226,12 @@ function BlueprintsContent() {
 														<Link
 															to="/blueprints/$blueprintId"
 															params={{ blueprintId: blueprint._id }}
-															search={{ mode: "edit", partId: undefined }}
+															search={{
+																mode: "edit",
+																partId: undefined,
+																drawerId: undefined,
+																compartmentId: undefined,
+															}}
 														>
 															<Pencil className="h-3.5 w-3.5" />
 															Edit
