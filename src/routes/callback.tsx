@@ -133,16 +133,7 @@ function CallbackPage() {
 		fetchUserInfo,
 	]);
 
-	// Callback finished but user is still unauthenticated after Logto completed
-	useEffect(() => {
-		if (!callbackLoading && !callbackError && !logtoAuthenticated) {
-			setStatus("error");
-			setErrorMessage("Sign-in was not completed. Please try again.");
-			const id = window.setTimeout(() => navigate({ to: "/login" }), 3000);
-			return () => window.clearTimeout(id);
-		}
-	}, [callbackLoading, callbackError, logtoAuthenticated, navigate]);
-
+	
 	// Safety timeout
 	useEffect(() => {
 		if (status !== "processing") return;
