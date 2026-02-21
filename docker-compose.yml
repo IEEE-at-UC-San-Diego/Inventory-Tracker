@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Pass build-time arguments
+        - NODE_ENV=production
+        - CONVEX_SELF_HOSTED_URL=${CONVEX_SELF_HOSTED_URL}
+        - CONVEX_SELF_HOSTED_ADMIN_KEY=${CONVEX_SELF_HOSTED_ADMIN_KEY}
+        - VITE_CONVEX_URL=${VITE_CONVEX_URL}
+        - VITE_LOGTO_ENDPOINT=${VITE_LOGTO_ENDPOINT}
+        - VITE_LOGTO_APP_ID=${VITE_LOGTO_APP_ID}
+        - VITE_LOGTO_SCOPES=${VITE_LOGTO_SCOPES}
+        - VITE_LOGTO_RESOURCES=${VITE_LOGTO_RESOURCES}
+        - VITE_LOGTO_API_RESOURCE=${VITE_LOGTO_API_RESOURCE}
+        - VITE_SITE_URL=${VITE_SITE_URL}
+        - LOGTO_WEBHOOK_SIGNING_KEY=${LOGTO_WEBHOOK_SIGNING_KEY}
+        - LOGTO_API_RESOURCE=${LOGTO_API_RESOURCE}
+    ports:
+      - "3000:3000"
+    environment:
+      # Runtime environment variables (same as build args)
+      - NODE_ENV=production
+      - CONVEX_SELF_HOSTED_URL=${CONVEX_SELF_HOSTED_URL}
+      - CONVEX_SELF_HOSTED_ADMIN_KEY=${CONVEX_SELF_HOSTED_ADMIN_KEY}
+      - VITE_CONVEX_URL=${VITE_CONVEX_URL}
+      - VITE_LOGTO_ENDPOINT=${VITE_LOGTO_ENDPOINT}
+      - VITE_LOGTO_APP_ID=${VITE_LOGTO_APP_ID}
+      - VITE_LOGTO_SCOPES=${VITE_LOGTO_SCOPES}
+      - VITE_LOGTO_RESOURCES=${VITE_LOGTO_RESOURCES}
+      - VITE_LOGTO_API_RESOURCE=${VITE_LOGTO_API_RESOURCE}
+      - VITE_SITE_URL=${VITE_SITE_URL}
+      - LOGTO_WEBHOOK_SIGNING_KEY=${LOGTO_WEBHOOK_SIGNING_KEY}
+      - LOGTO_API_RESOURCE=${LOGTO_API_RESOURCE}
+      
+      # Node.js configuration
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
