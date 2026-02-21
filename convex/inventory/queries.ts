@@ -353,6 +353,19 @@ export const getAvailable = query({
           label: v.optional(v.string()),
         })
       ),
+      drawer: v.optional(
+        v.object({
+          _id: v.id('drawers'),
+          label: v.optional(v.string()),
+          blueprintId: v.id('blueprints'),
+        })
+      ),
+      blueprint: v.optional(
+        v.object({
+          _id: v.id('blueprints'),
+          name: v.string(),
+        })
+      ),
     })
   ),
   handler: async (ctx, args) => {
@@ -392,6 +405,16 @@ export const getAvailable = query({
           ctx.db.get(item.compartmentId),
         ])
 
+        let drawer = null
+        let blueprint = null
+
+        if (compartment) {
+          drawer = await ctx.db.get(compartment.drawerId)
+          if (drawer) {
+            blueprint = await ctx.db.get(drawer.blueprintId)
+          }
+        }
+
         return {
           ...item,
           part: part
@@ -406,6 +429,19 @@ export const getAvailable = query({
             ? {
                 _id: compartment._id,
                 label: compartment.label,
+              }
+            : undefined,
+          drawer: drawer
+            ? {
+                _id: drawer._id,
+                label: drawer.label,
+                blueprintId: drawer.blueprintId,
+              }
+            : undefined,
+          blueprint: blueprint
+            ? {
+                _id: blueprint._id,
+                name: blueprint.name,
               }
             : undefined,
         }

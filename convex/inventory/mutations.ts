@@ -43,12 +43,14 @@ async function createTransaction(
  */
 async function verifyCompartmentAccess(
   ctx: {
-    db: any
+    db: {
+      get: (id: Id<'compartments'>) => Promise<Doc<'compartments'> | null>
+    }
   },
   compartmentId: Id<'compartments'>,
   _orgId?: Id<'organizations'>
 ): Promise<Doc<'compartments'>> {
-  const compartment = await ctx.db.get('compartments', compartmentId)
+  const compartment = await ctx.db.get(compartmentId)
   if (!compartment) {
     throw new Error('Compartment not found')
   }
@@ -62,13 +64,13 @@ async function verifyCompartmentAccess(
 async function verifyPartAccess(
   ctx: {
     db: {
-      get: (table: 'parts', id: Id<'parts'>) => Promise<Doc<'parts'> | null>
+      get: (id: Id<'parts'>) => Promise<Doc<'parts'> | null>
     }
   },
   partId: Id<'parts'>,
   _orgId?: Id<'organizations'>
 ): Promise<Doc<'parts'>> {
-  const part = await ctx.db.get('parts', partId)
+  const part = await ctx.db.get(partId)
   if (!part) {
     throw new Error('Part not found')
   }
