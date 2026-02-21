@@ -3,8 +3,12 @@ FROM node:18-alpine AS base
 # Install dependencies only when needed
 FROM base AS deps
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat curl
 WORKDIR /app
+
+# Install bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
 
 # Install dependencies based on the preferred package manager
 COPY package.json bun.lock* ./
@@ -54,6 +58,11 @@ RUN bun run build
 # Production image, copy all the files and run the app
 FROM base AS runner
 WORKDIR /app
+
+# Install bun for runtime
+RUN apk add --no-cache libc6-compat curl
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
 
 # Build-time arguments that become runtime environment variables
 ARG NODE_ENV=production
