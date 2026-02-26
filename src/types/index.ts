@@ -11,8 +11,8 @@ export * from "./auth";
 
 export type UserRole =
 	| "Administrator"
-	| "Executive Officers"
-	| "General Officers"
+	| "Executive Officer"
+	| "General Officer"
 	| "Member";
 
 export interface User {
@@ -40,8 +40,8 @@ export interface Organization {
 // Role hierarchy for permission checking
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
 	Administrator: 4,
-	"Executive Officers": 3,
-	"General Officers": 2,
+	"Executive Officer": 3,
+	"General Officer": 2,
 	Member: 1,
 };
 

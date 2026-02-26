@@ -34,14 +34,14 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 
 // Role badge component for user roles
 interface RoleBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-	role: "Administrator" | "Executive Officers" | "General Officers" | "Member";
+	role: "Administrator" | "Executive Officer" | "General Officer" | "Member";
 }
 
 function RoleBadge({ role, className, ...props }: RoleBadgeProps) {
 	const roleStyles = {
 		Administrator: "bg-red-100 text-red-800 border-red-200",
-		"Executive Officers": "bg-blue-100 text-blue-800 border-blue-200",
-		"General Officers": "bg-green-100 text-green-800 border-green-200",
+		"Executive Officer": "bg-blue-100 text-blue-800 border-blue-200",
+		"General Officer": "bg-green-100 text-green-800 border-green-200",
 		Member: "bg-gray-100 text-gray-800 border-gray-200",
 	};
 

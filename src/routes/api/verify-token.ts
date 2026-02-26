@@ -378,12 +378,12 @@ export const Route = createFileRoute("/api/verify-token")({
 					const orgIdClaim = payload.organization_id as string | undefined;
 
 					// Determine user role from custom claims
-					// Role should be one of: Administrator, Executive Officers, General Officers, Member
+					// Role should be one of: Administrator, Executive Officer, General Officer, Member
 					const roleClaim = extractedRoles[0] || "Member";
 					const validRoles = [
 						"Administrator",
-						"Executive Officers",
-						"General Officers",
+						"Executive Officer",
+						"General Officer",
 						"Member",
 					];
 					const role: UserRole = validRoles.includes(roleClaim)

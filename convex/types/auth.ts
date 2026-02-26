@@ -20,7 +20,7 @@ export const authContextSchema = v.object({
   userId: v.string(),
   logtoUserId: v.string(),
   orgId: v.optional(v.string()), // Made optional since org support is removed
-  role: v.union(v.literal('Administrator'), v.literal('Executive Officers'), v.literal('General Officers'), v.literal('Member')),
+  role: v.union(v.literal('Administrator'), v.literal('Executive Officer'), v.literal('General Officer'), v.literal('Member')),
   timestamp: v.number(),
 })
 
@@ -35,4 +35,4 @@ export interface AuthValidationOptions {
  * User role types for permissions
  * Includes legacy roles for migration period
  */
-export type UserRole = 'Administrator' | 'Executive Officers' | 'General Officers' | 'Member'
+export type UserRole = 'Administrator' | 'Executive Officer' | 'General Officer' | 'Member'

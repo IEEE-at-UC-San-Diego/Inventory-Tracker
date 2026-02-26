@@ -24,8 +24,8 @@ export const list = query({
       userId: v.id('users'),
       targetRole: v.union(
         v.literal('Administrator'),
-        v.literal('Executive Officers'),
-        v.literal('General Officers'),
+        v.literal('Executive Officer'),
+        v.literal('General Officer'),
         v.literal('Member')
       ),
       attempts: v.number(),
@@ -119,8 +119,8 @@ export const getUserSyncStatus = query({
       _id: v.id('roleSyncQueue'),
       targetRole: v.union(
         v.literal('Administrator'),
-        v.literal('Executive Officers'),
-        v.literal('General Officers'),
+        v.literal('Executive Officer'),
+        v.literal('General Officer'),
         v.literal('Member')
       ),
       attempts: v.number(),

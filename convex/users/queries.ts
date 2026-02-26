@@ -21,8 +21,8 @@ export const getCurrentUser = query({
       orgId: v.union(v.id('organizations'), v.string()),
       role: v.union(
         v.literal('Administrator'),
-        v.literal('Executive Officers'),
-        v.literal('General Officers'),
+        v.literal('Executive Officer'),
+        v.literal('General Officer'),
         v.literal('Member'),
         // Legacy roles for migration
         v.literal('Admin'),

@@ -6,7 +6,7 @@ import { authContextSchema } from '../types/auth'
 
 /**
  * Create a new part
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  * Validates unique SKU globally
  */
 export const create = mutation({
@@ -61,7 +61,7 @@ export const create = mutation({
 
 /**
  * Update part details
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const update = mutation({
   args: {
@@ -120,7 +120,7 @@ export const update = mutation({
 
 /**
  * Archive a part (soft delete)
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  * Checks that no active inventory exists for the part
  */
 export const archive = mutation({
@@ -165,7 +165,7 @@ export const archive = mutation({
 
 /**
  * Restore an archived part
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const unarchive = mutation({
   args: {
@@ -196,7 +196,7 @@ export const unarchive = mutation({
 
 /**
  * Hard delete a part
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  * Checks that no transactions exist for the part
  */
 export const remove = mutation({
@@ -238,7 +238,7 @@ export const remove = mutation({
 /**
  * Update part image
  * Stores image using Convex storage
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const updateImage = mutation({
   args: {

@@ -7,7 +7,7 @@ import { authContextSchema } from '../types/auth'
 
 /**
  * Create a new cosmetic divider line on a blueprint
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const create = mutation({
   args: {
@@ -45,7 +45,7 @@ export const create = mutation({
 
 /**
  * Update a divider's position or thickness
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const update = mutation({
   args: {
@@ -84,7 +84,7 @@ export const update = mutation({
 
 /**
  * Delete a divider
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const deleteDivider = mutation({
   args: {

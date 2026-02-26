@@ -35,7 +35,7 @@ function pickGridDimensions(
 
 /**
  * Create a new compartment in a drawer
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const create = mutation({
   args: {
@@ -101,7 +101,7 @@ export const create = mutation({
 
 /**
  * Update compartment properties
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const update = mutation({
   args: {
@@ -172,7 +172,7 @@ export const update = mutation({
 
 /**
  * Delete a compartment
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  * When force=true, deletes inventory records in the compartment first.
  * Otherwise fails if compartment contains inventory.
  */
@@ -615,7 +615,7 @@ export const setGridForDrawer = mutation({
 
 /**
  * Reorder compartment z-index
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const reorderZIndex = mutation({
   args: {

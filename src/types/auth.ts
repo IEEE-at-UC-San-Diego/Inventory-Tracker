@@ -15,8 +15,8 @@ export interface AuthContextWithTimestamp extends AuthContext {
 
 export type UserRole =
 	| "Administrator"
-	| "Executive Officers"
-	| "General Officers"
+	| "Executive Officer"
+	| "General Officer"
 	| "Member";
 
 // ============================================

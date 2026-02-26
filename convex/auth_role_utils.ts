@@ -1,7 +1,7 @@
 export const ROLE_VALUES = [
 	"Administrator",
-	"Executive Officers",
-	"General Officers",
+	"Executive Officer",
+	"General Officer",
 	"Member",
 ] as const;
 
@@ -9,15 +9,15 @@ export type UserRole = (typeof ROLE_VALUES)[number];
 
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
 	Member: 1,
-	"General Officers": 2,
-	"Executive Officers": 3,
+	"General Officer": 2,
+	"Executive Officer": 3,
 	Administrator: 4,
 };
 
 const LEGACY_ROLE_MAP: Record<string, UserRole> = {
 	Admin: "Administrator",
-	Editor: "Executive Officers",
-	Member: "General Officers",
+	Editor: "Executive Officer",
+	Member: "General Officer",
 	Viewer: "Member",
 };
 

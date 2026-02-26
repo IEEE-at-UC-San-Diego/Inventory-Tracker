@@ -39,7 +39,7 @@ function isLockValid(blueprint: Doc<'blueprints'>): boolean {
 
 /**
  * Create a new blueprint
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const create = mutation({
   args: {
@@ -67,7 +67,7 @@ export const create = mutation({
 
 /**
  * Update blueprint name
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const update = mutation({
   args: {
@@ -90,7 +90,7 @@ export const update = mutation({
 
 /**
  * Delete a blueprint and all its drawers and compartments
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const deleteBlueprint = mutation({
   args: {
@@ -153,7 +153,7 @@ export const deleteBlueprint = mutation({
 
 /**
  * Acquire lock for editing a blueprint
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  * Fails if blueprint is already locked by another user
  */
 export const acquireLock = mutation({
@@ -262,7 +262,7 @@ export const releaseLock = mutation({
 })
 
 /**
- * Force release a lock (General Officers override)
+ * Force release a lock (General Officer override)
  * For stuck locks or when user can't release properly
  */
 export const forceReleaseLock = mutation({

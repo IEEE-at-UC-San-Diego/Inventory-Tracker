@@ -10,7 +10,7 @@ const MAX_REVISIONS = 50
 /**
  * Create a new revision snapshot for a blueprint
  * Should be called after a blueprint is saved with changes
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const createRevision = mutation({
   args: {
@@ -93,7 +93,7 @@ export const createRevision = mutation({
 
 /**
  * Restore a blueprint to a specific revision state
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  * This will create a new revision capturing the current state before restoring
  */
 export const restoreRevision = mutation({
@@ -294,7 +294,7 @@ export const restoreRevision = mutation({
 
 /**
  * Delete a specific revision
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const deleteRevision = mutation({
   args: {

@@ -91,7 +91,7 @@ export default function Header() {
 						<span className="font-medium">Blueprints</span>
 					</Link>
 
-					{hasRole("General Officers") && (
+					{hasRole("Executive Officer") && (
 						<Link
 							to="/transactions"
 							onClick={() => setIsOpen(false)}

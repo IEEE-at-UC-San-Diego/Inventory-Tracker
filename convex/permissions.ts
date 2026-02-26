@@ -231,8 +231,8 @@ const ADMINISTRATOR_PERMISSIONS: Permission[] = [
  */
 export const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<Permission>> = {
 	Member: new Set(MEMBER_PERMISSIONS),
-	"General Officers": new Set(GENERAL_OFFICER_PERMISSIONS),
-	"Executive Officers": new Set(EXECUTIVE_OFFICER_PERMISSIONS),
+	"General Officer": new Set(GENERAL_OFFICER_PERMISSIONS),
+	"Executive Officer": new Set(EXECUTIVE_OFFICER_PERMISSIONS),
 	Administrator: new Set(ADMINISTRATOR_PERMISSIONS),
 };
 

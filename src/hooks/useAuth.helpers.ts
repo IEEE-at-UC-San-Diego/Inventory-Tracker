@@ -3,7 +3,7 @@ import { hasMinimumRole } from "@/types";
 
 const LEGACY_ROLE_MAP: Record<string, UserRole> = {
 	Admin: "Administrator",
-	Editor: "Executive Officers",
+	Editor: "Executive Officer",
 	Viewer: "Member",
 };
 

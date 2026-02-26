@@ -144,7 +144,7 @@ export const verifyLogtoToken = httpAction(async (ctx, request) => {
     // Extract role from custom claims (if configured in Logto)
     // Roles can be synced using Logto's custom JWT claims feature
     const roleClaim = (idTokenClaims as any).roles?.[0] || 'Member'
-    const validRoles = ['Administrator', 'Executive Officers', 'General Officers', 'Member']
+    const validRoles = ['Administrator', 'Executive Officer', 'General Officer', 'Member']
     const role = validRoles.includes(roleClaim) ? roleClaim : 'Member'
 
     // Extract organization ID from custom claims (if configured)
@@ -156,7 +156,7 @@ export const verifyLogtoToken = httpAction(async (ctx, request) => {
       email,
       name,
       orgId: orgIdClaim, // Optional: use custom claim for org
-      role: role as 'Administrator' | 'Executive Officers' | 'General Officers' | 'Member',
+      role: role as 'Administrator' | 'Executive Officer' | 'General Officer' | 'Member',
     })
 
     return new Response(

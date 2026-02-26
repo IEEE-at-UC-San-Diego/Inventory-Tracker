@@ -39,7 +39,7 @@ export function AdjustDialog({
 	const { authContext, getFreshAuthContext } = useAuth();
 	const { toast } = useToast();
 	const { hasRole } = useRole();
-	const canAdjustInventory = hasRole("General Officers");
+	const canAdjustInventory = hasRole("General Officer");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const newQuantityInputId = useId();
 	const reasonInputId = useId();
@@ -83,7 +83,7 @@ export function AdjustDialog({
 			: undefined,
 	);
 
-	// Adjust mutation (General Officers or higher)
+	// Adjust mutation (Gen'Executive Officer' or higher)
 	const adjust = useMutation(api.inventory.mutations.adjust);
 
 	// Handle submit
@@ -92,7 +92,7 @@ export function AdjustDialog({
 			e.preventDefault();
 
 			if (!canAdjustInventory) {
-				toast.error("Only General Officers or higher can adjust inventory");
+				toast.error("Only Gen'Executive Officer' or higher can adjust inventory");
 				return;
 			}
 
@@ -198,7 +198,7 @@ export function AdjustDialog({
 							Insufficient Access
 						</h3>
 						<p className="text-sm text-gray-500 mt-2">
-							Only General Officers or higher can perform manual inventory
+							Only Gen'Executive Officer' or higher can perform manual inventory
 							adjustments.
 						</p>
 						<Button className="mt-4" onClick={() => onOpenChange(false)}>
@@ -220,7 +220,7 @@ export function AdjustDialog({
 							Adjust Inventory
 						</DialogTitle>
 						<DialogDescription>
-							Manually adjust inventory quantity (General Officers or higher)
+							Manually adjust inventory quantity (Gen'Executive Officer' or higher)
 						</DialogDescription>
 					</DialogHeader>
 

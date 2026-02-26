@@ -44,7 +44,7 @@ async function relayoutDrawerGridCompartments(
 
 /**
  * Create a new drawer in a blueprint
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const create = mutation({
   args: {
@@ -111,7 +111,7 @@ export const create = mutation({
 
 /**
  * Update drawer properties
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const update = mutation({
   args: {
@@ -179,7 +179,7 @@ export const update = mutation({
 
 /**
  * Delete a drawer and all its compartments
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  * When force=true, deletes inventory records in compartments first.
  * Otherwise fails if any compartment contains inventory.
  */
@@ -248,7 +248,7 @@ export const deleteDrawer = mutation({
 
 /**
  * Reorder drawers by changing z-index
- * Requires General Officers role and active lock on the blueprint
+ * Requires General Officer role and active lock on the blueprint
  */
 export const reorderZIndex = mutation({
   args: {

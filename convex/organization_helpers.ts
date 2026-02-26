@@ -70,8 +70,8 @@ export const getOrgUsers = query({
       orgId: v.id('organizations'),
       role: v.union(
         v.literal('Administrator'),
-        v.literal('Executive Officers'),
-        v.literal('General Officers'),
+        v.literal('Executive Officer'),
+        v.literal('General Officer'),
         v.literal('Member')
       ),
       createdAt: v.number(),
@@ -85,7 +85,7 @@ export const getOrgUsers = query({
     }
 
     // Viewers and Members can only see themselves
-    if (userContext.role === 'Member' || userContext.role === 'General Officers') {
+    if (userContext.role === 'Member' || userContext.role === 'General Officer') {
       return [userContext.user]
     }
 
@@ -109,8 +109,8 @@ export const inviteUser = mutation({
     name: v.string(),
     role: v.union(
       v.literal('Administrator'),
-      v.literal('Executive Officers'),
-      v.literal('General Officers'),
+      v.literal('Executive Officer'),
+      v.literal('General Officer'),
       v.literal('Member')
     ),
   },
@@ -162,8 +162,8 @@ export const updateUserRole = mutation({
     userId: v.id('users'),
     newRole: v.union(
       v.literal('Administrator'),
-      v.literal('Executive Officers'),
-      v.literal('General Officers'),
+      v.literal('Executive Officer'),
+      v.literal('General Officer'),
       v.literal('Member')
     ),
   },

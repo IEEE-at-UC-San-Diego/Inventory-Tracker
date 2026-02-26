@@ -85,7 +85,7 @@ async function verifyPartAccess(
 /**
  * Check in inventory to a compartment
  * Adds quantity to existing inventory or creates new inventory record
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const checkIn = mutation({
   args: {
@@ -164,7 +164,7 @@ export const checkIn = mutation({
 /**
  * Check out inventory from a compartment
  * Removes quantity from inventory
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const checkOut = mutation({
   args: {
@@ -237,7 +237,7 @@ export const checkOut = mutation({
 /**
  * Move inventory between compartments
  * Reduces quantity in source, adds to destination
- * Requires General Officers role or higher
+ * Requires General Officer role or higher
  */
 export const move = mutation({
   args: {
@@ -351,7 +351,7 @@ export const move = mutation({
 
 /**
  * Adjust inventory quantity (manual correction)
- * General Officers or higher operation
+ * General Officer or higher operation
  * Records the difference as the delta
  */
 export const adjust = mutation({
@@ -431,7 +431,7 @@ export const adjust = mutation({
 
 /**
  * Set exact inventory quantity (alias for adjust)
- * General Officers or higher operation
+ * General Officer or higher operation
  */
 export const setQuantity = mutation({
   args: {

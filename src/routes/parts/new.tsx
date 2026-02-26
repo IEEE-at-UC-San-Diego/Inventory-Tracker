@@ -10,7 +10,7 @@ export const Route = createFileRoute("/parts/new")({
 
 function NewPartPage() {
 	return (
-		<ProtectedRoute requiredRole="General Officers">
+		<ProtectedRoute requiredRole="Executive Officer">
 			<NewPartContent />
 		</ProtectedRoute>
 	);

@@ -31,15 +31,15 @@ export function useRole() {
 	 * Check if user is at least a General Officer
 	 */
 	const isEditor = useCallback((): boolean => {
-		return hasRole("General Officers");
+		return hasRole("General Officer");
 	}, [hasRole]);
 
 	/**
 	 * Check if user is a General Officer (or higher)
-	 * General Officers can check in/out and view inventory
+	 * General Officer can check in/out and view inventory
 	 */
 	const isMember = useCallback((): boolean => {
-		return hasRole("General Officers");
+		return hasRole("General Officer");
 	}, [hasRole]);
 
 	/**
@@ -51,17 +51,17 @@ export function useRole() {
 	}, [hasRole]);
 
 	/**
-	 * Check if user can check items in/out (General Officers or higher)
+	 * Check if user can check items in/out (General Officer or higher)
 	 */
 	const canCheckInOut = useCallback((): boolean => {
-		return hasRole("General Officers");
+		return hasRole("General Officer");
 	}, [hasRole]);
 
 	/**
-	 * Check if user can edit content (General Officers or higher)
+	 * Check if user can edit content (General Officer or higher)
 	 */
 	const canEdit = useCallback((): boolean => {
-		return hasRole("General Officers");
+		return hasRole("General Officer");
 	}, [hasRole]);
 
 	/**

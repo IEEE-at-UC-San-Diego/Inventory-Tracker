@@ -190,8 +190,8 @@ export const syncUserInternal = internalMutation({
     orgId: v.id('organizations'),
     role: v.union(
       v.literal('Administrator'),
-      v.literal('Executive Officers'),
-      v.literal('General Officers'),
+      v.literal('Executive Officer'),
+      v.literal('General Officer'),
       v.literal('Member')
     ),
     createdAt: v.number(),
@@ -269,8 +269,8 @@ export const syncCurrentUser = mutation({
       orgId: v.id('organizations'),
       role: v.union(
         v.literal('Administrator'),
-        v.literal('Executive Officers'),
-        v.literal('General Officers'),
+        v.literal('Executive Officer'),
+        v.literal('General Officer'),
         v.literal('Member')
       ),
       createdAt: v.number(),
@@ -344,8 +344,8 @@ export const getMyProfile = query({
       orgId: v.string(),
       role: v.union(
         v.literal('Administrator'),
-        v.literal('Executive Officers'),
-        v.literal('General Officers'),
+        v.literal('Executive Officer'),
+        v.literal('General Officer'),
         v.literal('Member')
       ),
       timestamp: v.number(),
@@ -362,8 +362,8 @@ export const getMyProfile = query({
         orgId: v.union(v.id('organizations'), v.string()),
         role: v.union(
           v.literal('Administrator'),
-          v.literal('Executive Officers'),
-          v.literal('General Officers'),
+          v.literal('Executive Officer'),
+          v.literal('General Officer'),
           v.literal('Member'),
           // Legacy roles for migration
           v.literal('Admin'),
@@ -401,8 +401,8 @@ export const syncUserRoleInternal = internalMutation({
     logtoUserId: v.string(),
     targetRole: v.union(
       v.literal('Administrator'),
-      v.literal('Executive Officers'),
-      v.literal('General Officers'),
+      v.literal('Executive Officer'),
+      v.literal('General Officer'),
       v.literal('Member')
     ),
   },
@@ -525,8 +525,8 @@ export const syncUserFromLogtoToken = internalMutation({
       orgId: v.id('organizations'),
       role: v.union(
         v.literal('Administrator'),
-        v.literal('Executive Officers'),
-        v.literal('General Officers'),
+        v.literal('Executive Officer'),
+        v.literal('General Officer'),
         v.literal('Member')
       ),
       createdAt: v.number(),

@@ -53,7 +53,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 			to: "/transactions",
 			label: "Transactions",
 			icon: <History size={20} />,
-			requiredRole: "General Officers",
+			requiredRole: "Executive Officer",
 		},
 	];
 

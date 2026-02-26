@@ -7,8 +7,8 @@ import { v } from 'convex/values'
  */
 export const UserRole = {
   Administrator: 'Administrator',
-  'Executive Officers': 'Executive Officers',
-  'General Officers': 'General Officers',
+  'Executive Officer': 'Executive Officer',
+  'General Officer': 'General Officer',
   Member: 'Member',
 } as const
 
@@ -50,7 +50,7 @@ export default defineSchema({
     name: v.string(),
     email: v.string(),
     orgId: v.id('organizations'),
-    role: v.union(v.literal('Administrator'), v.literal('Executive Officers'), v.literal('General Officers'), v.literal('Member')),
+    role: v.union(v.literal('Administrator'), v.literal('Executive Officer'), v.literal('General Officer'), v.literal('Member')),
     createdAt: v.number(),
   })
     .index('by_logtoUserId', ['logtoUserId'])
@@ -270,7 +270,7 @@ export default defineSchema({
    */
   roleSyncQueue: defineTable({
     userId: v.id('users'),
-    targetRole: v.union(v.literal('Administrator'), v.literal('Executive Officers'), v.literal('General Officers'), v.literal('Member')),
+    targetRole: v.union(v.literal('Administrator'), v.literal('Executive Officer'), v.literal('General Officer'), v.literal('Member')),
     attempts: v.number(), // Number of retry attempts made
     lastAttemptAt: v.optional(v.number()), // Unix timestamp of last attempt
     nextAttemptAt: v.number(), // Unix timestamp of next scheduled retry

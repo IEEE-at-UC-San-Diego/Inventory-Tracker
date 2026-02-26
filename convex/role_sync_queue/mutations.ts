@@ -11,7 +11,7 @@ const MAX_RETRY_ATTEMPTS = 5
  * Handles background retry of failed Logto role syncs with exponential backoff
  */
 
-export type UserRole = 'Administrator' | 'Executive Officers' | 'General Officers' | 'Member'
+export type UserRole = 'Administrator' | 'Executive Officer' | 'General Officer' | 'Member'
 
 /**
  * Enqueue a role sync operation for retry
@@ -20,7 +20,7 @@ export type UserRole = 'Administrator' | 'Executive Officers' | 'General Officer
 export const enqueueRoleSync = internalMutation({
   args: {
     userId: v.id('users'),
-    targetRole: v.union(v.literal('Administrator'), v.literal('Executive Officers'), v.literal('General Officers'), v.literal('Member')),
+    targetRole: v.union(v.literal('Administrator'), v.literal('Executive Officer'), v.literal('General Officer'), v.literal('Member')),
     errorMessage: v.optional(v.string()),
     previousAttempts: v.optional(v.number()), // For rescheduling existing queue items
   },
@@ -192,7 +192,7 @@ export const getRoleSyncQueueItems = internalMutation({
       _id: v.id('roleSyncQueue'),
       _creationTime: v.number(),
       userId: v.id('users'),
-      targetRole: v.union(v.literal('Administrator'), v.literal('Executive Officers'), v.literal('General Officers'), v.literal('Member')),
+      targetRole: v.union(v.literal('Administrator'), v.literal('Executive Officer'), v.literal('General Officer'), v.literal('Member')),
       attempts: v.number(),
       lastAttemptAt: v.optional(v.number()),
       nextAttemptAt: v.number(),

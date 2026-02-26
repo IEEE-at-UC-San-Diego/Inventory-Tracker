@@ -122,22 +122,22 @@ export function InviteUserDialog({
 											</div>
 										</div>
 									</SelectItem>
-									<SelectItem value="Executive Officers">
+									<SelectItem value="Executive Officer">
 										<div className="flex items-center gap-2">
 											<Edit className="w-4 h-4" />
 											<div>
-												<p className="font-medium">Executive Officers</p>
+												<p className="font-medium">Executive Officer</p>
 												<p className="text-xs text-gray-500">
 													Can edit inventory
 												</p>
 											</div>
 										</div>
 									</SelectItem>
-									<SelectItem value="General Officers">
+									<SelectItem value="General Officer">
 										<div className="flex items-center gap-2">
 											<Edit2 className="w-4 h-4" />
 											<div>
-												<p className="font-medium">General Officers</p>
+												<p className="font-medium">General Officer</p>
 												<p className="text-xs text-gray-500">
 													Check in/out items
 												</p>
