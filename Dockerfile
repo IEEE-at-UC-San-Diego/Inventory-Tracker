@@ -102,8 +102,7 @@ USER nextjs
 EXPOSE 3000
 
 # Set environment variables
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
 
 # Start the application
-CMD ["bun", "run", "preview"]
+CMD ["bun", "run", "preview", "--host", "0.0.0.0", "--port", "3000"]
