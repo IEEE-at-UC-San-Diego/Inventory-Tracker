@@ -1,4 +1,4 @@
-FROM node:18-alpine AS base
+FROM node:22-alpine AS base
 
 # Alpine doesn't ship bash; install Bun once in base so all stages can use it.
 RUN apk add --no-cache libc6-compat curl bash
