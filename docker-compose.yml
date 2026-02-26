@@ -17,8 +17,8 @@ services:
         - VITE_SITE_URL=${VITE_SITE_URL}
         - LOGTO_WEBHOOK_SIGNING_KEY=${LOGTO_WEBHOOK_SIGNING_KEY}
         - LOGTO_API_RESOURCE=${LOGTO_API_RESOURCE}
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       # Runtime environment variables (same as build args)
       - NODE_ENV=production
