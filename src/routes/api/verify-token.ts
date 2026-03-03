@@ -43,17 +43,75 @@ const LOGTO_ENDPOINT = normalizeUrl(
 );
 const LOGTO_ISSUER = `${LOGTO_ENDPOINT}/oidc`;
 const JWKS_URL = `${LOGTO_ISSUER}/jwks`;
-const API_RESOURCE =
-	getEnv("LOGTO_API_RESOURCE") ||
-	getEnv("VITE_LOGTO_API_RESOURCE") ||
-	"urn:inventory-tracker:api";
+const DEFAULT_API_RESOURCE = "urn:inventory-tracker:api";
+
+function parseAudienceCandidates(value: string | undefined): string[] {
+	if (!value) return [];
+	return value
+		.split(",")
+		.map((v) => v.trim())
+		.filter((v) => v.length > 0 && !v.includes("="));
+}
+
+const API_AUDIENCES = Array.from(
+	new Set([
+		...parseAudienceCandidates(getEnv("LOGTO_API_RESOURCE")),
+		...parseAudienceCandidates(getEnv("VITE_LOGTO_API_RESOURCE")),
+		DEFAULT_API_RESOURCE,
+	]),
+);
 
 const DEBUG_AUTH =
 	getEnv("VITE_DEBUG_AUTH") === "true" || getEnv("DEBUG_AUTH") === "true";
 
+const LOGTO_ROLE_VALUES = [
+	"Administrator",
+	"Member",
+	"General Officer",
+	"Executive Officer",
+] as const;
+
+const ROLE_PRIORITY: Record<UserRole, number> = {
+	Member: 1,
+	"General Officer": 2,
+	"Executive Officer": 3,
+	Administrator: 4,
+};
+
+function isValidLogtoRole(role: unknown): role is UserRole {
+	return (
+		typeof role === "string" &&
+		LOGTO_ROLE_VALUES.includes(role as (typeof LOGTO_ROLE_VALUES)[number])
+	);
+}
+
+function toRoleName(value: unknown): string | null {
+	if (typeof value === "string") return value;
+	if (
+		value &&
+		typeof value === "object" &&
+		"name" in value &&
+		typeof (value as { name?: unknown }).name === "string"
+	) {
+		return (value as { name: string }).name;
+	}
+	return null;
+}
+
+function getHighestRole(candidates: string[]): UserRole {
+	const validRoles = candidates.filter((role): role is UserRole =>
+		isValidLogtoRole(role),
+	);
+	if (validRoles.length === 0) return "Member";
+	return validRoles.reduce((best, current) =>
+		ROLE_PRIORITY[current] > ROLE_PRIORITY[best] ? current : best,
+	);
+}
+
 // Convex URL for user sync - required
 const CONVEX_URL =
 	getEnv("CONVEX_SELF_HOSTED_URL") || getEnv("VITE_CONVEX_URL");
+const INTERNAL_SYNC_SECRET = getEnv("INTERNAL_SYNC_SECRET");
 
 // Create JWKS for Logto key rotation
 const jwks = createRemoteJWKSet(new URL(JWKS_URL));
@@ -111,12 +169,16 @@ async function syncUserToConvex(
 	if (!CONVEX_URL) {
 		throw new Error("Convex URL not configured");
 	}
+	if (!INTERNAL_SYNC_SECRET) {
+		throw new Error("Internal sync secret not configured");
+	}
 
 	// Call Convex HTTP endpoint directly for user sync
 	const response = await fetch(`${CONVEX_URL}/http/auth/syncUser`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
+			"x-internal-sync-secret": INTERNAL_SYNC_SECRET,
 		},
 		body: JSON.stringify({
 			idTokenClaims: {
@@ -227,7 +289,8 @@ export const Route = createFileRoute("/api/verify-token")({
 							jwks,
 							{
 								issuer: LOGTO_ISSUER,
-								audience: API_RESOURCE,
+								audience:
+									API_AUDIENCES.length === 1 ? API_AUDIENCES[0] : API_AUDIENCES,
 							},
 						);
 						payload = verifiedPayload;
@@ -324,13 +387,34 @@ export const Route = createFileRoute("/api/verify-token")({
 					// Extract all roles from different possible formats
 					let extractedRoles: string[] = [];
 					if (Array.isArray(payload.roles)) {
-						// Could be string[] or objects with name property
-						extractedRoles = payload.roles
-							.map((r: unknown) =>
-								typeof r === "string" ? r : (r as { name: string })?.name || "",
-							)
-							.filter(Boolean);
+						extractedRoles.push(
+							...payload.roles
+								.map((value: unknown) => toRoleName(value))
+								.filter((value): value is string => Boolean(value)),
+						);
 					}
+					if (payload.role) {
+						const roleName = toRoleName(payload.role);
+						if (roleName) extractedRoles.push(roleName);
+					}
+					if (payload.user && typeof payload.user === "object") {
+						const userObj = payload.user as {
+							role?: unknown;
+							roles?: unknown[];
+						};
+						if (userObj.role) {
+							const roleName = toRoleName(userObj.role);
+							if (roleName) extractedRoles.push(roleName);
+						}
+						if (Array.isArray(userObj.roles)) {
+							extractedRoles.push(
+								...userObj.roles
+									.map((value: unknown) => toRoleName(value))
+									.filter((value): value is string => Boolean(value)),
+							);
+						}
+					}
+					extractedRoles = Array.from(new Set(extractedRoles));
 
 					if (DEBUG_AUTH) {
 						console.log("[verify-token] Extracted roles:", extractedRoles);
@@ -379,23 +463,14 @@ export const Route = createFileRoute("/api/verify-token")({
 
 					// Determine user role from custom claims
 					// Role should be one of: Administrator, Executive Officer, General Officer, Member
-					const roleClaim = extractedRoles[0] || "Member";
-					const validRoles = [
-						"Administrator",
-						"Executive Officer",
-						"General Officer",
-						"Member",
-					];
-					const role: UserRole = validRoles.includes(roleClaim)
-						? (roleClaim as UserRole)
-						: "Member";
+					const role: UserRole = getHighestRole(extractedRoles);
 
 					if (DEBUG_AUTH) {
 						console.log(
 							"[verify-token] Determined role:",
 							role,
-							"from roleClaim:",
-							roleClaim,
+							"from candidates:",
+							extractedRoles,
 						);
 					}
 

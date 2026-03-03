@@ -10,7 +10,7 @@ export const Route = createFileRoute("/parts/new")({
 
 function NewPartPage() {
 	return (
-		<ProtectedRoute requiredRole="Executive Officer">
+		<ProtectedRoute requiredRole="General Officer">
 			<NewPartContent />
 		</ProtectedRoute>
 	);
@@ -34,6 +34,7 @@ function NewPartContent() {
 			{/* Header */}
 			<div className="flex items-center gap-4 mb-6">
 				<button
+					type="button"
 					onClick={handleCancel}
 					className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
 				>

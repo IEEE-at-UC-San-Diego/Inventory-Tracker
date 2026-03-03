@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
 import { Doc } from '../_generated/dataModel'
-import { getCurrentUser } from '../auth_helpers'
+import { requirePermission } from '../permissions'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -64,7 +64,7 @@ export const list = query({
     nextCursor: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    await requirePermission(ctx, args.authContext, 'transactions:view')
     const limit = args.limit ?? 50
 
     // Get transactions ordered by timestamp (newest first)
@@ -186,10 +186,7 @@ export const getByPart = query({
     })
   ),
   handler: async (ctx, args) => {
-    const userContext = await getCurrentUser(ctx, args.authContext)
-    if (!userContext) {
-      throw new Error('Unauthorized')
-    }
+    await requirePermission(ctx, args.authContext, 'transactions:view')
 
     // Verify part exists
     const part = await ctx.db.get(args.partId)
@@ -295,10 +292,7 @@ export const getByUser = query({
     })
   ),
   handler: async (ctx, args) => {
-    const userContext = await getCurrentUser(ctx, args.authContext)
-    if (!userContext) {
-      throw new Error('Unauthorized')
-    }
+    await requirePermission(ctx, args.authContext, 'transactions:view')
 
     // Verify target user exists
     const targetUser = await ctx.db.get(args.userId)
@@ -399,7 +393,7 @@ export const getByDateRange = query({
     })
   ),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    await requirePermission(ctx, args.authContext, 'transactions:view')
 
     const transactions = await ctx.db
       .query('transactions')
@@ -492,10 +486,7 @@ export const getByCompartment = query({
     })
   ),
   handler: async (ctx, args) => {
-    const userContext = await getCurrentUser(ctx, args.authContext)
-    if (!userContext) {
-      throw new Error('Unauthorized')
-    }
+    const userContext = await requirePermission(ctx, args.authContext, 'transactions:view')
 
     // Verify compartment exists and belongs to org
     const compartment = await ctx.db.get(args.compartmentId)
@@ -602,7 +593,7 @@ export const getStats = query({
     }),
   }),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    await requirePermission(ctx, args.authContext, 'transactions:view')
 
     const transactions = await ctx.db
       .query('transactions')

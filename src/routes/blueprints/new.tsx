@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { useId } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/blueprints/new")({
 
 function NewBlueprintPage() {
 	return (
-		<ProtectedRoute requiredRole="Executive Officer">
+		<ProtectedRoute requiredRole="General Officer">
 			<NewBlueprintContent />
 		</ProtectedRoute>
 	);
@@ -22,6 +23,7 @@ function NewBlueprintContent() {
 	const navigate = useNavigate();
 	const { toast } = useToast();
 	const { authContext } = useAuth();
+	const blueprintNameInputId = useId();
 
 	const createBlueprint = useMutation(api.blueprints.mutations.create);
 
@@ -62,6 +64,7 @@ function NewBlueprintContent() {
 			{/* Header */}
 			<div className="flex items-center gap-4 mb-6">
 				<button
+					type="button"
 					onClick={handleCancel}
 					className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
 				>
@@ -92,14 +95,14 @@ function NewBlueprintContent() {
 				>
 					<div>
 						<label
-							htmlFor="name"
+							htmlFor={blueprintNameInputId}
 							className="block text-sm font-medium text-gray-700 mb-2"
 						>
 							Blueprint Name
 						</label>
 						<input
 							type="text"
-							id="name"
+							id={blueprintNameInputId}
 							name="name"
 							required
 							placeholder="Enter blueprint name..."

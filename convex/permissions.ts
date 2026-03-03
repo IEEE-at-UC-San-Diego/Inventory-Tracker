@@ -135,7 +135,6 @@ const MEMBER_PERMISSIONS: Permission[] = [
 	"drawerBackgroundImages:view",
 	"parts:view",
 	"inventory:view",
-	"transactions:view",
 	"revisions:view",
 	"storage:view",
 	"organizations:view",
@@ -185,6 +184,7 @@ const GENERAL_OFFICER_PERMISSIONS: Permission[] = [
 	"inventory:remove",
 	"inventory:move",
 	"inventory:adjust",
+	"transactions:view",
 
 	"revisions:create",
 	"revisions:restore",

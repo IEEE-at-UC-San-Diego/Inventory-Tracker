@@ -9,9 +9,7 @@ import {
 	RefreshCw,
 	Zap,
 } from "lucide-react";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import {
 	filterTransactions,
@@ -31,6 +29,8 @@ import {
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@/integrations/convex/react-query";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/transactions/")({
 	component: TransactionsPage,
@@ -40,7 +40,7 @@ const ITEMS_PER_PAGE = 25;
 
 function TransactionsPage() {
 	return (
-		<ProtectedRoute>
+		<ProtectedRoute requiredRole="General Officer">
 			<ToastProvider>
 				<TransactionsContent />
 			</ToastProvider>

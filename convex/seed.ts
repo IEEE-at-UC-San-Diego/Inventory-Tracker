@@ -1,6 +1,9 @@
 import { v } from 'convex/values'
 import { mutation } from './_generated/server'
 import { Id } from './_generated/dataModel'
+import { requireRole } from './auth_helpers'
+import { authContextSchema, type AuthContext } from './types/auth'
+import type { MutationCtx } from './_generated/server'
 
 /**
  * Development seed data generator
@@ -29,11 +32,24 @@ const sampleParts = [
   { name: 'Potentiometer 10kΩ', sku: 'POT-10K-LIN', category: 'Passive Components' },
 ]
 
+const PRODUCTION_SEED_ERROR = 'Forbidden: Seed mutations are disabled in production'
+
+async function requireSeedAccess(
+  ctx: MutationCtx,
+  authContext: AuthContext
+): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(PRODUCTION_SEED_ERROR)
+  }
+  await requireRole(ctx, authContext, 'Administrator')
+}
+
 /**
  * Seed parts data
  */
 export const seedParts = mutation({
   args: {
+    authContext: authContextSchema,
     count: v.optional(v.number()),
   },
   returns: v.object({
@@ -41,6 +57,8 @@ export const seedParts = mutation({
     partIds: v.array(v.id('parts')),
   }),
   handler: async (ctx, args) => {
+    await requireSeedAccess(ctx, args.authContext)
+
     // Seed doesn't require auth - get first org directly
     const firstOrg = await ctx.db.query('organizations').first()
     if (!firstOrg) {
@@ -76,6 +94,7 @@ export const seedParts = mutation({
  */
 export const seedBlueprint = mutation({
   args: {
+    authContext: authContextSchema,
     name: v.optional(v.string()),
     drawerCount: v.optional(v.number()),
     compartmentsPerDrawer: v.optional(v.number()),
@@ -86,6 +105,8 @@ export const seedBlueprint = mutation({
     compartmentIds: v.array(v.id('compartments')),
   }),
   handler: async (ctx, args) => {
+    await requireSeedAccess(ctx, args.authContext)
+
     // Seed doesn't require auth - get first org directly
     const firstOrg = await ctx.db.query('organizations').first()
     if (!firstOrg) {
@@ -154,6 +175,7 @@ export const seedBlueprint = mutation({
  */
 export const seedInventory = mutation({
   args: {
+    authContext: authContextSchema,
     partIds: v.array(v.id('parts')),
     compartmentIds: v.array(v.id('compartments')),
     itemsPerCompartment: v.optional(v.number()),
@@ -163,6 +185,8 @@ export const seedInventory = mutation({
     inventoryIds: v.array(v.id('inventory')),
   }),
   handler: async (ctx, args) => {
+    await requireSeedAccess(ctx, args.authContext)
+
     // Seed doesn't require auth - get first org directly
     const firstOrg = await ctx.db.query('organizations').first()
     if (!firstOrg) {
@@ -202,6 +226,7 @@ export const seedInventory = mutation({
  */
 export const seedTransactions = mutation({
   args: {
+    authContext: authContextSchema,
     partIds: v.array(v.id('parts')),
     compartmentIds: v.array(v.id('compartments')),
     userIds: v.array(v.id('users')),
@@ -211,6 +236,8 @@ export const seedTransactions = mutation({
     created: v.number(),
   }),
   handler: async (ctx, args) => {
+    await requireSeedAccess(ctx, args.authContext)
+
     // Seed doesn't require auth - get first org and user directly
     const firstOrg = await ctx.db.query('organizations').first()
     if (!firstOrg) {
@@ -272,7 +299,9 @@ export const seedTransactions = mutation({
  * Complete seed - creates parts, blueprint with compartments, inventory, and transactions
  */
 export const seedAll = mutation({
-  args: {},
+  args: {
+    authContext: authContextSchema,
+  },
   returns: v.object({
     parts: v.number(),
     blueprintId: v.id('blueprints'),
@@ -281,7 +310,9 @@ export const seedAll = mutation({
     inventory: v.number(),
     transactions: v.number(),
   }),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
+    await requireSeedAccess(ctx, args.authContext)
+
     // Seed doesn't require auth - get first org and user directly
     const firstOrg = await ctx.db.query('organizations').first()
     if (!firstOrg) {
@@ -424,6 +455,7 @@ export const seedAll = mutation({
  */
 export const clearAllData = mutation({
   args: {
+    authContext: authContextSchema,
     confirm: v.literal('DELETE ALL DATA'),
   },
   returns: v.object({
@@ -437,6 +469,8 @@ export const clearAllData = mutation({
     }),
   }),
   handler: async (ctx, args) => {
+    await requireSeedAccess(ctx, args.authContext)
+
     if (args.confirm !== 'DELETE ALL DATA') {
       throw new Error('Confirmation phrase required')
     }

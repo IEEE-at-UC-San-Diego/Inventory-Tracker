@@ -64,7 +64,6 @@ export const getOrgUsers = query({
     v.object({
       _id: v.id('users'),
       _creationTime: v.number(),
-      logtoUserId: v.string(),
       name: v.string(),
       email: v.string(),
       orgId: v.id('organizations'),
@@ -86,7 +85,16 @@ export const getOrgUsers = query({
 
     // Viewers and Members can only see themselves
     if (userContext.role === 'Member' || userContext.role === 'General Officer') {
-      return [userContext.user]
+      const currentUser = userContext.user
+      return [{
+        _id: currentUser._id,
+        _creationTime: currentUser._creationTime,
+        name: currentUser.name,
+        email: currentUser.email,
+        orgId: currentUser.orgId,
+        role: currentUser.role,
+        createdAt: currentUser.createdAt,
+      }]
     }
 
     // Return all users globally
@@ -94,7 +102,15 @@ export const getOrgUsers = query({
       .query('users')
       .collect()
 
-    return users
+    return users.map((user) => ({
+      _id: user._id,
+      _creationTime: user._creationTime,
+      name: user.name,
+      email: user.email,
+      orgId: user.orgId,
+      role: user.role,
+      createdAt: user.createdAt,
+    }))
   },
 })
 

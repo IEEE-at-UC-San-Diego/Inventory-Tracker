@@ -1,6 +1,13 @@
 import type { User, UserRole } from "@/types";
 import { hasMinimumRole } from "@/types";
 
+const VALID_USER_ROLES: readonly UserRole[] = [
+	"Administrator",
+	"Member",
+	"General Officer",
+	"Executive Officer",
+];
+
 const LEGACY_ROLE_MAP: Record<string, UserRole> = {
 	Admin: "Administrator",
 	Editor: "Executive Officer",
@@ -9,7 +16,10 @@ const LEGACY_ROLE_MAP: Record<string, UserRole> = {
 
 export function normalizeRole(role: string | null | undefined): UserRole {
 	if (!role) return "Member";
-	return LEGACY_ROLE_MAP[role] || (role as UserRole);
+	if (VALID_USER_ROLES.includes(role as UserRole)) {
+		return role as UserRole;
+	}
+	return LEGACY_ROLE_MAP[role] || "Member";
 }
 
 export function isLogtoRequestErrorLike(err: unknown): boolean {

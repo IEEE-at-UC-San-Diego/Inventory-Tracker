@@ -1,6 +1,7 @@
 import { httpAction } from './_generated/server'
 import { internal } from './_generated/api'
 import { jwtVerify, createRemoteJWKSet } from 'jose'
+import type { UserRole } from './auth_role_utils'
 
 /**
  * Auth HTTP endpoints
@@ -35,6 +36,50 @@ const DEFAULT_LOGTO_JWKS_URL = normalizeUrl(
   process.env.LOGTO_JWKS_URL,
   `${DEFAULT_LOGTO_ISSUER}/jwks`
 )
+const LOGTO_WEBHOOK_SIGNING_KEY = process.env.LOGTO_WEBHOOK_SIGNING_KEY
+
+const LOGTO_ROLE_VALUES: readonly UserRole[] = [
+  'Administrator',
+  'Member',
+  'General Officer',
+  'Executive Officer',
+]
+
+const ROLE_PRIORITY: Record<UserRole, number> = {
+  Member: 1,
+  'General Officer': 2,
+  'Executive Officer': 3,
+  Administrator: 4,
+}
+
+function isValidLogtoRole(role: unknown): role is UserRole {
+  return typeof role === 'string' && LOGTO_ROLE_VALUES.includes(role as UserRole)
+}
+
+function toRoleName(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (
+    value &&
+    typeof value === 'object' &&
+    'name' in value &&
+    typeof (value as { name?: unknown }).name === 'string'
+  ) {
+    return (value as { name: string }).name
+  }
+  return null
+}
+
+function getHighestRole(candidates: unknown[]): UserRole {
+  const validRoles = candidates
+    .map(toRoleName)
+    .filter((role): role is UserRole => Boolean(role) && isValidLogtoRole(role))
+
+  if (validRoles.length === 0) return 'Member'
+
+  return validRoles.reduce((best, current) =>
+    ROLE_PRIORITY[current] > ROLE_PRIORITY[best] ? current : best
+  )
+}
 
 
 
@@ -55,7 +100,7 @@ export const verifyLogtoToken = httpAction(async (ctx, request) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-logto-webhook-secret',
       },
     })
   }
@@ -143,9 +188,10 @@ export const verifyLogtoToken = httpAction(async (ctx, request) => {
 
     // Extract role from custom claims (if configured in Logto)
     // Roles can be synced using Logto's custom JWT claims feature
-    const roleClaim = (idTokenClaims as any).roles?.[0] || 'Member'
-    const validRoles = ['Administrator', 'Executive Officer', 'General Officer', 'Member']
-    const role = validRoles.includes(roleClaim) ? roleClaim : 'Member'
+    const roleClaims = Array.isArray((idTokenClaims as any).roles)
+      ? ((idTokenClaims as any).roles as unknown[])
+      : []
+    const role = getHighestRole(roleClaims)
 
     // Extract organization ID from custom claims (if configured)
     const orgIdClaim = (idTokenClaims as any).organization_id
@@ -156,7 +202,7 @@ export const verifyLogtoToken = httpAction(async (ctx, request) => {
       email,
       name,
       orgId: orgIdClaim, // Optional: use custom claim for org
-      role: role as 'Administrator' | 'Executive Officer' | 'General Officer' | 'Member',
+      role,
     })
 
     return new Response(
@@ -202,7 +248,7 @@ export const logout = httpAction(async (_ctx, request) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-logto-webhook-secret',
       },
     })
   }
@@ -256,6 +302,27 @@ export const logtoWebhook = httpAction(async (ctx, request) => {
     })
   }
 
+  if (!LOGTO_WEBHOOK_SIGNING_KEY) {
+    return new Response(JSON.stringify({ error: 'Server misconfiguration' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
+  }
+
+  const webhookSecret = request.headers.get('x-logto-webhook-secret')
+  if (webhookSecret !== LOGTO_WEBHOOK_SIGNING_KEY) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
+  }
+
   try {
     // Get raw body for signature verification before parsing
     const rawBody = await request.text()
@@ -269,13 +336,19 @@ export const logtoWebhook = httpAction(async (ctx, request) => {
     switch (event) {
       case 'user.created':
       case 'user.updated': {
+        const roleCandidates: unknown[] = [
+          data.role,
+          ...(Array.isArray(data.roles) ? data.roles : []),
+        ]
+        const role = getHighestRole(roleCandidates)
+
         // Sync user data from Logto
         await ctx.runMutation(internal.auth_helpers.syncUserInternal, {
           logtoUserId: data.id,
           email: data.primaryEmail || data.email,
           name: data.name || data.primaryEmail || data.email,
           orgId: data.organizationId,
-          role: data.role || 'Viewer',
+          role,
         })
         break
       }

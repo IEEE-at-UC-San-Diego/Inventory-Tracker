@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { query, mutation, internalMutation } from './_generated/server'
+import { query, mutation, internalMutation, internalQuery } from './_generated/server'
 import { internal } from './_generated/api'
 import { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx, MutationCtx } from './_generated/server'
@@ -10,6 +10,32 @@ import {
   type UserRole,
 } from './auth_role_utils'
 export type { UserRole } from './auth_role_utils'
+
+function toRoleName(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (
+    value &&
+    typeof value === 'object' &&
+    'name' in value &&
+    typeof (value as { name?: unknown }).name === 'string'
+  ) {
+    return (value as { name: string }).name
+  }
+  return null
+}
+
+function pickHighestRole(candidates: unknown[]): UserRole {
+  const normalized = candidates
+    .map(toRoleName)
+    .filter((role): role is string => Boolean(role))
+    .map((role) => normalizeRole(role))
+
+  if (normalized.length === 0) return 'Member'
+
+  return normalized.reduce((best, current) =>
+    (ROLE_HIERARCHY[current] || 1) > (ROLE_HIERARCHY[best] || 1) ? current : best
+  )
+}
 
 /**
  * Auth helper functions for user synchronization and authorization
@@ -544,8 +570,13 @@ export const syncUserFromLogtoToken = internalMutation({
 
     // Extract role from custom claims (if configured in Logto)
     // Roles can be synced using Logto's custom JWT claims feature
-    const roleClaim = (args.idTokenClaims as any).roles?.[0] || 'Member'
-    const role = normalizeRole(roleClaim)
+    const roleCandidates = Array.isArray((args.idTokenClaims as any).roles)
+      ? ([...(args.idTokenClaims as any).roles] as unknown[])
+      : []
+    if ((args.idTokenClaims as any).role) {
+      roleCandidates.push((args.idTokenClaims as any).role)
+    }
+    const role = pickHighestRole(roleCandidates)
 
     // Extract organization ID from custom claims (if configured)
     const orgIdClaim = (args.idTokenClaims as any).organization_id as Id<'organizations'> | undefined
@@ -652,7 +683,7 @@ export const migrateUserRoles = internalMutation({
 /**
  * Debug query to check all users and their roles
  */
-export const debugUsers = query({
+export const debugUsers = internalQuery({
   args: {},
   handler: async (ctx) => {
     const users = await ctx.db.query('users').collect()

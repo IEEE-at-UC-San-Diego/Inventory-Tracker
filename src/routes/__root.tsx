@@ -11,8 +11,8 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
-import { ToastProvider } from "../components/ui/toast";
 import { Toaster } from "../components/ui/sonner";
+import { ToastProvider } from "../components/ui/toast";
 import { AuthProvider, LogtoAuthProvider } from "../hooks/useAuth";
 import ConvexProvider from "../integrations/convex/provider";
 import appCss from "../styles.css?url";
@@ -55,7 +55,20 @@ function RootError({ error }: { error: unknown }) {
 				? error
 				: "Unexpected error";
 
-	if (message.toLowerCase().includes("auth context expired")) {
+	const normalizedMessage = message.toLowerCase();
+	const authFailureFragments = [
+		"auth context expired",
+		"session expired",
+		"token expired",
+		"invalid auth context",
+		"auth context mismatch",
+	];
+
+	if (
+		authFailureFragments.some((fragment) =>
+			normalizedMessage.includes(fragment),
+		)
+	) {
 		return <Navigate to="/login" replace />;
 	}
 

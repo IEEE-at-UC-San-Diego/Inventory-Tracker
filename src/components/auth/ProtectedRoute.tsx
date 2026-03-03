@@ -20,7 +20,7 @@ interface ProtectedRouteProps {
  *   <DashboardContent />
  * </ProtectedRoute>
  *
- * <ProtectedRoute requiredRole="Executive Officer">
+ * <ProtectedRoute requiredRole="General Officer">
  *   <EditorOnlyContent />
  * </ProtectedRoute>
  *
@@ -217,7 +217,7 @@ export function AdminOnly({ children, fallback = null }: AdminOnlyProps) {
 }
 
 /**
- * Editor-or-higher component wrapper
+ * General Officer-or-higher component wrapper
  */
 interface EditorOnlyProps {
 	children: React.ReactNode;
@@ -226,7 +226,7 @@ interface EditorOnlyProps {
 
 export function EditorOnly({ children, fallback = null }: EditorOnlyProps) {
 	return (
-		<RoleGuard requiredRole="Executive Officer" fallback={fallback}>
+		<RoleGuard requiredRole="General Officer" fallback={fallback}>
 			{children}
 		</RoleGuard>
 	);

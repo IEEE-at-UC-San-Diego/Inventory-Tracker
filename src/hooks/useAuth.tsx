@@ -81,6 +81,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		clearLogtoStorage();
 	}, []);
 
+	const redirectToLogin = useCallback(() => {
+		if (
+			typeof window !== "undefined" &&
+			window.location.pathname !== "/login"
+		) {
+			window.location.assign("/login");
+		}
+	}, []);
+
 	const forceLogoutDueToInvalidContext = useCallback(
 		async (message: string) => {
 			authLog.warn(message);
@@ -91,12 +100,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			setLogtoUser(null);
 			setAuthContextState(null);
 			try {
-				await logtoFunctionsRef.current.signOut();
+				await logtoFunctionsRef.current.signOut(
+					`${window.location.origin}/login`,
+				);
 			} catch {
-				// signOut may fail if session is already invalid
+				// signOut may fail if session is already invalid.
 			}
+			redirectToLogin();
 		},
-		[clearAuthStorage],
+		[clearAuthStorage, redirectToLogin],
 	);
 
 	const verifyAndRefreshAuthContext = useCallback(
@@ -455,11 +467,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			setError(null);
 
 			// Sign out from Logto
-			await signOut();
+			await signOut(`${window.location.origin}/login`);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Sign out failed");
+			redirectToLogin();
 		}
-	}, [signOut, clearAuthStorage]);
+	}, [signOut, clearAuthStorage, redirectToLogin]);
 
 	const forceRefreshAuthContext = useCallback(async (): Promise<void> => {
 		authLog.debug("forcing auth context refresh");

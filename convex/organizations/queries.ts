@@ -136,7 +136,6 @@ export const getOrgMembers = query({
       name: v.string(),
       email: v.string(),
       role: v.union(v.literal('Administrator'), v.literal('Executive Officer'), v.literal('General Officer'), v.literal('Member')),
-      logtoUserId: v.string(),
       orgId: v.union(v.id('organizations'), v.string()),
       createdAt: v.number(),
       _creationTime: v.number(),
@@ -169,7 +168,6 @@ export const getOrgMembers = query({
           | 'Executive Officer'
           | 'General Officer'
           | 'Member',
-        logtoUserId: user.logtoUserId,
         orgId: user.orgId,
         createdAt: user.createdAt,
         _creationTime: user._creationTime,

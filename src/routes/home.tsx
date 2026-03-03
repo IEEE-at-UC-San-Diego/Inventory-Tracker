@@ -4,19 +4,17 @@ import {
 	AlertTriangle,
 	ArrowLeftRight,
 	ArrowRight,
+	Map as BlueprintMap,
 	CheckCircle2,
 	Clock4,
 	History,
-	Map as BlueprintMap,
 	Minus,
 	Package,
 	Plus,
 	Users,
 	Wrench,
 } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import { type ReactNode, useMemo } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { QuantityDelta, TransactionBadge } from "@/components/transactions";
 import { Button } from "@/components/ui/button";
@@ -32,6 +30,8 @@ import { ToastProvider } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { useQuery } from "@/integrations/convex/react-query";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 export const Route = createFileRoute("/home")({
 	component: HomePage,
@@ -49,7 +49,8 @@ function HomePage() {
 
 function HomeContent() {
 	const { user, authContext, isLoading } = useAuth();
-	const { isAdmin, isEditor } = useRole();
+	const { isEditor } = useRole();
+	const canWrite = isEditor();
 
 	const stats = useQuery(
 		api.organization_helpers.getOrgStats,
@@ -62,7 +63,7 @@ function HomeContent() {
 		api.transactions.queries.list,
 		authContext ? { authContext, limit: 10 } : undefined,
 		{
-			enabled: !!authContext && !isLoading,
+			enabled: !!authContext && !isLoading && canWrite,
 		},
 	);
 	const inventoryResult = useQuery(
@@ -184,7 +185,7 @@ function HomeContent() {
 					<StatCard
 						title="Transactions Today"
 						value={todayStats.total}
-						description="Past 24 hours"
+						description={canWrite ? "Past 24 hours" : "General Officer+"}
 						icon={<History className="h-4 w-4" />}
 					/>
 				</div>
@@ -198,19 +199,23 @@ function HomeContent() {
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="space-y-2">
-							<QuickActionButton
-								to="/parts/new"
-								icon={<Package className="h-4 w-4" />}
-								title="Create Part"
-								description="Add a new part record"
-							/>
-							<QuickActionButton
-								to="/parts"
-								icon={<Plus className="h-4 w-4" />}
-								title="Check In"
-								description="Receive inventory into storage"
-							/>
-							{(isEditor() || isAdmin()) && (
+							{canWrite && (
+								<>
+									<QuickActionButton
+										to="/parts/new"
+										icon={<Package className="h-4 w-4" />}
+										title="Create Part"
+										description="Add a new part record"
+									/>
+									<QuickActionButton
+										to="/parts"
+										icon={<Plus className="h-4 w-4" />}
+										title="Check In"
+										description="Receive inventory into storage"
+									/>
+								</>
+							)}
+							{canWrite && (
 								<QuickActionButton
 									to="/parts"
 									icon={<Minus className="h-4 w-4" />}
@@ -235,15 +240,23 @@ function HomeContent() {
 									Latest inventory transactions across your team.
 								</CardDescription>
 							</div>
-							<Button asChild variant="outline" size="sm">
-								<Link to="/transactions">
-									View all
-									<ArrowRight className="h-4 w-4" />
-								</Link>
-							</Button>
+							{canWrite && (
+								<Button asChild variant="outline" size="sm">
+									<Link to="/transactions">
+										View all
+										<ArrowRight className="h-4 w-4" />
+									</Link>
+								</Button>
+							)}
 						</CardHeader>
 						<CardContent>
-							{recentTransactions.length > 0 ? (
+							{!canWrite ? (
+								<EmptyState
+									icon={<History className="h-10 w-10" />}
+									title="Access restricted"
+									description="Recent activity requires General Officer role or higher."
+								/>
+							) : recentTransactions.length > 0 ? (
 								<div className="space-y-2">
 									{recentTransactions.slice(0, 6).map((transaction) => (
 										<div
