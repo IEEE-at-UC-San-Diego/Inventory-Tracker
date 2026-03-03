@@ -125,7 +125,7 @@ export function BlueprintEditorView({
 	onShowActionHistory,
 }: BlueprintEditorViewProps) {
 	return (
-		<div className="fixed inset-0 overflow-hidden bg-white">
+		<div className="fixed inset-0 z-50 overflow-hidden bg-white">
 			<div className="absolute inset-0">
 				<BlueprintCanvas
 					width={canvasSize.width}
@@ -585,7 +585,9 @@ export function BlueprintEditorView({
 				open={showDeleteCompartmentDialog}
 				onOpenChange={onCloseDeleteCompartment}
 				title="Delete Compartment"
-				description={'Are you sure you want to delete this compartment? If it contains inventory, use "Force Delete" to remove inventory as well.'}
+				description={
+					'Are you sure you want to delete this compartment? If it contains inventory, use "Force Delete" to remove inventory as well.'
+				}
 				confirmLabel="Delete"
 				cancelLabel="Cancel"
 				onConfirm={() => void onConfirmDeleteCompartment()}
