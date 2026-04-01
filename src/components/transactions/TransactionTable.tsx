@@ -113,11 +113,11 @@ export function TransactionTable({
 	if (transactions.length === 0) {
 		return (
 			<div className="flex flex-col items-center justify-center py-12 text-center">
-				<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-					<Package className="w-8 h-8 text-gray-400" />
+				<div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+					<Package className="w-8 h-8 text-muted-foreground/80" />
 				</div>
-				<p className="text-gray-500 font-medium">{emptyMessage}</p>
-				<p className="text-sm text-gray-400 mt-1">
+				<p className="text-muted-foreground font-medium">{emptyMessage}</p>
+				<p className="text-sm text-muted-foreground/80 mt-1">
 					Transactions will appear here when inventory changes occur
 				</p>
 			</div>
@@ -128,7 +128,7 @@ export function TransactionTable({
 		<div className="overflow-x-auto">
 			<table className="w-full">
 				<thead>
-					<tr className="border-b border-gray-200">
+					<tr className="border-b border-border">
 						<th className="w-8 px-2 py-3"></th>
 						<SortableHeader
 							label="Date/Time"
@@ -172,7 +172,7 @@ export function TransactionTable({
 						/>
 					</tr>
 				</thead>
-				<tbody className="divide-y divide-gray-100">
+				<tbody className="divide-y divide-border/70">
 					{sortedTransactions.map((transaction) => (
 						<TransactionRow
 							key={transaction._id}
@@ -215,7 +215,7 @@ function SortableHeader({
 	return (
 		<th
 			className={cn(
-				"px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider",
+				"px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider",
 				className,
 			)}
 			aria-sort={ariaSort}
@@ -224,11 +224,11 @@ function SortableHeader({
 				<button
 					type="button"
 					onClick={() => onSort(column)}
-					className="flex items-center gap-1 hover:text-gray-700"
+					className="flex items-center gap-1 hover:text-foreground/90"
 				>
 					{label}
 					{isActive && (
-						<span className="text-gray-400">
+						<span className="text-muted-foreground/80">
 							{direction === "asc" ? (
 								<ChevronUp className="w-4 h-4" />
 							) : (
@@ -279,17 +279,17 @@ function TransactionRow({
 		if (transaction.actionType === "Move") {
 			return (
 				<div className="flex items-center gap-1 text-sm">
-					<span className="text-gray-500">
+					<span className="text-muted-foreground">
 						{transaction.sourceCompartment?.label || "Unknown"}
 					</span>
-					<ArrowRight className="w-3 h-3 text-gray-400" />
+					<ArrowRight className="w-3 h-3 text-muted-foreground/80" />
 					<span>{transaction.destCompartment?.label || "Unknown"}</span>
 				</div>
 			);
 		}
 		return (
 			<div className="flex items-center gap-1 text-sm">
-				<MapPin className="w-3 h-3 text-gray-400" />
+				<MapPin className="w-3 h-3 text-muted-foreground/80" />
 				<span>{transaction.destCompartment?.label || "Unknown"}</span>
 			</div>
 		);
@@ -299,7 +299,7 @@ function TransactionRow({
 		<>
 			<tr
 				className={cn(
-					"hover:bg-gray-50 transition-colors",
+					"hover:bg-muted/40 transition-colors",
 					onClick && "cursor-pointer",
 				)}
 				onClick={onClick}
@@ -319,12 +319,12 @@ function TransactionRow({
 							e.stopPropagation();
 							onToggle();
 						}}
-						className="p-1 hover:bg-gray-200 rounded transition-colors"
+						className="p-1 hover:bg-muted rounded transition-colors"
 						aria-label={isExpanded ? "Collapse transaction details" : "Expand transaction details"}
 					>
 						<ChevronRight
 							className={cn(
-								"w-4 h-4 text-gray-400 transition-transform",
+								"w-4 h-4 text-muted-foreground/80 transition-transform",
 								isExpanded && "rotate-90",
 							)}
 						/>
@@ -332,8 +332,8 @@ function TransactionRow({
 				</td>
 				<td className="px-4 py-3">
 					<div className="text-sm">
-						<div className="font-medium text-gray-900">{date}</div>
-						<div className="text-gray-500">{time}</div>
+						<div className="font-medium text-foreground">{date}</div>
+						<div className="text-muted-foreground">{time}</div>
 					</div>
 				</td>
 				<td className="px-4 py-3">
@@ -341,17 +341,17 @@ function TransactionRow({
 				</td>
 				<td className="px-4 py-3">
 					<div className="flex items-center gap-2">
-						<Package className="w-4 h-4 text-gray-400" />
+						<Package className="w-4 h-4 text-muted-foreground/80" />
 						<Link
 							to="/parts/$partId"
 							params={{ partId: transaction.partId }}
-							className="font-medium text-gray-900 hover:text-cyan-600 transition-colors"
+							className="font-medium text-foreground hover:text-primary transition-colors"
 							onClick={(e) => e.stopPropagation()}
 						>
 							{transaction.part?.name || "Unknown Part"}
 						</Link>
 						{transaction.part?.sku && (
-							<span className="text-xs text-gray-400">
+							<span className="text-xs text-muted-foreground/80">
 								({transaction.part.sku})
 							</span>
 						)}
@@ -363,8 +363,8 @@ function TransactionRow({
 				<td className="px-4 py-3">{getLocationDisplay()}</td>
 				<td className="px-4 py-3">
 					<div className="flex items-center gap-2">
-						<User className="w-4 h-4 text-gray-400" />
-						<span className="text-sm text-gray-700">
+						<User className="w-4 h-4 text-muted-foreground/80" />
+						<span className="text-sm text-foreground/90">
 							{transaction.user?.name || "Unknown"}
 						</span>
 					</div>
@@ -372,7 +372,7 @@ function TransactionRow({
 			</tr>
 			{isExpanded && (
 				<tr>
-					<td colSpan={7} className="px-4 py-4 bg-gray-50">
+					<td colSpan={7} className="px-4 py-4 bg-muted/40">
 						<TransactionDetails transaction={transaction} />
 					</td>
 				</tr>
@@ -389,45 +389,45 @@ function TransactionDetails({
 	return (
 		<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
 			<div className="space-y-3">
-				<h4 className="font-semibold text-gray-900">Transaction Details</h4>
+				<h4 className="font-semibold text-foreground">Transaction Details</h4>
 				<dl className="space-y-2">
 					<div className="flex gap-2">
-						<dt className="text-gray-500 w-24">ID:</dt>
-						<dd className="font-mono text-xs text-gray-700">
+						<dt className="text-muted-foreground w-24">ID:</dt>
+						<dd className="font-mono text-xs text-foreground/90">
 							{transaction._id}
 						</dd>
 					</div>
 					<div className="flex gap-2">
-						<dt className="text-gray-500 w-24">Action:</dt>
+						<dt className="text-muted-foreground w-24">Action:</dt>
 						<dd>
 							<TransactionBadge actionType={transaction.actionType} size="sm" />
 						</dd>
 					</div>
 					<div className="flex gap-2">
-						<dt className="text-gray-500 w-24">Quantity:</dt>
+						<dt className="text-muted-foreground w-24">Quantity:</dt>
 						<dd>
 							<QuantityDelta delta={transaction.quantityDelta} />
 						</dd>
 					</div>
 					{transaction.notes && (
 						<div className="flex gap-2">
-							<dt className="text-gray-500 w-24">Notes:</dt>
-							<dd className="text-gray-700 italic">{transaction.notes}</dd>
+							<dt className="text-muted-foreground w-24">Notes:</dt>
+							<dd className="text-foreground/90 italic">{transaction.notes}</dd>
 						</div>
 					)}
 				</dl>
 			</div>
 
 			<div className="space-y-3">
-				<h4 className="font-semibold text-gray-900">Related Information</h4>
+				<h4 className="font-semibold text-foreground">Related Information</h4>
 				<dl className="space-y-2">
 					<div className="flex gap-2">
-						<dt className="text-gray-500 w-24">Part:</dt>
+						<dt className="text-muted-foreground w-24">Part:</dt>
 						<dd>
 							<Link
 								to="/parts/$partId"
 								params={{ partId: transaction.partId }}
-								className="text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
+								className="flex items-center gap-1 text-primary hover:text-primary/90"
 							>
 								{transaction.part?.name || "View Part"}
 								<ExternalLink className="w-3 h-3" />
@@ -435,23 +435,23 @@ function TransactionDetails({
 						</dd>
 					</div>
 					<div className="flex gap-2">
-						<dt className="text-gray-500 w-24">User:</dt>
-						<dd className="text-gray-700">
+						<dt className="text-muted-foreground w-24">User:</dt>
+						<dd className="text-foreground/90">
 							{transaction.user?.name || "Unknown"}
 						</dd>
 					</div>
 					{transaction.sourceCompartment && (
 						<div className="flex gap-2">
-							<dt className="text-gray-500 w-24">From:</dt>
-							<dd className="text-gray-700">
+							<dt className="text-muted-foreground w-24">From:</dt>
+							<dd className="text-foreground/90">
 								{transaction.sourceCompartment.label || "Unknown"}
 							</dd>
 						</div>
 					)}
 					{transaction.destCompartment && (
 						<div className="flex gap-2">
-							<dt className="text-gray-500 w-24">To:</dt>
-							<dd className="text-gray-700">
+							<dt className="text-muted-foreground w-24">To:</dt>
+							<dd className="text-foreground/90">
 								{transaction.destCompartment.label || "Unknown"}
 							</dd>
 						</div>
@@ -468,54 +468,54 @@ function TransactionTableSkeleton() {
 		<div className="overflow-x-auto">
 			<table className="w-full">
 				<thead>
-					<tr className="border-b border-gray-200">
+					<tr className="border-b border-border">
 						<th className="w-8 px-2 py-3"></th>
-						<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+						<th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
 							Date/Time
 						</th>
-						<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+						<th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
 							Action
 						</th>
-						<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+						<th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
 							Part
 						</th>
-						<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+						<th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
 							Quantity
 						</th>
-						<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+						<th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
 							Location
 						</th>
-						<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+						<th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
 							User
 						</th>
 					</tr>
 				</thead>
-				<tbody className="divide-y divide-gray-100">
+				<tbody className="divide-y divide-border/70">
 					{Array.from({ length: 5 }).map((_, i) => (
 						<tr key={i}>
 							<td className="px-2 py-3">
-								<div className="w-6 h-6 bg-gray-200 rounded animate-pulse" />
+								<div className="w-6 h-6 bg-muted rounded animate-pulse" />
 							</td>
 							<td className="px-4 py-3">
 								<div className="space-y-1">
-									<div className="w-24 h-4 bg-gray-200 rounded animate-pulse" />
-									<div className="w-16 h-3 bg-gray-200 rounded animate-pulse" />
+									<div className="w-24 h-4 bg-muted rounded animate-pulse" />
+									<div className="w-16 h-3 bg-muted rounded animate-pulse" />
 								</div>
 							</td>
 							<td className="px-4 py-3">
-								<div className="w-20 h-6 bg-gray-200 rounded-full animate-pulse" />
+								<div className="w-20 h-6 bg-muted rounded-full animate-pulse" />
 							</td>
 							<td className="px-4 py-3">
-								<div className="w-32 h-4 bg-gray-200 rounded animate-pulse" />
+								<div className="w-32 h-4 bg-muted rounded animate-pulse" />
 							</td>
 							<td className="px-4 py-3">
-								<div className="w-12 h-4 bg-gray-200 rounded animate-pulse" />
+								<div className="w-12 h-4 bg-muted rounded animate-pulse" />
 							</td>
 							<td className="px-4 py-3">
-								<div className="w-24 h-4 bg-gray-200 rounded animate-pulse" />
+								<div className="w-24 h-4 bg-muted rounded animate-pulse" />
 							</td>
 							<td className="px-4 py-3">
-								<div className="w-20 h-4 bg-gray-200 rounded animate-pulse" />
+								<div className="w-20 h-4 bg-muted rounded animate-pulse" />
 							</td>
 						</tr>
 					))}
@@ -545,8 +545,8 @@ export function TransactionPagination({
 	const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
 	return (
-		<div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-			<div className="text-sm text-gray-500">
+		<div className="flex items-center justify-between px-4 py-3 border-t border-border">
+			<div className="text-sm text-muted-foreground">
 				Showing <span className="font-medium">{startItem}</span> to{" "}
 				<span className="font-medium">{endItem}</span> of{" "}
 				<span className="font-medium">{totalItems}</span> transactions
@@ -555,17 +555,17 @@ export function TransactionPagination({
 				<button
 					onClick={() => onPageChange(currentPage - 1)}
 					disabled={currentPage === 1}
-					className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+					className="px-3 py-1 text-sm border rounded-md hover:bg-muted/40 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Previous
 				</button>
-				<span className="text-sm text-gray-500">
+				<span className="text-sm text-muted-foreground">
 					Page {currentPage} of {totalPages}
 				</span>
 				<button
 					onClick={() => onPageChange(currentPage + 1)}
 					disabled={currentPage === totalPages}
-					className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+					className="px-3 py-1 text-sm border rounded-md hover:bg-muted/40 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Next
 				</button>

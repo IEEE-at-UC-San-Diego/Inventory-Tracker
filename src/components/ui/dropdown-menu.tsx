@@ -67,7 +67,7 @@ function DropdownMenuItem({
 		<button
 			type="button"
 			className={cn(
-				"relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+				"relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset hover:bg-accent hover:text-accent-foreground",
 				inset && "pl-8",
 				className,
 			)}
@@ -95,7 +95,7 @@ function DropdownMenuCheckboxItem({
 		<button
 			type="button"
 			className={cn(
-				"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+				"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset hover:bg-accent hover:text-accent-foreground",
 				className,
 			)}
 			onClick={() => onCheckedChange?.(!checked)}
@@ -127,7 +127,7 @@ function DropdownMenuRadioItem({
 		<button
 			type="button"
 			className={cn(
-				"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+				"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset hover:bg-accent hover:text-accent-foreground",
 				className,
 			)}
 			onClick={() => onSelect?.(value)}
@@ -213,7 +213,7 @@ function DropdownMenuSubTrigger({
 		<button
 			type="button"
 			className={cn(
-				"flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+				"flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset hover:bg-accent hover:text-accent-foreground",
 				inset && "pl-8",
 				className,
 			)}

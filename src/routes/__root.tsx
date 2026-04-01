@@ -37,6 +37,19 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		],
 		links: [
 			{
+				rel: "preconnect",
+				href: "https://fonts.googleapis.com",
+			},
+			{
+				rel: "preconnect",
+				href: "https://fonts.gstatic.com",
+				crossOrigin: "anonymous",
+			},
+			{
+				rel: "stylesheet",
+				href: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap",
+			},
+			{
 				rel: "stylesheet",
 				href: appCss,
 			},
@@ -128,7 +141,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			<body>
 				<a
 					href={`#${mainContentId}`}
-					className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow"
+					className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
 				>
 					Skip to main content
 				</a>
@@ -137,7 +150,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 						<AuthProvider>
 							<ToastProvider>
 								<Header />
-								<main id={mainContentId}>{children}</main>
+								<main id={mainContentId} className="min-w-0">
+									{children}
+								</main>
 								<Toaster />
 								{mounted && import.meta.env.DEV ? (
 									<TanStackDevtools

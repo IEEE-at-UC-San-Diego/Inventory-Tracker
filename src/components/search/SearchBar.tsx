@@ -215,7 +215,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 					setIsOpen(true);
 					setTimeout(() => inputRef.current?.focus(), 100);
 				}}
-				className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+				className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground bg-muted rounded-lg hover:bg-muted transition-colors"
 				aria-label="Open search"
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}
@@ -253,14 +253,14 @@ export function SearchBar({ onClose }: SearchBarProps) {
 				</h2>
 				{/* Search Input */}
 				<div className="flex items-center gap-3 px-4 py-4 border-b">
-					<Search className="w-5 h-5 text-gray-400" />
+					<Search className="w-5 h-5 text-muted-foreground/80" />
 					<input
 						ref={inputRef}
 						type="text"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Search parts by name, SKU, or category..."
-						className="flex-1 text-lg outline-none placeholder:text-gray-400"
+						className="flex-1 text-lg outline-none placeholder:text-muted-foreground/80"
 						role="combobox"
 						aria-expanded={results.length > 0}
 						aria-controls="search-results-list"
@@ -272,13 +272,13 @@ export function SearchBar({ onClose }: SearchBarProps) {
 								setQuery("");
 								inputRef.current?.focus();
 							}}
-							className="p-1 hover:bg-gray-100 rounded"
+							className="p-1 hover:bg-muted rounded"
 							aria-label="Clear search"
 						>
-							<X className="w-4 h-4 text-gray-400" />
+							<X className="w-4 h-4 text-muted-foreground/80" />
 						</button>
 					)}
-					<kbd className="hidden sm:inline-block px-2 py-1 text-xs bg-gray-100 rounded">
+					<kbd className="hidden sm:inline-block px-2 py-1 text-xs bg-muted rounded">
 						ESC
 					</kbd>
 				</div>
@@ -289,7 +289,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 						// Recent searches
 						recentSearches.length > 0 ? (
 							<div className="py-2">
-								<div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">
+								<div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase">
 									Recent Searches
 								</div>
 								{recentSearches.map((search, index) => (
@@ -297,15 +297,15 @@ export function SearchBar({ onClose }: SearchBarProps) {
 										key={index}
 										type="button"
 										onClick={() => setQuery(search)}
-										className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-left"
+										className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/40 text-left"
 									>
-										<Clock className="w-4 h-4 text-gray-400" />
+										<Clock className="w-4 h-4 text-muted-foreground/80" />
 										<span>{search}</span>
 									</button>
 								))}
 							</div>
 						) : (
-							<div className="px-4 py-8 text-center text-gray-500">
+							<div className="px-4 py-8 text-center text-muted-foreground">
 								<p>Start typing to search...</p>
 								<p className="text-sm mt-1">
 									Try searching for part names, SKUs, or categories
@@ -314,16 +314,16 @@ export function SearchBar({ onClose }: SearchBarProps) {
 						)
 					) : searchResult === undefined ? (
 						<div className="flex items-center justify-center py-8">
-							<Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+							<Loader2 className="w-6 h-6 animate-spin text-muted-foreground/80" />
 						</div>
 					) : results.length === 0 ? (
-						<div className="px-4 py-8 text-center text-gray-500">
+						<div className="px-4 py-8 text-center text-muted-foreground">
 							<p>No results found for "{query}"</p>
 							<p className="text-sm mt-1">Try a different search term</p>
 						</div>
 					) : (
 						<div className="py-2">
-							<div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">
+							<div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase">
 								Parts ({results.length})
 							</div>
 							{results.map((result) => {
@@ -337,14 +337,14 @@ export function SearchBar({ onClose }: SearchBarProps) {
 											to="/parts/$partId"
 											params={{ partId: result._id }}
 											onClick={() => handleResultClick(result)}
-											className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+											className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors"
 										>
 											<div className="p-2 bg-cyan-100 rounded-lg">
 												<Package className="w-4 h-4 text-cyan-600" />
 											</div>
 											<div className="flex-1 min-w-0">
 												<p className="font-medium truncate">{result.name}</p>
-												<p className="text-sm text-gray-500">
+												<p className="text-sm text-muted-foreground">
 													{result.sku} • {result.category}
 												</p>
 											</div>
@@ -398,7 +398,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 																</Button>
 															</DropdownMenuTrigger>
 															<DropdownMenuContent align="end" className="w-56">
-																<div className="px-2 py-1.5 text-xs font-medium text-gray-500">
+																<div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
 																	Found in {locations.length} blueprint
 																	{locations.length > 1 ? "s" : ""}:
 																</div>
@@ -428,7 +428,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 																				<p className="font-medium">
 																					{location.blueprintName}
 																				</p>
-																				<p className="text-xs text-gray-500">
+																				<p className="text-xs text-muted-foreground">
 																					{location.compartmentCount}{" "}
 																					compartment
 																					{location.compartmentCount > 1
@@ -445,7 +445,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 													)}
 												</div>
 											) : (
-												<ArrowRight className="w-4 h-4 text-gray-400" />
+												<ArrowRight className="w-4 h-4 text-muted-foreground/80" />
 											)}
 										</Link>
 									</div>
@@ -458,7 +458,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 				{/* Footer */}
 				<div
 					id="search-dialog-hint"
-					className="flex items-center justify-between px-4 py-2 bg-gray-50 border-t text-xs text-gray-500"
+					className="flex items-center justify-between px-4 py-2 bg-muted/40 border-t text-xs text-muted-foreground"
 				>
 					<div className="flex items-center gap-4">
 						<span className="flex items-center gap-1">
@@ -497,7 +497,7 @@ export function CompactSearchBar() {
 			<button
 				type="button"
 				onClick={() => setIsOpen(true)}
-				className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+				className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground bg-muted rounded-lg hover:bg-muted transition-colors"
 				aria-label="Open search"
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}

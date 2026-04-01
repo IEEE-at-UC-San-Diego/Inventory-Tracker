@@ -508,10 +508,10 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 									existingImageId={part?.imageId}
 								/>
 								<div className="flex-1">
-									<p className="text-sm text-gray-600">
+									<p className="text-sm text-muted-foreground">
 										Recommended: Square image, at least 200x200 pixels.
 									</p>
-									<p className="text-sm text-gray-500 mt-1">
+									<p className="text-sm text-muted-foreground mt-1">
 										Max file size: 5MB. Supported formats: JPG, PNG, GIF.
 									</p>
 								</div>

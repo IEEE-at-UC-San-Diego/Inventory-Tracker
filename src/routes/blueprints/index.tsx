@@ -64,9 +64,9 @@ function BlueprintsContent() {
 	}, [blueprints]);
 
 	return (
-		<div className="bg-gradient-to-b from-slate-50/80 to-background">
-			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
+		<div className="bg-gradient-to-b from-surface via-background to-background">
+			<div className="page-shell page-enter space-y-6">
+				<Card className="border-border/80 bg-gradient-to-r from-surface-elevated via-surface-elevated to-surface-brand shadow-sm">
 					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div className="space-y-1">
 							<CardTitle className="text-2xl sm:text-3xl">Blueprints</CardTitle>

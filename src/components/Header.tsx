@@ -20,24 +20,29 @@ export default function Header() {
 	const { hasRole } = useRole();
 
 	const navLinkClass =
-		"mb-2 flex items-center gap-3 rounded-lg p-3 text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground";
+		"mb-2 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-foreground/85 transition-colors duration-[var(--duration-fast)] hover:bg-accent hover:text-accent-foreground";
 	const activeNavLinkClass =
-		"mb-2 flex items-center gap-3 rounded-lg bg-primary p-3 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90";
+		"mb-2 flex min-h-11 items-center gap-3 rounded-lg bg-primary px-3 py-2.5 text-primary-foreground shadow-sm transition-colors duration-[var(--duration-fast)] hover:bg-primary/90";
+
+	const activeLinkProps = {
+		className: activeNavLinkClass,
+		"aria-current": "page" as const,
+	};
 
 	return (
 		<>
-			<header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/80 bg-header px-4 py-3 text-header-foreground shadow-[0_10px_35px_-24px_rgba(15,23,42,0.32)] backdrop-blur">
+			<header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/80 bg-header px-3 py-2.5 text-header-foreground shadow-[var(--shadow-sm)] backdrop-blur sm:px-4 sm:py-3">
 				<div className="flex items-center gap-3">
 					{isAuthenticated && (
 						<button
 							type="button"
 							onClick={() => setIsOpen(true)}
-							className="rounded-lg p-2 text-foreground transition-colors hover:bg-accent"
+							className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-foreground transition-colors duration-[var(--duration-fast)] hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 							aria-label="Open menu"
 							aria-expanded={isOpen}
 							aria-controls={mobileNavId}
 						>
-							<Menu className="h-6 w-6" />
+							<Menu className="h-6 w-6 shrink-0" aria-hidden />
 						</button>
 					)}
 					<Link to="/home" className="flex items-center gap-3">
@@ -89,15 +94,18 @@ export default function Header() {
 								Navigation
 							</SheetTitle>
 						</div>
-						<nav aria-label="Main navigation" className="flex-1 overflow-y-auto p-4">
+						<nav
+							aria-label="Main navigation"
+							className="flex-1 overflow-y-auto p-4"
+						>
 							<Link
 								to="/home"
 								onClick={() => setIsOpen(false)}
 								className={navLinkClass}
-								activeProps={{ className: activeNavLinkClass }}
+								activeProps={activeLinkProps}
 							>
 								<span className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-									<Home className="h-5 w-5" />
+									<Home className="h-5 w-5" aria-hidden />
 								</span>
 								<span className="font-medium">Dashboard</span>
 							</Link>
@@ -106,10 +114,10 @@ export default function Header() {
 								to="/parts"
 								onClick={() => setIsOpen(false)}
 								className={navLinkClass}
-								activeProps={{ className: activeNavLinkClass }}
+								activeProps={activeLinkProps}
 							>
 								<span className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-									<Package className="h-5 w-5" />
+									<Package className="h-5 w-5" aria-hidden />
 								</span>
 								<span className="font-medium">Inventory</span>
 							</Link>
@@ -118,10 +126,10 @@ export default function Header() {
 								to="/blueprints"
 								onClick={() => setIsOpen(false)}
 								className={navLinkClass}
-								activeProps={{ className: activeNavLinkClass }}
+								activeProps={activeLinkProps}
 							>
 								<span className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-									<BlueprintMap className="h-5 w-5" />
+									<BlueprintMap className="h-5 w-5" aria-hidden />
 								</span>
 								<span className="font-medium">Blueprints</span>
 							</Link>
@@ -131,10 +139,10 @@ export default function Header() {
 									to="/transactions"
 									onClick={() => setIsOpen(false)}
 									className={navLinkClass}
-									activeProps={{ className: activeNavLinkClass }}
+									activeProps={activeLinkProps}
 								>
 									<span className="flex h-5 w-5 items-center justify-center text-muted-foreground">
-										<History className="h-5 w-5" />
+										<History className="h-5 w-5" aria-hidden />
 									</span>
 									<span className="font-medium">Transactions</span>
 								</Link>
@@ -156,7 +164,7 @@ export default function Header() {
 							<Link
 								to="/logout"
 								onClick={() => setIsOpen(false)}
-								className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+								className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm font-medium text-foreground transition-colors duration-[var(--duration-fast)] hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 							>
 								<LogOut className="h-4 w-4" />
 								Sign Out

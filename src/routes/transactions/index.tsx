@@ -225,9 +225,9 @@ function TransactionsContent() {
 	}, [transactions]);
 
 	return (
-		<div className="bg-gradient-to-b from-slate-50/80 to-background">
-			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
+		<div className="bg-gradient-to-b from-surface via-background to-background">
+			<div className="page-shell page-enter space-y-6">
+				<Card className="border-border/80 bg-gradient-to-r from-surface-elevated via-surface-elevated to-surface-brand shadow-sm">
 					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div className="space-y-1">
 							<CardTitle className="text-2xl sm:text-3xl">
@@ -354,7 +354,7 @@ function TransactionsContent() {
 						)}
 
 						{filteredTransactions.length > 0 && totalPages === 1 && (
-							<div className="border-t border-slate-200 px-4 py-3 text-center text-sm text-slate-500">
+							<div className="border-t border-border px-4 py-3 text-center text-sm text-muted-foreground">
 								Showing all {filteredTransactions.length} transactions
 							</div>
 						)}
@@ -381,12 +381,12 @@ function ActionStatCard({
 	trend,
 }: ActionStatCardProps) {
 	const colorClasses = {
-		green: "border-emerald-200 bg-emerald-50 text-emerald-800",
-		red: "border-rose-200 bg-rose-50 text-rose-800",
-		blue: "border-blue-200 bg-blue-50 text-blue-800",
-		amber: "border-amber-200 bg-amber-50 text-amber-800",
-		slate: "border-slate-200 bg-slate-50 text-slate-800",
-		cyan: "border-cyan-200 bg-cyan-50 text-cyan-800",
+		green: "border-success/25 bg-surface-success text-success-foreground",
+		red: "border-destructive/20 bg-surface-danger text-destructive",
+		blue: "border-info/25 bg-surface-info text-info-foreground",
+		amber: "border-warning/25 bg-surface-warning text-warning-foreground",
+		slate: "border-border bg-muted text-foreground",
+		cyan: "border-primary/20 bg-surface-brand text-primary",
 	};
 
 	return (

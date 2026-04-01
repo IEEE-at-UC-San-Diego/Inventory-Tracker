@@ -2,6 +2,16 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useId } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation } from "@/integrations/convex/react-query";
@@ -60,73 +70,73 @@ function NewBlueprintContent() {
 	};
 
 	return (
-		<div className="p-6 max-w-3xl mx-auto">
-			{/* Header */}
-			<div className="flex items-center gap-4 mb-6">
-				<button
-					type="button"
-					onClick={handleCancel}
-					className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
-					aria-label="Go back"
-				>
-					<ArrowLeft className="w-5 h-5" />
-				</button>
-				<div>
-					<h1 className="text-3xl font-bold text-gray-900">
-						Create New Blueprint
-					</h1>
-					<p className="text-gray-600 mt-1">
-						Create a new storage layout blueprint
-					</p>
-				</div>
-			</div>
-
-			{/* Form */}
-			<div className="bg-white rounded-lg shadow-sm border p-6">
-				<form
-					onSubmit={(e) => {
-						e.preventDefault();
-						const formData = new FormData(e.currentTarget);
-						const name = formData.get("name") as string;
-						if (name?.trim()) {
-							handleCreateBlueprint(name.trim());
-						}
-					}}
-					className="space-y-4"
-				>
+		<div className="min-h-full bg-gradient-to-b from-surface via-background to-background">
+			<div className="page-shell page-enter max-w-3xl space-y-8 pb-12">
+				<div className="flex items-start gap-4">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="mt-0.5 shrink-0"
+						onClick={handleCancel}
+						aria-label="Go back to blueprints"
+					>
+						<ArrowLeft className="h-5 w-5" aria-hidden />
+					</Button>
 					<div>
-						<label
-							htmlFor={blueprintNameInputId}
-							className="block text-sm font-medium text-gray-700 mb-2"
-						>
-							Blueprint Name
-						</label>
-						<input
-							type="text"
-							id={blueprintNameInputId}
-							name="name"
-							required
-							placeholder="Enter blueprint name..."
-							className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-						/>
+						<h1 className="text-3xl font-bold tracking-tight text-foreground">
+							Create New Blueprint
+						</h1>
+						<p className="mt-1 text-muted-foreground">
+							Create a new storage layout blueprint
+						</p>
 					</div>
+				</div>
 
-					<div className="flex gap-3 pt-4">
-						<button
-							type="submit"
-							className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors"
+				<Card className="border-border/80 shadow-md">
+					<CardHeader>
+						<CardTitle>Blueprint details</CardTitle>
+						<CardDescription>
+							Choose a clear name so your team can find this layout quickly.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								const formData = new FormData(e.currentTarget);
+								const name = formData.get("name") as string;
+								if (name?.trim()) {
+									handleCreateBlueprint(name.trim());
+								}
+							}}
+							className="space-y-6"
 						>
-							Create Blueprint
-						</button>
-						<button
-							type="button"
-							onClick={handleCancel}
-							className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-						>
-							Cancel
-						</button>
-					</div>
-				</form>
+							<div className="space-y-2">
+								<Label htmlFor={blueprintNameInputId}>Blueprint name</Label>
+								<Input
+									type="text"
+									id={blueprintNameInputId}
+									name="name"
+									required
+									placeholder="e.g. Main storage — Rack A"
+									autoComplete="off"
+								/>
+							</div>
+
+							<div className="flex flex-wrap gap-3 pt-2">
+								<Button type="submit">Create blueprint</Button>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={handleCancel}
+								>
+									Cancel
+								</Button>
+							</div>
+						</form>
+					</CardContent>
+				</Card>
 			</div>
 		</div>
 	);

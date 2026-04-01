@@ -97,15 +97,15 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
 					return (
 						<div key={step.id} className="flex items-center">
 							<div
-								className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+								className={`flex items-center gap-2 rounded-full px-4 py-2 transition-all ${
 									isCompleted
-										? "bg-green-100 text-green-700"
+										? "bg-surface-success text-success-foreground"
 										: isCurrent
-											? "bg-cyan-100 text-cyan-700 ring-2 ring-cyan-500"
-											: "bg-gray-100 text-gray-500"
+											? "bg-surface-brand text-primary ring-2 ring-primary"
+											: "bg-muted text-muted-foreground"
 								}`}
 							>
-								<span className="flex items-center justify-center w-6 h-6 rounded-full text-sm font-medium bg-white/50">
+								<span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-elevated/80 text-sm font-medium">
 									{isCompleted ? <Check className="w-4 h-4" /> : index + 1}
 								</span>
 								<span className="text-sm font-medium hidden sm:inline">
@@ -113,7 +113,7 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
 								</span>
 							</div>
 							{index < steps.length - 1 && (
-								<ChevronRight className="w-4 h-4 text-gray-400 mx-2" />
+								<ChevronRight className="w-4 h-4 text-muted-foreground/80 mx-2" />
 							)}
 						</div>
 					);
@@ -228,7 +228,7 @@ export function BasicInfoStep({
 							{errors.category}
 						</p>
 					)}
-					<p id="category-help" className="text-xs text-gray-500">
+					<p id="category-help" className="text-xs text-muted-foreground">
 						Categories help organize your parts. Use existing categories or
 						create new ones.
 					</p>
@@ -293,10 +293,10 @@ export function BasicInfoStep({
 							onClearPreview={onClearImage}
 						/>
 						<div className="flex-1">
-							<p className="text-sm text-gray-600">
+							<p className="text-sm text-muted-foreground">
 								Recommended: Square image, at least 200x200 pixels.
 							</p>
-							<p className="text-sm text-gray-500 mt-1">
+							<p className="text-sm text-muted-foreground mt-1">
 								Max file size: 5MB. Supported formats: JPG, PNG, GIF.
 							</p>
 						</div>
@@ -354,16 +354,16 @@ export function LocationStep({ data, onUpdate, onSkip, orgId }: LocationStepProp
 			<CardContent className="space-y-6">
 				{/* Skip Button - Prominent */}
 				{!data.location && (
-					<div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+					<div className="flex items-center justify-between p-4 bg-muted/40 rounded-lg border border-dashed border-border">
 						<div className="flex items-center gap-3">
 							<div className="p-2 bg-white rounded-full">
-								<MapPin className="w-5 h-5 text-gray-400" />
+								<MapPin className="w-5 h-5 text-muted-foreground/80" />
 							</div>
 							<div>
-								<p className="font-medium text-gray-700">
+								<p className="font-medium text-foreground/90">
 									Don't know the location yet?
 								</p>
-								<p className="text-sm text-gray-500">
+								<p className="text-sm text-muted-foreground">
 									You can skip this step and assign a location later
 								</p>
 							</div>
@@ -462,14 +462,14 @@ export function QuantityStep({ data, onUpdate, errors }: QuantityStepProps) {
 								errors.initialQuantity ? "initial-quantity-error" : "initial-quantity-help"
 							}
 						/>
-						<span className="text-gray-600 font-medium">{data.unit}</span>
+						<span className="text-muted-foreground font-medium">{data.unit}</span>
 					</div>
 					{errors.initialQuantity && (
 						<p id="initial-quantity-error" className="text-sm text-red-500">
 							{errors.initialQuantity}
 						</p>
 					)}
-					<p id="initial-quantity-help" className="text-xs text-gray-500">
+					<p id="initial-quantity-help" className="text-xs text-muted-foreground">
 						Enter the number of {data.unit} you have in stock. You can set this
 						to 0 if you're adding the part without inventory.
 					</p>

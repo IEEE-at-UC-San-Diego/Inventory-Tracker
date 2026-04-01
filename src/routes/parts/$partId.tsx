@@ -246,7 +246,7 @@ function PartDetailContent() {
 
 	if (part === undefined) {
 		return (
-			<div className="mx-auto max-w-7xl animate-pulse p-6">
+			<div className="page-shell animate-pulse">
 				<div className="mb-6 h-10 w-1/2 rounded bg-slate-200" />
 				<div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 					<div className="h-[520px] rounded-lg bg-slate-200" />
@@ -277,7 +277,7 @@ function PartDetailContent() {
 	}
 
 	return (
-		<div className="mx-auto max-w-7xl p-6">
+		<div className="page-shell page-enter">
 			<div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 				<div className="flex items-start gap-3">
 					<Button variant="ghost" size="icon-sm" asChild>

@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { PartForm } from "@/components/parts/PartForm";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 
 export const Route = createFileRoute("/parts/new")({
@@ -30,27 +31,31 @@ function NewPartContent() {
 	};
 
 	return (
-		<div className="p-6 max-w-4xl mx-auto">
-			{/* Header */}
-			<div className="flex items-center gap-4 mb-6">
-				<button
-					type="button"
-					onClick={handleCancel}
-					className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
-					aria-label="Go back"
-				>
-					<ArrowLeft className="w-5 h-5" />
-				</button>
-				<div>
-					<h1 className="text-3xl font-bold text-gray-900">Create New Part</h1>
-					<p className="text-gray-600 mt-1">
-						Add a new part to your inventory with location and quantity
-					</p>
+		<div className="min-h-full bg-gradient-to-b from-surface via-background to-background">
+			<div className="page-shell page-enter max-w-4xl space-y-8 pb-12">
+				<div className="flex items-start gap-4">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="mt-0.5 shrink-0"
+						onClick={handleCancel}
+						aria-label="Go back to inventory"
+					>
+						<ArrowLeft className="h-5 w-5" aria-hidden />
+					</Button>
+					<div>
+						<h1 className="text-3xl font-bold tracking-tight text-foreground">
+							Create New Part
+						</h1>
+						<p className="mt-1 text-muted-foreground">
+							Add a new part to your inventory with location and quantity
+						</p>
+					</div>
 				</div>
-			</div>
 
-			{/* Wizard Form */}
-			<PartForm onSubmit={handleSubmit} onCancel={handleCancel} />
+				<PartForm onSubmit={handleSubmit} onCancel={handleCancel} />
+			</div>
 		</div>
 	);
 }

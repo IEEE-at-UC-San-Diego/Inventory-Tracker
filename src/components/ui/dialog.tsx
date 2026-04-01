@@ -1,6 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import * as React from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
@@ -36,7 +37,7 @@ const DialogContent = React.forwardRef<
 		<DialogPrimitive.Content
 			ref={ref}
 			className={cn(
-				"fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-background p-6 shadow-xl",
+				"fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border/60 bg-background p-6 shadow-xl duration-[var(--duration-normal)]",
 				className,
 			)}
 			{...props}
@@ -125,7 +126,7 @@ function DialogClose({ onClose, className }: DialogCloseProps) {
 				className,
 			)}
 		>
-			<X className="h-4 w-4 text-gray-600 hover:text-gray-900" />
+			<X className="h-4 w-4 text-muted-foreground" />
 			<span className="sr-only">Close</span>
 		</DialogPrimitive.Close>
 	);
@@ -167,49 +168,47 @@ function AlertDialog({
 				<DialogClose onClose={() => onOpenChange(false)} />
 				<DialogHeader className="pr-10">
 					<DialogTitle
-						className={variant === "destructive" ? "text-red-900" : ""}
+						className={
+							variant === "destructive" ? "text-destructive" : undefined
+						}
 					>
 						{title}
 					</DialogTitle>
-					<DialogDescription className="text-gray-700">
+					<DialogDescription>
 						{description}
 					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter className="mt-4">
-					<button
+					<Button
 						type="button"
+						variant="outline"
 						onClick={() => onOpenChange(false)}
-						className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
 					>
 						{cancelLabel}
-					</button>
+					</Button>
 					{extraActionLabel && onExtraAction && (
-						<button
+						<Button
 							type="button"
+							variant="secondary"
+							className="bg-warning text-warning-foreground hover:bg-warning/90"
 							onClick={() => {
 								onExtraAction();
 								onOpenChange(false);
 							}}
-							className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 focus-visible:ring-amber-500"
 						>
 							{extraActionLabel}
-						</button>
+						</Button>
 					)}
-					<button
+					<Button
 						type="button"
+						variant={variant === "destructive" ? "destructive" : "default"}
 						onClick={() => {
 							onConfirm();
 							onOpenChange(false);
 						}}
-						className={cn(
-							"inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2",
-							variant === "destructive"
-								? "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500"
-								: "bg-primary text-primary-foreground hover:bg-primary/90",
-						)}
 					>
 						{confirmLabel}
-					</button>
+					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
@@ -256,21 +255,17 @@ function FormDialog({
 					</DialogHeader>
 					<div className="space-y-4 py-4">{children}</div>
 					<DialogFooter className="mt-4">
-						<button
+						<Button
 							type="button"
+							variant="outline"
 							onClick={() => onOpenChange(false)}
 							disabled={isSubmitting}
-							className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
 						>
 							{cancelLabel}
-						</button>
-						<button
-							type="submit"
-							disabled={isSubmitting}
-							className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-						>
+						</Button>
+						<Button type="submit" disabled={isSubmitting}>
 							{isSubmitting ? "Saving..." : submitLabel}
-						</button>
+						</Button>
 					</DialogFooter>
 				</form>
 			</DialogContent>

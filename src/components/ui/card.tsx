@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const Card = React.forwardRef<
@@ -8,7 +9,7 @@ const Card = React.forwardRef<
 	<div
 		ref={ref}
 		className={cn(
-			"rounded-lg border bg-card text-card-foreground shadow-sm",
+			"rounded-lg border border-border/80 bg-card text-card-foreground shadow-sm",
 			className,
 		)}
 		{...props}
@@ -108,7 +109,9 @@ function StatCard({
 					<p className="text-xs text-muted-foreground">
 						{trend && (
 							<span
-								className={trend.isPositive ? "text-green-600" : "text-red-600"}
+								className={
+									trend.isPositive ? "text-success" : "text-destructive"
+								}
 							>
 								{trend.isPositive ? "+" : ""}
 								{trend.value}%
@@ -147,14 +150,9 @@ function ActionCard({
 				<CardDescription>{description}</CardDescription>
 			</CardHeader>
 			<CardFooter>
-				<button
-					type="button"
-					onClick={onAction}
-					disabled={disabled}
-					className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-				>
+				<Button type="button" onClick={onAction} disabled={disabled}>
 					{actionLabel}
-				</button>
+				</Button>
 			</CardFooter>
 		</Card>
 	);

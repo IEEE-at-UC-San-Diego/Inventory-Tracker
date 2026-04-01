@@ -127,7 +127,7 @@ function HomeContent() {
 
 	return (
 		<div className="bg-gradient-to-b from-surface via-background to-surface">
-			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+			<div className="page-shell page-enter space-y-6">
 				<Card className="border-border/80 bg-gradient-to-r from-surface-elevated via-surface-elevated to-surface-brand shadow-[0_24px_60px_-48px_rgba(37,99,235,0.35)]">
 					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div className="space-y-1">
@@ -259,10 +259,10 @@ function HomeContent() {
 													size="sm"
 												/>
 												<div>
-													<p className="text-sm font-medium text-slate-900">
+													<p className="text-sm font-medium text-foreground">
 														{transaction.part?.name || "Unknown Part"}
 													</p>
-													<p className="text-xs text-slate-500">
+													<p className="text-xs text-muted-foreground">
 														{transaction.user?.name || "Unknown user"} •{" "}
 														{formatRelativeTime(transaction.timestamp)}
 													</p>

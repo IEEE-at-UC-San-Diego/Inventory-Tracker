@@ -514,8 +514,8 @@ function InventoryWorkspaceContent() {
 	];
 
 	return (
-		<div className="min-h-screen w-full bg-background">
-			<div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+		<div className="min-h-screen w-full bg-gradient-to-b from-surface via-background to-background">
+			<div className="page-shell page-enter space-y-8">
 				{/* Header Section */}
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 					<div>
