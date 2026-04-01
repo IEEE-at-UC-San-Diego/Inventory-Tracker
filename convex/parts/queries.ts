@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
 import { Doc } from '../_generated/dataModel'
-import { getCurrentUser } from '../auth_helpers'
+import { docBelongsToOrg, getCurrentUser } from '../auth_helpers'
 import { authContextSchema } from '../types/auth'
 
 function serializePart(part: Doc<'parts'>) {
@@ -47,7 +47,7 @@ export const list = query({
     })
   ),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    const userContext = await getCurrentUser(ctx, args.authContext)
 
     let parts: Doc<'parts'>[]
 
@@ -55,12 +55,15 @@ export const list = query({
       // Return all parts including archived
       parts = await ctx.db
         .query('parts')
+        .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
         .collect()
     } else {
       // Default: only return non-archived parts
       parts = await ctx.db
         .query('parts')
-        .filter((q) => q.eq(q.field('archived'), false))
+        .withIndex('by_orgId_and_archived', (q) =>
+          q.eq('orgId', userContext.user.orgId).eq('archived', false)
+        )
         .collect()
     }
 
@@ -101,7 +104,7 @@ export const get = query({
     }
 
     const part = await ctx.db.get(args.partId)
-    if (!part) {
+    if (!docBelongsToOrg(part, userContext.user.orgId)) {
       return null
     }
 
@@ -139,13 +142,14 @@ export const search = query({
     nextCursor: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    const userContext = await getCurrentUser(ctx, args.authContext)
     const limit = args.limit ?? 20
     const searchQuery = args.query.toLowerCase().trim()
 
     // Get all parts globally
     const allParts = await ctx.db
       .query('parts')
+      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     const filteredParts = allParts.filter((part) => {
@@ -192,11 +196,13 @@ export const getByCategory = query({
     })
   ),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    const userContext = await getCurrentUser(ctx, args.authContext)
 
     const parts = await ctx.db
       .query('parts')
-      .filter((q) => q.eq(q.field('category'), args.category))
+      .withIndex('by_orgId_and_category', (q) =>
+        q.eq('orgId', userContext.user.orgId).eq('category', args.category)
+      )
       .collect()
 
     return parts.map(serializePart)
@@ -271,14 +277,16 @@ export const getWithInventory = query({
     }
 
     const part = await ctx.db.get(args.partId)
-    if (!part) {
+    if (!docBelongsToOrg(part, userContext.user.orgId)) {
       return null
     }
 
     // Get inventory items for this part
     const inventoryItems = await ctx.db
       .query('inventory')
-      .withIndex('by_partId', (q) => q.eq('partId', args.partId))
+      .withIndex('by_orgId_and_partId', (q) =>
+        q.eq('orgId', userContext.user.orgId).eq('partId', args.partId)
+      )
       .collect()
 
     // Enrich inventory items with compartment, drawer, and blueprint info

@@ -8,22 +8,22 @@ export const Route = createFileRoute("/404")({
 
 function NotFoundPage() {
 	return (
-		<div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+		<div className="flex min-h-screen items-center justify-center bg-surface px-6 py-12">
 			<Card className="max-w-lg w-full">
 				<CardContent className="p-8 text-center">
 					{/* Icon */}
-					<div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-						<PackageX className="w-10 h-10 text-gray-400" />
+					<div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-border bg-surface-subtle">
+						<PackageX className="h-10 w-10 text-muted-foreground" />
 					</div>
 
 					{/* Title */}
-					<h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
-					<h2 className="text-xl font-semibold text-gray-700 mb-4">
+					<h1 className="mb-2 text-4xl font-bold text-foreground">404</h1>
+					<h2 className="mb-4 text-xl font-semibold text-foreground/80">
 						Page Not Found
 					</h2>
 
 					{/* Description */}
-					<p className="text-gray-600 mb-8">
+					<p className="mb-8 text-muted-foreground">
 						The page you're looking for doesn't exist or has been moved. Check
 						the URL or try navigating back to a known page.
 					</p>
@@ -32,7 +32,7 @@ function NotFoundPage() {
 					<div className="flex flex-col sm:flex-row gap-3 justify-center">
 						<Link
 							to="/home"
-							className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+							className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/90"
 						>
 							<Home className="w-4 h-4" />
 							Go to Dashboard
@@ -40,7 +40,7 @@ function NotFoundPage() {
 						<button
 							type="button"
 							onClick={() => window.history.back()}
-							className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+							className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-elevated px-4 py-2 transition-colors hover:bg-accent"
 						>
 							<ArrowLeft className="w-4 h-4" />
 							Go Back
@@ -48,8 +48,8 @@ function NotFoundPage() {
 					</div>
 
 					{/* Helpful links */}
-					<div className="mt-8 pt-6 border-t border-gray-200">
-						<p className="text-sm text-gray-500 mb-4">Popular destinations:</p>
+					<div className="mt-8 border-t border-border pt-6">
+						<p className="mb-4 text-sm text-muted-foreground">Popular destinations:</p>
 						<div className="flex flex-wrap justify-center gap-2">
 							<QuickLink
 								to="/parts"
@@ -86,7 +86,7 @@ function QuickLink({
 	return (
 		<Link
 			to={to}
-			className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-cyan-600 bg-cyan-50 rounded-full hover:bg-cyan-100 transition-colors"
+			className="inline-flex items-center gap-1 rounded-full bg-surface-brand px-3 py-1.5 text-sm text-primary transition-colors hover:bg-accent"
 		>
 			{icon}
 			{label}

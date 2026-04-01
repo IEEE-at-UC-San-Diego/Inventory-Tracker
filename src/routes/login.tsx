@@ -34,31 +34,50 @@ function LoginPage() {
 	};
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-			<div className="max-w-md w-full space-y-8">
-				{/* Logo */}
-				<div className="text-center">
-					<div className="mx-auto h-16 flex items-center justify-center">
-						<img src="/Blue_Logo.png" alt="IEEE Logo" className="h-16 w-auto" />
+		<div className="min-h-screen bg-surface px-4 py-12 sm:px-6 lg:px-8">
+			<div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-5xl items-center">
+				<div className="grid w-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+					<div className="hidden rounded-[2rem] border border-border/70 bg-surface-brand p-10 shadow-[0_32px_120px_-64px_rgba(37,99,235,0.4)] lg:block">
+						<p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary">
+							IEEE at UCSD
+						</p>
+						<h1 className="mt-4 max-w-sm text-4xl font-semibold leading-tight text-foreground">
+							Inventory that stays readable, current, and team-safe.
+						</h1>
+						<p className="mt-4 max-w-md text-base text-muted-foreground">
+							Track stock movement, coordinate blueprint editing, and keep
+							organization-scoped inventory data reliable from one light-first
+							workspace.
+						</p>
 					</div>
-					<h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-						Inventory Tracker
-					</h2>
-					<p className="mt-2 text-sm text-gray-600">
-						Sign in to manage your inventory
-					</p>
-				</div>
+
+					<div className="rounded-[2rem] border border-border/70 bg-surface-elevated p-8 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.42)] sm:p-10">
+				{/* Logo */}
+						<div className="text-center">
+							<div className="mx-auto flex h-16 items-center justify-center">
+								<img src="/Blue_Logo.png" alt="IEEE Logo" className="h-16 w-auto" />
+							</div>
+							<p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+								Sign In
+							</p>
+							<h2 className="mt-3 text-3xl font-extrabold text-foreground">
+								Inventory Tracker
+							</h2>
+							<p className="mt-2 text-sm text-muted-foreground">
+								Sign in to manage inventory, storage layouts, and activity logs.
+							</p>
+						</div>
 
 				{/* Error display */}
 				{error && (
-					<div className="rounded-md bg-red-50 p-4">
+					<div className="rounded-xl border border-destructive/20 bg-surface-danger p-4" role="alert" aria-live="assertive">
 						<div className="flex">
-							<AlertCircle className="h-5 w-5 text-red-400" />
+							<AlertCircle className="h-5 w-5 text-destructive" />
 							<div className="ml-3">
-								<h3 className="text-sm font-medium text-red-800">
+								<h3 className="text-sm font-medium text-destructive">
 									Authentication Error
 								</h3>
-								<p className="text-sm text-red-700 mt-1">{error}</p>
+								<p className="mt-1 text-sm text-destructive/85">{error}</p>
 							</div>
 						</div>
 					</div>
@@ -67,8 +86,8 @@ function LoginPage() {
 				{/* Loading state */}
 				{isLoading && (
 					<div className="flex flex-col items-center justify-center py-8">
-						<div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-600 border-t-transparent" />
-						<p className="mt-2 text-sm text-gray-600">Loading...</p>
+						<div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+						<p className="mt-2 text-sm text-muted-foreground">Loading...</p>
 					</div>
 				)}
 
@@ -78,8 +97,9 @@ function LoginPage() {
 						{/* Logto Login */}
 						<div>
 							<button
+								type="button"
 								onClick={handleLogin}
-								className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors"
+								className="group relative flex w-full justify-center rounded-xl border border-transparent bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:ring-offset-2"
 							>
 								Sign in with IEEE at UCSD
 							</button>
@@ -89,9 +109,11 @@ function LoginPage() {
 
 				{/* Footer */}
 				<div className="text-center">
-					<p className="text-xs text-gray-400">
+					<p className="text-xs text-muted-foreground">
 						By signing in, you agree to our Terms of Service and Privacy Policy.
 					</p>
+				</div>
+					</div>
 				</div>
 			</div>
 		</div>

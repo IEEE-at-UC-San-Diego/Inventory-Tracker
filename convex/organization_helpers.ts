@@ -17,7 +17,7 @@ import { authContextSchema, type AuthContext } from './types/auth'
  * Automatically filters results by the user's organization
  * Usage: Use this pattern in your queries to ensure multi-tenant isolation
  */
-export async function withOrgScope<T extends Doc<any>>(
+export async function withOrgScope<T extends Doc<any> & { orgId: Id<'organizations'> | string }>(
   ctx: QueryCtx,
   authContext: AuthContext,
   table: 'users' | 'parts' | 'blueprints' | 'inventory' | 'transactions',
@@ -29,10 +29,11 @@ export async function withOrgScope<T extends Doc<any>>(
     throw new Error('Unauthorized: User not authenticated')
   }
 
-  // Org scoping removed — return all items globally
-  const items = await ctx.db.query(table).collect()
+  const items = (await ctx.db.query(table).collect()).filter(
+    (item) => item.orgId === userContext.user.orgId
+  ) as T[]
 
-  return { items: items as T[], userContext }
+  return { items, userContext }
 }
 
 /**
@@ -97,9 +98,9 @@ export const getOrgUsers = query({
       }]
     }
 
-    // Return all users globally
     const users = await ctx.db
       .query('users')
+      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     return users.map((user) => ({
@@ -207,10 +208,10 @@ export const updateUserRole = mutation({
     if (targetUser.role === 'Administrator' && args.newRole !== 'Administrator') {
       const admins = await ctx.db
         .query('users')
-        .filter((q) => q.eq(q.field('role'), 'Administrator'))
+        .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
         .collect()
 
-      if (admins.length <= 1) {
+      if (admins.filter((admin) => admin.role === 'Administrator').length <= 1) {
         throw new Error('Cannot demote the last Admin')
       }
     }
@@ -253,10 +254,10 @@ export const removeUser = mutation({
     if (targetUser.role === 'Administrator') {
       const admins = await ctx.db
         .query('users')
-        .filter((q) => q.eq(q.field('role'), 'Administrator'))
+        .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
         .collect()
 
-      if (admins.length <= 1) {
+      if (admins.filter((admin) => admin.role === 'Administrator').length <= 1) {
         throw new Error('Cannot remove the last Admin')
       }
     }
@@ -281,13 +282,13 @@ export const getOrgStats = query({
     totalTransactions: v.number(),
   }),
   handler: async (ctx, args) => {
-    await getCurrentOrgId(ctx, args.authContext)
+    const orgId = await getCurrentOrgId(ctx, args.authContext)
 
     const [parts, blueprints, inventory, transactions] = await Promise.all([
-      ctx.db.query('parts').collect(),
-      ctx.db.query('blueprints').collect(),
-      ctx.db.query('inventory').collect(),
-      ctx.db.query('transactions').collect(),
+      ctx.db.query('parts').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
+      ctx.db.query('blueprints').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
+      ctx.db.query('inventory').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
+      ctx.db.query('transactions').withIndex('by_orgId', (q) => q.eq('orgId', orgId)).collect(),
     ])
 
     return {

@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
 import { Doc } from '../_generated/dataModel'
+import { docBelongsToOrg } from '../auth_helpers'
 import { requirePermission } from '../permissions'
 import { authContextSchema } from '../types/auth'
 
@@ -64,7 +65,7 @@ export const list = query({
     nextCursor: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.authContext, 'transactions:view')
+    const userContext = await requirePermission(ctx, args.authContext, 'transactions:view')
     const limit = args.limit ?? 50
 
     // Get transactions ordered by timestamp (newest first)
@@ -75,12 +76,17 @@ export const list = query({
       const cursorTimestamp = parseInt(args.cursor, 10)
       transactions = await ctx.db
         .query('transactions')
-        .filter((q) => q.lt(q.field('timestamp'), cursorTimestamp))
+        .withIndex('by_orgId_and_timestamp', (q) =>
+          q.eq('orgId', userContext.user.orgId).lt('timestamp', cursorTimestamp)
+        )
         .order('desc')
         .take(limit)
     } else {
       transactions = await ctx.db
         .query('transactions')
+        .withIndex('by_orgId_and_timestamp', (q) =>
+          q.eq('orgId', userContext.user.orgId)
+        )
         .order('desc')
         .take(limit)
     }
@@ -186,11 +192,10 @@ export const getByPart = query({
     })
   ),
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.authContext, 'transactions:view')
+    const userContext = await requirePermission(ctx, args.authContext, 'transactions:view')
 
-    // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part) {
+    if (!docBelongsToOrg(part, userContext.user.orgId)) {
       throw new Error('Part not found')
     }
 
@@ -292,11 +297,10 @@ export const getByUser = query({
     })
   ),
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.authContext, 'transactions:view')
+    const userContext = await requirePermission(ctx, args.authContext, 'transactions:view')
 
-    // Verify target user exists
     const targetUser = await ctx.db.get(args.userId)
-    if (!targetUser) {
+    if (!docBelongsToOrg(targetUser, userContext.user.orgId)) {
       throw new Error('User not found')
     }
 
@@ -393,15 +397,14 @@ export const getByDateRange = query({
     })
   ),
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.authContext, 'transactions:view')
+    const userContext = await requirePermission(ctx, args.authContext, 'transactions:view')
 
     const transactions = await ctx.db
       .query('transactions')
-      .filter((q) =>
-        q.and(
-          q.gte(q.field('timestamp'), args.startDate),
-          q.lte(q.field('timestamp'), args.endDate)
-        )
+      .withIndex('by_orgId_and_timestamp', (q) =>
+        q.eq('orgId', userContext.user.orgId)
+          .gte('timestamp', args.startDate)
+          .lte('timestamp', args.endDate)
       )
       .collect()
 
@@ -500,7 +503,7 @@ export const getByCompartment = query({
     }
 
     const blueprint = await ctx.db.get(drawer.blueprintId)
-    if (!blueprint) {
+    if (!docBelongsToOrg(blueprint, userContext.user.orgId)) {
       throw new Error('Blueprint not found')
     }
 
@@ -593,10 +596,11 @@ export const getStats = query({
     }),
   }),
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.authContext, 'transactions:view')
+    const userContext = await requirePermission(ctx, args.authContext, 'transactions:view')
 
     const transactions = await ctx.db
       .query('transactions')
+      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     const now = Date.now()
@@ -607,17 +611,18 @@ export const getStats = query({
     const startOfDay = now - oneDayMs
     const startOfWeek = now - oneWeekMs
     const startOfMonth = now - oneMonthMs
+    const transactionsToday = transactions.filter((t) => t.timestamp >= startOfDay)
 
     return {
       totalTransactions: transactions.length,
-      transactionsToday: transactions.filter((t) => t.timestamp >= startOfDay).length,
+      transactionsToday: transactionsToday.length,
       transactionsThisWeek: transactions.filter((t) => t.timestamp >= startOfWeek).length,
       transactionsThisMonth: transactions.filter((t) => t.timestamp >= startOfMonth).length,
       transactionsByType: {
-        Add: transactions.filter((t) => t.actionType === 'Add').length,
-        Remove: transactions.filter((t) => t.actionType === 'Remove').length,
-        Move: transactions.filter((t) => t.actionType === 'Move').length,
-        Adjust: transactions.filter((t) => t.actionType === 'Adjust').length,
+        Add: transactionsToday.filter((t) => t.actionType === 'Add').length,
+        Remove: transactionsToday.filter((t) => t.actionType === 'Remove').length,
+        Move: transactionsToday.filter((t) => t.actionType === 'Move').length,
+        Adjust: transactionsToday.filter((t) => t.actionType === 'Adjust').length,
       },
     }
   },

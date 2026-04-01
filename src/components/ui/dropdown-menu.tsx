@@ -65,6 +65,7 @@ function DropdownMenuItem({
 }: DropdownMenuItemProps) {
 	return (
 		<button
+			type="button"
 			className={cn(
 				"relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
 				inset && "pl-8",
@@ -92,6 +93,7 @@ function DropdownMenuCheckboxItem({
 }: DropdownMenuCheckboxItemProps) {
 	return (
 		<button
+			type="button"
 			className={cn(
 				"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
 				className,
@@ -123,6 +125,7 @@ function DropdownMenuRadioItem({
 }: DropdownMenuRadioItemProps) {
 	return (
 		<button
+			type="button"
 			className={cn(
 				"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
 				className,
@@ -184,7 +187,7 @@ interface DropdownMenuGroupProps {
 }
 
 function DropdownMenuGroup({ children }: DropdownMenuGroupProps) {
-	return <div role="group">{children}</div>;
+	return <div>{children}</div>;
 }
 
 interface DropdownMenuSubProps {
@@ -208,6 +211,7 @@ function DropdownMenuSubTrigger({
 }: DropdownMenuSubTriggerProps) {
 	return (
 		<button
+			type="button"
 			className={cn(
 				"flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
 				inset && "pl-8",

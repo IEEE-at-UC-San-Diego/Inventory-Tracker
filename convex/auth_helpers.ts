@@ -132,6 +132,20 @@ export async function getCurrentUser(
   }
 }
 
+export function docBelongsToOrg<T extends { orgId: Id<'organizations'> | string }>(
+  doc: T | null | undefined,
+  orgId: Id<'organizations'>
+): doc is T {
+  return Boolean(doc && doc.orgId === orgId)
+}
+
+export function filterDocsByOrg<T extends { orgId: Id<'organizations'> | string }>(
+  docs: T[],
+  orgId: Id<'organizations'>
+): T[] {
+  return docs.filter((doc) => doc.orgId === orgId)
+}
+
 /**
  * Validates that the current user has access to the specified organization
  * Throws an error if the user doesn't belong to the org
@@ -139,11 +153,16 @@ export async function getCurrentUser(
 export async function validateOrgAccess(
   ctx: QueryCtx | MutationCtx,
   authContext: AuthContext,
-  _orgId: string,
+  orgId: string,
   options?: AuthValidationOptions
 ): Promise<UserContext> {
-  // Org access checks removed — all data is shared globally
-  return getCurrentUser(ctx, authContext, options)
+  const userContext = await getCurrentUser(ctx, authContext, options)
+
+  if (userContext.user.orgId !== orgId) {
+    throw new Error('Organization not found or access denied')
+  }
+
+  return userContext
 }
 
 /**
@@ -175,12 +194,11 @@ export async function requireRole(
 export async function requireOrgRole(
   ctx: QueryCtx | MutationCtx,
   authContext: AuthContext,
-  _orgId: string,
+  orgId: string,
   requiredRole: UserRole,
   options?: AuthValidationOptions
 ): Promise<UserContext> {
-  // Org access checks removed — all data is shared globally
-  const userContext = await getCurrentUser(ctx, authContext, options)
+  const userContext = await validateOrgAccess(ctx, authContext, orgId, options)
 
   const requiredLevel = ROLE_HIERARCHY[requiredRole]
   if (userContext.roleLevel < requiredLevel) {

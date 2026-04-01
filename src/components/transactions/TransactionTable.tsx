@@ -206,28 +206,40 @@ function SortableHeader({
 	className,
 }: SortableHeaderProps) {
 	const isActive = currentColumn === column;
+	const ariaSort: "none" | "ascending" | "descending" = isActive
+		? direction === "asc"
+			? "ascending"
+			: "descending"
+		: "none";
 
 	return (
 		<th
 			className={cn(
 				"px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider",
-				onSort && "cursor-pointer hover:text-gray-700",
 				className,
 			)}
-			onClick={() => onSort?.(column)}
+			aria-sort={ariaSort}
 		>
-			<div className="flex items-center gap-1">
-				{label}
-				{isActive && (
-					<span className="text-gray-400">
-						{direction === "asc" ? (
-							<ChevronUp className="w-4 h-4" />
-						) : (
-							<ChevronDown className="w-4 h-4" />
-						)}
-					</span>
-				)}
-			</div>
+			{onSort ? (
+				<button
+					type="button"
+					onClick={() => onSort(column)}
+					className="flex items-center gap-1 hover:text-gray-700"
+				>
+					{label}
+					{isActive && (
+						<span className="text-gray-400">
+							{direction === "asc" ? (
+								<ChevronUp className="w-4 h-4" />
+							) : (
+								<ChevronDown className="w-4 h-4" />
+							)}
+						</span>
+					)}
+				</button>
+			) : (
+				<div className="flex items-center gap-1">{label}</div>
+			)}
 		</th>
 	);
 }
@@ -291,14 +303,24 @@ function TransactionRow({
 					onClick && "cursor-pointer",
 				)}
 				onClick={onClick}
+				tabIndex={onClick ? 0 : undefined}
+				onKeyDown={(e) => {
+					if (!onClick) return;
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						onClick();
+					}
+				}}
 			>
 				<td className="px-2 py-3">
 					<button
+						type="button"
 						onClick={(e) => {
 							e.stopPropagation();
 							onToggle();
 						}}
 						className="p-1 hover:bg-gray-200 rounded transition-colors"
+						aria-label={isExpanded ? "Collapse transaction details" : "Expand transaction details"}
 					>
 						<ChevronRight
 							className={cn(

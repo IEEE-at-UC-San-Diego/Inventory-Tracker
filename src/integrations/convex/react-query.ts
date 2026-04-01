@@ -37,21 +37,11 @@ export function useQuery<
 	options?: UseQueryOptions,
 ) {
 	const isEnabled = options?.enabled ?? true;
+	const queryArgs = (!isEnabled || args === undefined
+		? ["skip"]
+		: [args]) as OptionalRestArgsOrSkip<ConvexQueryReference>;
 
-	// If args are missing, we must not execute the query because Convex will treat it
-	// as `{}` and required args (like `authContext`) will fail validation.
-	// Callers that truly have a no-args query should pass `{}` explicitly.
-	if (!isEnabled || args === undefined) {
-		return useConvexQuery(
-			functionRef,
-			...(["skip"] as OptionalRestArgsOrSkip<ConvexQueryReference>),
-		);
-	}
-
-	return useConvexQuery(
-		functionRef,
-		...([args] as OptionalRestArgsOrSkip<ConvexQueryReference>),
-	);
+	return useConvexQuery(functionRef, ...queryArgs);
 }
 
 // Re-export remaining helpers for convenience

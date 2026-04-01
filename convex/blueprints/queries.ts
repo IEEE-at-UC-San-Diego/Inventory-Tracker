@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
 import { Id } from '../_generated/dataModel'
-import { getCurrentUser } from '../auth_helpers'
+import { docBelongsToOrg, getCurrentUser } from '../auth_helpers'
 import { authContextSchema } from '../types/auth'
 
 // Lock expiration time in milliseconds (5 minutes)
@@ -36,10 +36,11 @@ export const list = query({
     })
   ),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    const userContext = await getCurrentUser(ctx, args.authContext)
 
     const blueprints = await ctx.db
       .query('blueprints')
+      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     // Enrich with lock status and user info
@@ -127,7 +128,7 @@ export const get = query({
     }
 
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint) {
+    if (!docBelongsToOrg(blueprint, userContext.user.orgId)) {
       return null
     }
 
@@ -225,7 +226,7 @@ export const getWithHierarchy = query({
     }
 
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint) {
+    if (!docBelongsToOrg(blueprint, userContext.user.orgId)) {
       return null
     }
 
@@ -289,7 +290,7 @@ export const getLockStatus = query({
     }
 
     const blueprint = await ctx.db.get(args.blueprintId)
-    if (!blueprint) {
+    if (!docBelongsToOrg(blueprint, userContext.user.orgId)) {
       return null
     }
 

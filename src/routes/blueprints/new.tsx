@@ -67,6 +67,7 @@ function NewBlueprintContent() {
 					type="button"
 					onClick={handleCancel}
 					className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
+					aria-label="Go back"
 				>
 					<ArrowLeft className="w-5 h-5" />
 				</button>

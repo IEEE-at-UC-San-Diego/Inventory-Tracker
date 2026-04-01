@@ -39,20 +39,21 @@ export function EmptyState({
 			)}
 		>
 			{icon && (
-				<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-					<div className="text-gray-400">{icon}</div>
+				<div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-border bg-surface-subtle">
+					<div className="text-muted-foreground">{icon}</div>
 				</div>
 			)}
-			<h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+			<h3 className="mb-2 text-lg font-semibold text-foreground">{title}</h3>
 			{description && (
-				<p className="text-gray-500 max-w-md mb-6">{description}</p>
+				<p className="mb-6 max-w-md text-muted-foreground">{description}</p>
 			)}
 			{(action || secondaryAction) && (
 				<div className="flex flex-wrap items-center justify-center gap-3">
 					{action && (
 						<button
+							type="button"
 							onClick={action.onClick}
-							className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+							className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/90"
 						>
 							<Plus className="w-4 h-4" />
 							{action.label}
@@ -60,8 +61,9 @@ export function EmptyState({
 					)}
 					{secondaryAction && (
 						<button
+							type="button"
 							onClick={secondaryAction.onClick}
-							className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+							className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-elevated px-4 py-2 transition-colors hover:bg-accent"
 						>
 							{secondaryAction.label}
 						</button>

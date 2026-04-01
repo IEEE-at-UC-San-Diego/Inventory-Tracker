@@ -382,9 +382,13 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 									onChange={(e) => updateWizardData({ name: e.target.value })}
 									placeholder="e.g., Resistor 10kΩ"
 									className={errors.name ? "border-red-500" : ""}
+									aria-invalid={Boolean(errors.name)}
+									aria-describedby={errors.name ? "edit-name-error" : undefined}
 								/>
 								{errors.name && (
-									<p className="text-sm text-red-500">{errors.name}</p>
+									<p id="edit-name-error" className="text-sm text-red-500">
+										{errors.name}
+									</p>
 								)}
 							</div>
 							<div className="space-y-2">
@@ -397,9 +401,13 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 									onChange={(e) => updateWizardData({ sku: e.target.value })}
 									placeholder="e.g., RES-10K-001"
 									className={errors.sku ? "border-red-500" : ""}
+									aria-invalid={Boolean(errors.sku)}
+									aria-describedby={errors.sku ? "edit-sku-error" : undefined}
 								/>
 								{errors.sku && (
-									<p className="text-sm text-red-500">{errors.sku}</p>
+									<p id="edit-sku-error" className="text-sm text-red-500">
+										{errors.sku}
+									</p>
 								)}
 							</div>
 						</div>
@@ -419,6 +427,8 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 									}
 									placeholder="e.g., Electronics, Mechanical, Fasteners"
 									className={errors.category ? "border-red-500" : ""}
+									aria-invalid={Boolean(errors.category)}
+									aria-describedby={errors.category ? "edit-category-error" : undefined}
 								/>
 								<datalist id="edit-categories">
 									{existingCategories.map((cat: string) => (
@@ -427,7 +437,9 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 								</datalist>
 							</div>
 							{errors.category && (
-								<p className="text-sm text-red-500">{errors.category}</p>
+								<p id="edit-category-error" className="text-sm text-red-500">
+									{errors.category}
+								</p>
 							)}
 						</div>
 
@@ -440,7 +452,11 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 								value={wizardData.unit}
 								onValueChange={(value) => updateWizardData({ unit: value })}
 							>
-								<SelectTrigger className={errors.unit ? "border-red-500" : ""}>
+								<SelectTrigger
+									className={errors.unit ? "border-red-500" : ""}
+									aria-invalid={Boolean(errors.unit)}
+									aria-describedby={errors.unit ? "edit-unit-error" : undefined}
+								>
 									<SelectValue placeholder="Select a unit" />
 								</SelectTrigger>
 								<SelectContent>
@@ -452,7 +468,9 @@ export function PartForm({ part, onSubmit, onCancel }: PartFormProps) {
 								</SelectContent>
 							</Select>
 							{errors.unit && (
-								<p className="text-sm text-red-500">{errors.unit}</p>
+								<p id="edit-unit-error" className="text-sm text-red-500">
+									{errors.unit}
+								</p>
 							)}
 						</div>
 

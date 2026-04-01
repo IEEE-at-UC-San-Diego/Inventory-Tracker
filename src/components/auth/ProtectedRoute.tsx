@@ -37,6 +37,16 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
 	const { isAuthenticated, isLoading, user, hasPermission } = useAuth();
 	const { hasRole } = useRole();
+	const isServer = typeof window === "undefined";
+
+	// Prefer a redirect during SSR when auth has not been established.
+	// This avoids serving a loading spinner as the entire protected page shell.
+	if (isServer && !isAuthenticated) {
+		if (fallback) {
+			return <>{fallback}</>;
+		}
+		return <Navigate to={redirectTo} />;
+	}
 
 	// Show loading state
 	if (isLoading) {

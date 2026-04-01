@@ -11,7 +11,6 @@ import {
 	Minus,
 	Package,
 	Plus,
-	Users,
 	Wrench,
 } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
@@ -66,6 +65,13 @@ function HomeContent() {
 			enabled: !!authContext && !isLoading && canWrite,
 		},
 	);
+	const transactionStats = useQuery(
+		api.transactions.queries.getStats,
+		authContext ? { authContext } : undefined,
+		{
+			enabled: !!authContext && !isLoading && canWrite,
+		},
+	);
 	const inventoryResult = useQuery(
 		api.inventory.queries.list,
 		authContext ? { authContext, includeDetails: true } : undefined,
@@ -80,22 +86,8 @@ function HomeContent() {
 			enabled: !!authContext && !isLoading,
 		},
 	);
-	const usersResult = useQuery(
-		api.organizations.queries.getOrgMembers,
-		authContext
-			? {
-					authContext,
-					organizationId: authContext.orgId as Id<"organizations">,
-				}
-			: undefined,
-		{
-			enabled: !!authContext && !isLoading,
-		},
-	);
-
 	const recentTransactions = transactionsResult?.items?.slice(0, 10) || [];
 	const blueprints = blueprintsResult || [];
-	const orgUsers = usersResult || [];
 	const inventoryItems = (inventoryResult || []) as Array<{
 		_id: Id<"inventory">;
 		partId: Id<"parts">;
@@ -122,27 +114,21 @@ function HomeContent() {
 	}, [blueprints]);
 
 	const todayStats = useMemo(() => {
-		const now = Date.now();
-		const oneDayMs = 24 * 60 * 60 * 1000;
-		const todayTransactions = recentTransactions.filter(
-			(t) => now - t.timestamp < oneDayMs,
-		);
+		const totals = transactionStats?.transactionsByType;
 
 		return {
-			total: todayTransactions.length,
-			adds: todayTransactions.filter((t) => t.actionType === "Add").length,
-			removes: todayTransactions.filter((t) => t.actionType === "Remove")
-				.length,
-			moves: todayTransactions.filter((t) => t.actionType === "Move").length,
-			adjusts: todayTransactions.filter((t) => t.actionType === "Adjust")
-				.length,
+			total: transactionStats?.transactionsToday ?? 0,
+			adds: totals?.Add ?? 0,
+			removes: totals?.Remove ?? 0,
+			moves: totals?.Move ?? 0,
+			adjusts: totals?.Adjust ?? 0,
 		};
-	}, [recentTransactions]);
+	}, [transactionStats]);
 
 	return (
-		<div className="bg-gradient-to-b from-slate-50/80 to-background">
+		<div className="bg-gradient-to-b from-surface via-background to-surface">
 			<div className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-				<Card className="border-slate-200 bg-gradient-to-r from-white via-white to-cyan-50/40 shadow-sm">
+				<Card className="border-border/80 bg-gradient-to-r from-surface-elevated via-surface-elevated to-surface-brand shadow-[0_24px_60px_-48px_rgba(37,99,235,0.35)]">
 					<CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div className="space-y-1">
 							<CardTitle className="text-2xl sm:text-3xl">
@@ -155,9 +141,12 @@ function HomeContent() {
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
 							<LiveIndicator />
-							<span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600">
+							<span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-elevated px-2.5 py-1.5 text-xs text-muted-foreground">
 								<Clock4 className="h-3.5 w-3.5" />
-								{new Date().toLocaleTimeString()}
+								{new Date().toLocaleTimeString(undefined, {
+									hour: "numeric",
+									minute: "2-digit",
+								})}
 							</span>
 						</div>
 					</CardHeader>
@@ -178,7 +167,7 @@ function HomeContent() {
 					/>
 					<StatCard
 						title="Active Blueprints"
-						value={blueprints.length}
+						value={stats?.totalBlueprints ?? blueprints.length}
 						description={`${lockedBlueprints.length} locked`}
 						icon={<BlueprintMap className="h-4 w-4" />}
 					/>
@@ -261,7 +250,7 @@ function HomeContent() {
 									{recentTransactions.slice(0, 6).map((transaction) => (
 										<div
 											key={transaction._id}
-											className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5"
+											className="flex items-center justify-between rounded-lg border border-border bg-surface-elevated px-3 py-2.5"
 										>
 											<div className="flex items-center gap-3">
 												<TransactionBadge
@@ -345,20 +334,20 @@ function HomeContent() {
 							{lowStockItems.length > 0 ? (
 								<div className="space-y-2">
 									{lowStockItems.map((item) => (
-										<div
-											key={item._id}
-											className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2"
-										>
-											<div className="flex items-center gap-2">
-												<Package className="h-4 w-4 text-amber-700" />
-												<span className="text-sm font-medium text-slate-900">
-													{item.part?.name || "Unknown Part"}
-												</span>
-											</div>
-											<span className="text-sm font-semibold text-amber-800">
-												{item.quantity} units
+									<div
+										key={item._id}
+										className="flex items-center justify-between rounded-lg border border-warning/25 bg-surface-warning px-3 py-2"
+									>
+										<div className="flex items-center gap-2">
+											<Package className="h-4 w-4 text-warning-foreground" />
+											<span className="text-sm font-medium text-foreground">
+												{item.part?.name || "Unknown Part"}
 											</span>
 										</div>
+										<span className="text-sm font-semibold text-warning-foreground">
+											{item.quantity} units
+										</span>
+									</div>
 									))}
 								</div>
 							) : (
@@ -373,41 +362,30 @@ function HomeContent() {
 
 					<Card>
 						<CardHeader>
-							<CardTitle className="flex items-center gap-2 text-lg">
-								<Users className="h-5 w-5 text-cyan-600" />
-								Team & Blueprint Status
-							</CardTitle>
+							<CardTitle className="text-lg">Blueprint Lock Status</CardTitle>
 						</CardHeader>
-						<CardContent className="space-y-3">
-							<div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
-								<span className="text-sm font-medium text-slate-700">
-									Members
-								</span>
-								<span className="text-lg font-semibold text-slate-900">
-									{orgUsers.length}
-								</span>
-							</div>
-							<div className="space-y-2">
-								{lockedBlueprints.length > 0 ? (
-									lockedBlueprints.slice(0, 3).map((bp) => (
-										<div
-											key={bp._id}
-											className="flex items-center justify-between rounded-lg border border-cyan-200 bg-cyan-50/70 px-3 py-2"
-										>
-											<span className="text-sm font-medium text-slate-900">
-												{bp.name}
-											</span>
-											<span className="text-xs text-cyan-700">
-												{bp.lockedByUser?.name || "Unknown"}
-											</span>
-										</div>
-									))
-								) : (
-									<div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-										No blueprint locks currently active.
+						<CardContent className="space-y-2">
+							{lockedBlueprints.length > 0 ? (
+								lockedBlueprints.slice(0, 3).map((bp) => (
+									<div
+										key={bp._id}
+										className="flex items-center justify-between rounded-lg border border-info/20 bg-surface-info px-3 py-2"
+									>
+										<span className="text-sm font-medium text-foreground">
+											{bp.name}
+										</span>
+										<span className="text-xs text-info-foreground">
+											{bp.lockedByUser?.name || "Unknown"}
+										</span>
 									</div>
-								)}
-							</div>
+								))
+							) : (
+								<EmptyState
+									icon={<CheckCircle2 className="h-8 w-8 text-emerald-500" />}
+									title="No locked blueprints"
+									description="All blueprints are currently available."
+								/>
+							)}
 						</CardContent>
 					</Card>
 				</div>
@@ -425,10 +403,10 @@ interface ActivityStatProps {
 
 function ActivityStat({ label, value, icon, color }: ActivityStatProps) {
 	const colorClasses = {
-		green: "border-emerald-200 bg-emerald-50 text-emerald-800",
-		red: "border-rose-200 bg-rose-50 text-rose-800",
-		blue: "border-blue-200 bg-blue-50 text-blue-800",
-		amber: "border-amber-200 bg-amber-50 text-amber-800",
+		green: "border-success/20 bg-surface-success text-success-foreground",
+		red: "border-destructive/20 bg-surface-danger text-destructive",
+		blue: "border-info/20 bg-surface-info text-info-foreground",
+		amber: "border-warning/25 bg-surface-warning text-warning-foreground",
 	};
 
 	return (
@@ -464,15 +442,15 @@ function QuickActionButton({
 		>
 			<Link to={to}>
 				<div className="flex items-center gap-3">
-					<div className="rounded-md bg-slate-100 p-2 text-slate-700">
+					<div className="rounded-md bg-surface-subtle p-2 text-primary">
 						{icon}
 					</div>
 					<div className="text-left">
-						<p className="text-sm font-semibold text-slate-900">{title}</p>
-						<p className="text-xs text-slate-500">{description}</p>
+						<p className="text-sm font-semibold text-foreground">{title}</p>
+						<p className="text-xs text-muted-foreground">{description}</p>
 					</div>
 				</div>
-				<ArrowRight className="h-4 w-4 text-slate-400" />
+				<ArrowRight className="h-4 w-4 text-muted-foreground" />
 			</Link>
 		</Button>
 	);
@@ -480,8 +458,8 @@ function QuickActionButton({
 
 function LiveIndicator() {
 	return (
-		<div className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700">
-			<span className="h-2 w-2 rounded-full bg-emerald-500" />
+		<div className="inline-flex items-center gap-2 rounded-md border border-success/20 bg-surface-success px-2.5 py-1.5 text-xs font-medium text-success-foreground">
+			<span className="h-2 w-2 rounded-full bg-success" />
 			Live
 		</div>
 	);
@@ -496,9 +474,9 @@ interface EmptyStateProps {
 function EmptyState({ icon, title, description }: EmptyStateProps) {
 	return (
 		<div className="flex flex-col items-center justify-center py-8 text-center">
-			<div className="mb-3 text-slate-300">{icon}</div>
-			<p className="font-medium text-slate-900">{title}</p>
-			<p className="mt-1 text-sm text-slate-500">{description}</p>
+			<div className="mb-3 text-muted-foreground/50">{icon}</div>
+			<p className="font-medium text-foreground">{title}</p>
+			<p className="mt-1 text-sm text-muted-foreground">{description}</p>
 		</div>
 	);
 }

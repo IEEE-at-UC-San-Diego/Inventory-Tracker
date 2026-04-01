@@ -210,11 +210,15 @@ export function SearchBar({ onClose }: SearchBarProps) {
 	if (!isOpen) {
 		return (
 			<button
+				type="button"
 				onClick={() => {
 					setIsOpen(true);
 					setTimeout(() => inputRef.current?.focus(), 100);
 				}}
 				className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+				aria-label="Open search"
+				aria-haspopup="dialog"
+				aria-expanded={isOpen}
 			>
 				<Search className="w-4 h-4" />
 				<span>Search...</span>
@@ -237,7 +241,16 @@ export function SearchBar({ onClose }: SearchBarProps) {
 			/>
 
 			{/* Search Modal */}
-			<div className="relative w-full max-w-2xl mx-4 bg-white rounded-xl shadow-2xl overflow-hidden">
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="search-dialog-title"
+				aria-describedby="search-dialog-hint"
+				className="relative w-full max-w-2xl mx-4 bg-white rounded-xl shadow-2xl overflow-hidden"
+			>
+				<h2 id="search-dialog-title" className="sr-only">
+					Search parts
+				</h2>
 				{/* Search Input */}
 				<div className="flex items-center gap-3 px-4 py-4 border-b">
 					<Search className="w-5 h-5 text-gray-400" />
@@ -248,14 +261,19 @@ export function SearchBar({ onClose }: SearchBarProps) {
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Search parts by name, SKU, or category..."
 						className="flex-1 text-lg outline-none placeholder:text-gray-400"
+						role="combobox"
+						aria-expanded={results.length > 0}
+						aria-controls="search-results-list"
 					/>
 					{query && (
 						<button
+							type="button"
 							onClick={() => {
 								setQuery("");
 								inputRef.current?.focus();
 							}}
 							className="p-1 hover:bg-gray-100 rounded"
+							aria-label="Clear search"
 						>
 							<X className="w-4 h-4 text-gray-400" />
 						</button>
@@ -266,7 +284,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 				</div>
 
 				{/* Results */}
-				<div className="max-h-[400px] overflow-y-auto">
+				<div id="search-results-list" role="listbox" className="max-h-[400px] overflow-y-auto">
 					{query.length < 2 ? (
 						// Recent searches
 						recentSearches.length > 0 ? (
@@ -277,6 +295,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 								{recentSearches.map((search, index) => (
 									<button
 										key={index}
+										type="button"
 										onClick={() => setQuery(search)}
 										className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-left"
 									>
@@ -313,7 +332,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
 								const isLoadingLocation = loadingLocations.has(result._id);
 
 								return (
-									<div key={result._id} className="group">
+									<div key={result._id} role="option" className="group">
 										<Link
 											to="/parts/$partId"
 											params={{ partId: result._id }}
@@ -437,15 +456,14 @@ export function SearchBar({ onClose }: SearchBarProps) {
 				</div>
 
 				{/* Footer */}
-				<div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-t text-xs text-gray-500">
+				<div
+					id="search-dialog-hint"
+					className="flex items-center justify-between px-4 py-2 bg-gray-50 border-t text-xs text-gray-500"
+				>
 					<div className="flex items-center gap-4">
 						<span className="flex items-center gap-1">
-							<kbd className="px-1.5 py-0.5 bg-white rounded border">↑↓</kbd>
-							to navigate
-						</span>
-						<span className="flex items-center gap-1">
-							<kbd className="px-1.5 py-0.5 bg-white rounded border">↵</kbd>
-							to select
+							<kbd className="px-1.5 py-0.5 bg-white rounded border">ESC</kbd>
+							to close
 						</span>
 					</div>
 					<span>
@@ -477,8 +495,12 @@ export function CompactSearchBar() {
 	return (
 		<>
 			<button
+				type="button"
 				onClick={() => setIsOpen(true)}
 				className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+				aria-label="Open search"
+				aria-haspopup="dialog"
+				aria-expanded={isOpen}
 			>
 				<Search className="w-4 h-4" />
 				<span className="hidden sm:inline">Search...</span>

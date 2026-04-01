@@ -9,7 +9,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Header from "../components/Header";
 import { Toaster } from "../components/ui/sonner";
 import { ToastProvider } from "../components/ui/toast";
@@ -73,15 +73,15 @@ function RootError({ error }: { error: unknown }) {
 	}
 
 	return (
-		<div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-			<div className="max-w-lg w-full text-center p-8 bg-white rounded-lg shadow">
-				<h1 className="text-2xl font-bold text-gray-900 mb-2">
+		<div className="flex min-h-screen items-center justify-center bg-surface px-6 py-12">
+			<div className="w-full max-w-lg rounded-2xl border border-border bg-surface-elevated p-8 text-center shadow-[0_24px_80px_-48px_rgba(15,23,42,0.42)]">
+				<h1 className="mb-2 text-2xl font-bold text-foreground">
 					Something went wrong
 				</h1>
-				<p className="text-gray-600 mb-6">{message}</p>
+				<p className="mb-6 text-muted-foreground">{message}</p>
 				<Link
 					to="/home"
-					className="inline-block px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+					className="inline-flex rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 				>
 					Go to Dashboard
 				</Link>
@@ -92,18 +92,18 @@ function RootError({ error }: { error: unknown }) {
 
 function NotFound() {
 	return (
-		<div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-			<div className="max-w-lg w-full text-center p-8 bg-white rounded-lg shadow">
-				<h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
-				<h2 className="text-xl font-semibold text-gray-700 mb-4">
+		<div className="flex min-h-screen items-center justify-center bg-surface px-6 py-12">
+			<div className="w-full max-w-lg rounded-2xl border border-border bg-surface-elevated p-8 text-center shadow-[0_24px_80px_-48px_rgba(15,23,42,0.42)]">
+				<h1 className="mb-2 text-4xl font-bold text-foreground">404</h1>
+				<h2 className="mb-4 text-xl font-semibold text-foreground/80">
 					Page Not Found
 				</h2>
-				<p className="text-gray-600 mb-6">
+				<p className="mb-6 text-muted-foreground">
 					The page you're looking for doesn't exist or has been moved.
 				</p>
 				<Link
 					to="/home"
-					className="inline-block px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+					className="inline-flex rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 				>
 					Go to Dashboard
 				</Link>
@@ -114,6 +114,7 @@ function NotFound() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	const [mounted, setMounted] = useState(false);
+	const mainContentId = useId();
 
 	useEffect(() => {
 		setMounted(true);
@@ -125,12 +126,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
+				<a
+					href={`#${mainContentId}`}
+					className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow"
+				>
+					Skip to main content
+				</a>
 				<LogtoAuthProvider>
 					<ConvexProvider>
 						<AuthProvider>
 							<ToastProvider>
 								<Header />
-								{children}
+								<main id={mainContentId}>{children}</main>
 								<Toaster />
 								{mounted && import.meta.env.DEV ? (
 									<TanStackDevtools

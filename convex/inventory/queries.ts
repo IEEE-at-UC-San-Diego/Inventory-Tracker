@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../_generated/server'
 import { Doc } from '../_generated/dataModel'
-import { getCurrentUser } from '../auth_helpers'
+import { docBelongsToOrg, getCurrentUser } from '../auth_helpers'
 import { authContextSchema } from '../types/auth'
 
 /**
@@ -41,10 +41,11 @@ export const list = query({
     })
   ),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    const userContext = await getCurrentUser(ctx, args.authContext)
 
     const inventoryItems = await ctx.db
       .query('inventory')
+      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     if (!args.includeDetails) {
@@ -125,6 +126,16 @@ export const getByCompartment = query({
       return []
     }
 
+    const drawer = await ctx.db.get(compartment.drawerId)
+    if (!drawer) {
+      return []
+    }
+
+    const blueprint = await ctx.db.get(drawer.blueprintId)
+    if (!docBelongsToOrg(blueprint, userContext.user.orgId)) {
+      return []
+    }
+
     const inventoryItems = await ctx.db
       .query('inventory')
       .withIndex('by_compartmentId', (q) => q.eq('compartmentId', args.compartmentId))
@@ -202,13 +213,15 @@ export const getByPart = query({
 
     // Verify part exists
     const part = await ctx.db.get(args.partId)
-    if (!part) {
+    if (!docBelongsToOrg(part, userContext.user.orgId)) {
       throw new Error('Part not found')
     }
 
     const inventoryItems = await ctx.db
       .query('inventory')
-      .withIndex('by_partId', (q) => q.eq('partId', args.partId))
+      .withIndex('by_orgId_and_partId', (q) =>
+        q.eq('orgId', userContext.user.orgId).eq('partId', args.partId)
+      )
       .collect()
 
     // Enrich with location details
@@ -286,12 +299,12 @@ export const getLowStock = query({
     })
   ),
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx, args.authContext)
+    const userContext = await getCurrentUser(ctx, args.authContext)
     const threshold = args.threshold ?? 5
 
-    // Get all inventory items
     const inventoryItems = await ctx.db
       .query('inventory')
+      .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
       .collect()
 
     // Filter for low stock
@@ -379,18 +392,20 @@ export const getAvailable = query({
     if (args.partId) {
       // Get inventory for specific part
       const part = await ctx.db.get(args.partId)
-      if (!part) {
+      if (!docBelongsToOrg(part, userContext.user.orgId)) {
         throw new Error('Part not found')
       }
 
       inventoryItems = await ctx.db
         .query('inventory')
-        .withIndex('by_partId', (q) => q.eq('partId', args.partId!))
+        .withIndex('by_orgId_and_partId', (q) =>
+          q.eq('orgId', userContext.user.orgId).eq('partId', args.partId!)
+        )
         .collect()
     } else {
-      // Get all inventory
       inventoryItems = await ctx.db
         .query('inventory')
+        .withIndex('by_orgId', (q) => q.eq('orgId', userContext.user.orgId))
         .collect()
     }
 

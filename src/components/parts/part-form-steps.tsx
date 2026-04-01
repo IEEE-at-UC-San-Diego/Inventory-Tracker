@@ -171,9 +171,13 @@ export function BasicInfoStep({
 							onChange={(e) => onUpdate({ name: e.target.value })}
 							placeholder="e.g., Resistor 10kΩ"
 							className={errors.name ? "border-red-500" : ""}
+							aria-invalid={Boolean(errors.name)}
+							aria-describedby={errors.name ? "name-error" : undefined}
 						/>
 						{errors.name && (
-							<p className="text-sm text-red-500">{errors.name}</p>
+							<p id="name-error" className="text-sm text-red-500">
+								{errors.name}
+							</p>
 						)}
 					</div>
 					<div className="space-y-2">
@@ -186,8 +190,14 @@ export function BasicInfoStep({
 							onChange={(e) => onUpdate({ sku: e.target.value })}
 							placeholder="e.g., RES-10K-001"
 							className={errors.sku ? "border-red-500" : ""}
+							aria-invalid={Boolean(errors.sku)}
+							aria-describedby={errors.sku ? "sku-error" : undefined}
 						/>
-						{errors.sku && <p className="text-sm text-red-500">{errors.sku}</p>}
+						{errors.sku && (
+							<p id="sku-error" className="text-sm text-red-500">
+								{errors.sku}
+							</p>
+						)}
 					</div>
 				</div>
 
@@ -204,6 +214,8 @@ export function BasicInfoStep({
 							onChange={(e) => onUpdate({ category: e.target.value })}
 							placeholder="e.g., Electronics, Mechanical, Fasteners"
 							className={errors.category ? "border-red-500" : ""}
+							aria-invalid={Boolean(errors.category)}
+							aria-describedby={errors.category ? "category-error" : "category-help"}
 						/>
 						<datalist id="categories">
 							{existingCategories.map((cat) => (
@@ -212,9 +224,11 @@ export function BasicInfoStep({
 						</datalist>
 					</div>
 					{errors.category && (
-						<p className="text-sm text-red-500">{errors.category}</p>
+						<p id="category-error" className="text-sm text-red-500">
+							{errors.category}
+						</p>
 					)}
-					<p className="text-xs text-gray-500">
+					<p id="category-help" className="text-xs text-gray-500">
 						Categories help organize your parts. Use existing categories or
 						create new ones.
 					</p>
@@ -229,7 +243,11 @@ export function BasicInfoStep({
 						value={data.unit}
 						onValueChange={(value) => onUpdate({ unit: value })}
 					>
-						<SelectTrigger className={errors.unit ? "border-red-500" : ""}>
+						<SelectTrigger
+							className={errors.unit ? "border-red-500" : ""}
+							aria-invalid={Boolean(errors.unit)}
+							aria-describedby={errors.unit ? "unit-error" : undefined}
+						>
 							<SelectValue placeholder="Select a unit" />
 						</SelectTrigger>
 						<SelectContent>
@@ -240,7 +258,11 @@ export function BasicInfoStep({
 							))}
 						</SelectContent>
 					</Select>
-					{errors.unit && <p className="text-sm text-red-500">{errors.unit}</p>}
+					{errors.unit && (
+						<p id="unit-error" className="text-sm text-red-500">
+							{errors.unit}
+						</p>
+					)}
 				</div>
 
 				{/* Description */}
@@ -435,13 +457,19 @@ export function QuantityStep({ data, onUpdate, errors }: QuantityStepProps) {
 							}
 							placeholder="0"
 							className={`max-w-[200px] ${errors.initialQuantity ? "border-red-500" : ""}`}
+							aria-invalid={Boolean(errors.initialQuantity)}
+							aria-describedby={
+								errors.initialQuantity ? "initial-quantity-error" : "initial-quantity-help"
+							}
 						/>
 						<span className="text-gray-600 font-medium">{data.unit}</span>
 					</div>
 					{errors.initialQuantity && (
-						<p className="text-sm text-red-500">{errors.initialQuantity}</p>
+						<p id="initial-quantity-error" className="text-sm text-red-500">
+							{errors.initialQuantity}
+						</p>
 					)}
-					<p className="text-xs text-gray-500">
+					<p id="initial-quantity-help" className="text-xs text-gray-500">
 						Enter the number of {data.unit} you have in stock. You can set this
 						to 0 if you're adding the part without inventory.
 					</p>
