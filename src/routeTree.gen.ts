@@ -9,43 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LogoutRouteImport } from './routes/logout'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as HomeRouteImport } from './routes/home'
-import { Route as CallbackRouteImport } from './routes/callback'
-import { Route as R404RouteImport } from './routes/404'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TransactionsIndexRouteImport } from './routes/transactions/index'
-import { Route as SettingsIndexRouteImport } from './routes/settings/index'
-import { Route as PartsIndexRouteImport } from './routes/parts/index'
-import { Route as InventoryIndexRouteImport } from './routes/inventory/index'
-import { Route as BlueprintsIndexRouteImport } from './routes/blueprints/index'
-import { Route as PartsNewRouteImport } from './routes/parts/new'
-import { Route as PartsPartIdRouteImport } from './routes/parts/$partId'
-import { Route as BlueprintsPickLocationRouteImport } from './routes/blueprints/pick-location'
-import { Route as BlueprintsNewRouteImport } from './routes/blueprints/new'
-import { Route as BlueprintsBlueprintIdRouteImport } from './routes/blueprints/$blueprintId'
+import { Route as R404RouteImport } from './routes/404'
+import { Route as CallbackRouteImport } from './routes/callback'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as ApiVerifyTokenRouteImport } from './routes/api/verify-token'
+import { Route as BlueprintsIndexRouteImport } from './routes/blueprints/index'
+import { Route as BlueprintsBlueprintIdRouteImport } from './routes/blueprints/$blueprintId'
+import { Route as BlueprintsNewRouteImport } from './routes/blueprints/new'
+import { Route as BlueprintsPickLocationRouteImport } from './routes/blueprints/pick-location'
+import { Route as InventoryIndexRouteImport } from './routes/inventory/index'
+import { Route as PartsIndexRouteImport } from './routes/parts/index'
+import { Route as PartsPartIdRouteImport } from './routes/parts/$partId'
+import { Route as PartsNewRouteImport } from './routes/parts/new'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as TransactionsIndexRouteImport } from './routes/transactions/index'
 import { Route as AdminUsersIndexRouteImport } from './routes/admin/users/index'
 
-const LogoutRoute = LogoutRouteImport.update({
-  id: '/logout',
-  path: '/logout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CallbackRoute = CallbackRouteImport.update({
-  id: '/callback',
-  path: '/callback',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const R404Route = R404RouteImport.update({
@@ -53,29 +38,29 @@ const R404Route = R404RouteImport.update({
   path: '/404',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CallbackRoute = CallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TransactionsIndexRoute = TransactionsIndexRouteImport.update({
-  id: '/transactions/',
-  path: '/transactions/',
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsIndexRoute = SettingsIndexRouteImport.update({
-  id: '/settings/',
-  path: '/settings/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PartsIndexRoute = PartsIndexRouteImport.update({
-  id: '/parts/',
-  path: '/parts/',
+const LogoutRoute = LogoutRouteImport.update({
+  id: '/logout',
+  path: '/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InventoryIndexRoute = InventoryIndexRouteImport.update({
-  id: '/inventory/',
-  path: '/inventory/',
+const ApiVerifyTokenRoute = ApiVerifyTokenRouteImport.update({
+  id: '/api/verify-token',
+  path: '/api/verify-token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlueprintsIndexRoute = BlueprintsIndexRouteImport.update({
@@ -83,19 +68,9 @@ const BlueprintsIndexRoute = BlueprintsIndexRouteImport.update({
   path: '/blueprints/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PartsNewRoute = PartsNewRouteImport.update({
-  id: '/parts/new',
-  path: '/parts/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PartsPartIdRoute = PartsPartIdRouteImport.update({
-  id: '/parts/$partId',
-  path: '/parts/$partId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlueprintsPickLocationRoute = BlueprintsPickLocationRouteImport.update({
-  id: '/blueprints/pick-location',
-  path: '/blueprints/pick-location',
+const BlueprintsBlueprintIdRoute = BlueprintsBlueprintIdRouteImport.update({
+  id: '/blueprints/$blueprintId',
+  path: '/blueprints/$blueprintId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlueprintsNewRoute = BlueprintsNewRouteImport.update({
@@ -103,14 +78,39 @@ const BlueprintsNewRoute = BlueprintsNewRouteImport.update({
   path: '/blueprints/new',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlueprintsBlueprintIdRoute = BlueprintsBlueprintIdRouteImport.update({
-  id: '/blueprints/$blueprintId',
-  path: '/blueprints/$blueprintId',
+const BlueprintsPickLocationRoute = BlueprintsPickLocationRouteImport.update({
+  id: '/blueprints/pick-location',
+  path: '/blueprints/pick-location',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiVerifyTokenRoute = ApiVerifyTokenRouteImport.update({
-  id: '/api/verify-token',
-  path: '/api/verify-token',
+const InventoryIndexRoute = InventoryIndexRouteImport.update({
+  id: '/inventory/',
+  path: '/inventory/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartsIndexRoute = PartsIndexRouteImport.update({
+  id: '/parts/',
+  path: '/parts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartsPartIdRoute = PartsPartIdRouteImport.update({
+  id: '/parts/$partId',
+  path: '/parts/$partId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartsNewRoute = PartsNewRouteImport.update({
+  id: '/parts/new',
+  path: '/parts/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TransactionsIndexRoute = TransactionsIndexRouteImport.update({
+  id: '/transactions/',
+  path: '/transactions/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsersIndexRoute = AdminUsersIndexRouteImport.update({
@@ -266,32 +266,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/logout': {
-      id: '/logout'
-      path: '/logout'
-      fullPath: '/logout'
-      preLoaderRoute: typeof LogoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/callback': {
-      id: '/callback'
-      path: '/callback'
-      fullPath: '/callback'
-      preLoaderRoute: typeof CallbackRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/404': {
@@ -301,39 +280,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof R404RouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/callback': {
+      id: '/callback'
+      path: '/callback'
+      fullPath: '/callback'
+      preLoaderRoute: typeof CallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/transactions/': {
-      id: '/transactions/'
-      path: '/transactions'
-      fullPath: '/transactions/'
-      preLoaderRoute: typeof TransactionsIndexRouteImport
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/': {
-      id: '/settings/'
-      path: '/settings'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof SettingsIndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/parts/': {
-      id: '/parts/'
-      path: '/parts'
-      fullPath: '/parts/'
-      preLoaderRoute: typeof PartsIndexRouteImport
+    '/logout': {
+      id: '/logout'
+      path: '/logout'
+      fullPath: '/logout'
+      preLoaderRoute: typeof LogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/inventory/': {
-      id: '/inventory/'
-      path: '/inventory'
-      fullPath: '/inventory/'
-      preLoaderRoute: typeof InventoryIndexRouteImport
+    '/api/verify-token': {
+      id: '/api/verify-token'
+      path: '/api/verify-token'
+      fullPath: '/api/verify-token'
+      preLoaderRoute: typeof ApiVerifyTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blueprints/': {
@@ -343,25 +322,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlueprintsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/parts/new': {
-      id: '/parts/new'
-      path: '/parts/new'
-      fullPath: '/parts/new'
-      preLoaderRoute: typeof PartsNewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/parts/$partId': {
-      id: '/parts/$partId'
-      path: '/parts/$partId'
-      fullPath: '/parts/$partId'
-      preLoaderRoute: typeof PartsPartIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blueprints/pick-location': {
-      id: '/blueprints/pick-location'
-      path: '/blueprints/pick-location'
-      fullPath: '/blueprints/pick-location'
-      preLoaderRoute: typeof BlueprintsPickLocationRouteImport
+    '/blueprints/$blueprintId': {
+      id: '/blueprints/$blueprintId'
+      path: '/blueprints/$blueprintId'
+      fullPath: '/blueprints/$blueprintId'
+      preLoaderRoute: typeof BlueprintsBlueprintIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blueprints/new': {
@@ -371,18 +336,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlueprintsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blueprints/$blueprintId': {
-      id: '/blueprints/$blueprintId'
-      path: '/blueprints/$blueprintId'
-      fullPath: '/blueprints/$blueprintId'
-      preLoaderRoute: typeof BlueprintsBlueprintIdRouteImport
+    '/blueprints/pick-location': {
+      id: '/blueprints/pick-location'
+      path: '/blueprints/pick-location'
+      fullPath: '/blueprints/pick-location'
+      preLoaderRoute: typeof BlueprintsPickLocationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/verify-token': {
-      id: '/api/verify-token'
-      path: '/api/verify-token'
-      fullPath: '/api/verify-token'
-      preLoaderRoute: typeof ApiVerifyTokenRouteImport
+    '/inventory/': {
+      id: '/inventory/'
+      path: '/inventory'
+      fullPath: '/inventory/'
+      preLoaderRoute: typeof InventoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parts/': {
+      id: '/parts/'
+      path: '/parts'
+      fullPath: '/parts/'
+      preLoaderRoute: typeof PartsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parts/$partId': {
+      id: '/parts/$partId'
+      path: '/parts/$partId'
+      fullPath: '/parts/$partId'
+      preLoaderRoute: typeof PartsPartIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parts/new': {
+      id: '/parts/new'
+      path: '/parts/new'
+      fullPath: '/parts/new'
+      preLoaderRoute: typeof PartsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/transactions/': {
+      id: '/transactions/'
+      path: '/transactions'
+      fullPath: '/transactions/'
+      preLoaderRoute: typeof TransactionsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/users/': {
